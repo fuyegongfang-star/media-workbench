@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 620" width="1200" height="620" role="img" aria-label="生产部署架构：浏览器、nginx、NestJS API、PostgreSQL、Redis、附件卷与按需备份">
+  <defs>
+    <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#94a3b8"/>
+    </marker>
+  </defs>
+  <g font-family="-apple-system, BlinkMacSystemFont, Segoe UI, PingFang SC, Microsoft YaHei, sans-serif">
+    <rect width="1200" height="620" rx="18" fill="#f8fafc"/>
+    <rect x="1" y="1" width="1198" height="618" rx="18" fill="none" stroke="#e2e8f0" stroke-width="2"/>
+
+    <text x="40" y="52" font-size="27" font-weight="700" fill="#0f172a">生产部署 · 四服务一次拉起</text>
+    <text x="40" y="80" font-size="15" fill="#64748b">git clone → ./deploy/bootstrap.sh → 自动生成密钥、构建镜像、执行迁移、等待健康检查</text>
+    <rect x="985" y="32" width="175" height="32" rx="16" fill="#dcfce7" stroke="#86efac"/>
+    <text x="1002" y="53" font-size="13" font-weight="600" fill="#166534">4 services + backup</text>
+    <line x1="40" y1="102" x2="1160" y2="102" stroke="#e2e8f0" stroke-width="2"/>
+
+    <!-- browser (outside compose) -->
+    <rect x="40" y="230" width="170" height="120" rx="14" fill="#eff6ff" stroke="#93c5fd" stroke-width="2"/>
+    <circle cx="66" cy="258" r="7" fill="#3b82f6"/>
+    <text x="84" y="264" font-size="17" font-weight="700" fill="#1e3a8a">浏览器</text>
+    <text x="60" y="296" font-size="13" fill="#475569">HTTPS 由反代终止</text>
+    <text x="60" y="318" font-size="13" fill="#475569">或直接 HTTP 访问</text>
+
+    <!-- compose network -->
+    <rect x="245" y="150" width="915" height="390" rx="16" fill="#ffffff" stroke="#cbd5e1" stroke-width="2" stroke-dasharray="7 6"/>
+    <text x="268" y="179" font-size="13" font-weight="600" fill="#94a3b8">docker compose -f docker-compose.prod.yml up -d --build</text>
+
+    <!-- web -->
+    <rect x="275" y="215" width="210" height="125" rx="13" fill="#dbeafe" stroke="#3b82f6" stroke-width="2"/>
+    <circle cx="300" cy="244" r="7" fill="#3b82f6"/>
+    <text x="316" y="250" font-size="17" font-weight="700" fill="#1e3a8a">web · nginx</text>
+    <text x="292" y="278" font-size="13" fill="#334155">SPA 静态资源 / history 回退</text>
+    <text x="292" y="300" font-size="13" fill="#334155">/api 反代 · SSE 关缓冲</text>
+    <text x="292" y="322" font-size="13" fill="#334155">0.0.0.0:8080 → :80</text>
+
+    <!-- api -->
+    <rect x="535" y="215" width="220" height="125" rx="13" fill="#ede9fe" stroke="#8b5cf6" stroke-width="2"/>
+    <circle cx="560" cy="244" r="7" fill="#8b5cf6"/>
+    <text x="576" y="250" font-size="17" font-weight="700" fill="#4c1d95">api · NestJS 11</text>
+    <text x="552" y="278" font-size="13" fill="#334155">BullMQ Worker 内嵌</text>
+    <text x="552" y="300" font-size="13" fill="#334155">启动时自动 migrate deploy</text>
+    <text x="552" y="322" font-size="13" fill="#334155">Prisma ORM · :3001</text>
+
+    <!-- arrows -->
+    <line x1="212" y1="277" x2="270" y2="277" stroke="#94a3b8" stroke-width="2.5" marker-end="url(#ar)"/>
+    <line x1="487" y1="277" x2="530" y2="277" stroke="#94a3b8" stroke-width="2.5" marker-end="url(#ar)"/>
+    <path d="M 645 342 L 645 375 L 375 375 L 375 398" fill="none" stroke="#cbd5e1" stroke-width="2"/>
+    <path d="M 645 375 L 595 375 L 595 398" fill="none" stroke="#cbd5e1" stroke-width="2"/>
+    <path d="M 645 375 L 815 375 L 815 398" fill="none" stroke="#cbd5e1" stroke-width="2"/>
+    <path d="M 645 375 L 1037 375 L 1037 398" fill="none" stroke="#cbd5e1" stroke-width="2" stroke-dasharray="5 4"/>
+
+    <!-- postgres -->
+    <rect x="275" y="400" width="200" height="105" rx="13" fill="#d1fae5" stroke="#10b981" stroke-width="2"/>
+    <text x="295" y="432" font-size="16" font-weight="700" fill="#065f46">PostgreSQL 16</text>
+    <text x="295" y="457" font-size="13" fill="#334155">22 个迁移 · pg_trgm</text>
+    <text x="295" y="480" font-size="13" fill="#334155">卷 pgdata（仅内网）</text>
+
+    <!-- redis -->
+    <rect x="495" y="400" width="200" height="105" rx="13" fill="#fef3c7" stroke="#f59e0b" stroke-width="2"/>
+    <text x="515" y="432" font-size="16" font-weight="700" fill="#92400e">Redis 7</text>
+    <text x="515" y="457" font-size="13" fill="#334155">BullMQ 任务队列</text>
+    <text x="515" y="480" font-size="13" fill="#334155">卷 redisdata（仅内网）</text>
+
+    <!-- storage -->
+    <rect x="715" y="400" width="200" height="105" rx="13" fill="#e0f2fe" stroke="#0ea5e9" stroke-width="2"/>
+    <text x="735" y="432" font-size="16" font-weight="700" fill="#075985">附件存储</text>
+    <text x="735" y="457" font-size="13" fill="#334155">sha256 内容寻址去重</text>
+    <text x="735" y="480" font-size="13" fill="#334155">卷 storage</text>
+
+    <!-- backup -->
+    <rect x="935" y="400" width="205" height="105" rx="13" fill="#f1f5f9" stroke="#94a3b8" stroke-width="2" stroke-dasharray="6 4"/>
+    <text x="953" y="432" font-size="16" font-weight="700" fill="#475569">backup（按需）</text>
+    <text x="953" y="457" font-size="13" fill="#475569">pg_dump + 附件镜像</text>
+    <text x="953" y="480" font-size="13" fill="#475569">profile: backup</text>
+
+    <text x="40" y="582" font-size="14" fill="#64748b">PG / Redis 不暴露宿主端口　·　密钥仅由 .env 注入（权限 600）　·　22 个迁移在容器启动时自动执行　·　卷数据 down 不丢失</text>
+  </g>
+</svg>

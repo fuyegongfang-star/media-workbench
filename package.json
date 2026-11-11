@@ -2,6 +2,7 @@
   "name": "media-workbench",
   "version": "0.1.0",
   "private": true,
+  "license": "MIT",
   "description": "自媒体工作台重构 — 模块化单体（NestJS + Prisma/PostgreSQL + BullMQ/Redis + Vue3/Vite）",
   "engines": {
     "node": ">=22"

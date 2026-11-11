@@ -2,6 +2,7 @@
   "name": "@media-workbench/web",
   "version": "0.1.0",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "description": "Vue3 + Vite 前端 SPA（7 导航模块骨架，合并 T0.x 原型为可运行前端）",
   "scripts": {

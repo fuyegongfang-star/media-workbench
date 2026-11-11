@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 440" width="1200" height="440" role="img" aria-label="内容生产流水线：洞察定位、选题创作、审核发布、回收核算四个阶段">
+  <defs>
+    <marker id="pa" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#cbd5e1"/>
+    </marker>
+  </defs>
+  <g font-family="-apple-system, BlinkMacSystemFont, Segoe UI, PingFang SC, Microsoft YaHei, sans-serif">
+    <rect width="1200" height="440" rx="18" fill="#f8fafc"/>
+    <rect x="1" y="1" width="1198" height="438" rx="18" fill="none" stroke="#e2e8f0" stroke-width="2"/>
+
+    <text x="40" y="52" font-size="27" font-weight="700" fill="#0f172a">内容生产流水线 · 一条可追溯的链路</text>
+    <text x="40" y="80" font-size="15" fill="#64748b">从对标拆解到效果回收，每个阶段的上下文都定格快照，改源头不污染已生成的内容</text>
+    <line x1="40" y1="102" x2="1160" y2="102" stroke="#e2e8f0" stroke-width="2"/>
+
+    <!-- stage 1 -->
+    <rect x="40" y="130" width="235" height="250" rx="14" fill="#ffffff" stroke="#bfdbfe" stroke-width="2"/>
+    <rect x="40" y="130" width="235" height="6" rx="3" fill="#3b82f6"/>
+    <text x="58" y="176" font-size="32" font-weight="800" fill="#bfdbfe">01</text>
+    <text x="58" y="208" font-size="19" font-weight="700" fill="#1e3a8a">洞察与定位</text>
+    <line x1="58" y1="222" x2="257" y2="222" stroke="#e2e8f0"/>
+    <circle cx="64" cy="248" r="4" fill="#3b82f6"/><text x="78" y="253" font-size="13.5" fill="#334155">单篇对标拆解</text>
+    <circle cx="64" cy="276" r="4" fill="#3b82f6"/><text x="78" y="281" font-size="13.5" fill="#334155">策略草稿汇总</text>
+    <circle cx="64" cy="304" r="4" fill="#3b82f6"/><text x="78" y="309" font-size="13.5" fill="#334155">策略版本原子绑定</text>
+    <rect x="54" y="328" width="207" height="36" rx="8" fill="#eff6ff"/>
+    <text x="64" y="351" font-size="11.5" fill="#1e40af">Analysis · AccountStrategy</text>
+
+    <!-- stage 2 -->
+    <rect x="335" y="130" width="235" height="250" rx="14" fill="#ffffff" stroke="#ddd6fe" stroke-width="2"/>
+    <rect x="335" y="130" width="235" height="6" rx="3" fill="#8b5cf6"/>
+    <text x="353" y="176" font-size="32" font-weight="800" fill="#ddd6fe">02</text>
+    <text x="353" y="208" font-size="19" font-weight="700" fill="#4c1d95">选题与创作</text>
+    <line x1="353" y1="222" x2="552" y2="222" stroke="#e2e8f0"/>
+    <circle cx="359" cy="248" r="4" fill="#8b5cf6"/><text x="373" y="253" font-size="13.5" fill="#334155">标题候选 / 选题库</text>
+    <circle cx="359" cy="276" r="4" fill="#8b5cf6"/><text x="373" y="281" font-size="13.5" fill="#334155">内容项目 + 上下文快照</text>
+    <circle cx="359" cy="304" r="4" fill="#8b5cf6"/><text x="373" y="309" font-size="13.5" fill="#334155">版本链 workingContent</text>
+    <rect x="349" y="328" width="207" height="36" rx="8" fill="#f5f3ff"/>
+    <text x="359" y="351" font-size="11.5" fill="#5b21b6">Topic · ContentProject · Version</text>
+
+    <!-- stage 3 -->
+    <rect x="630" y="130" width="235" height="250" rx="14" fill="#ffffff" stroke="#fed7aa" stroke-width="2"/>
+    <rect x="630" y="130" width="235" height="6" rx="3" fill="#f59e0b"/>
+    <text x="648" y="176" font-size="32" font-weight="800" fill="#fed7aa">03</text>
+    <text x="648" y="208" font-size="19" font-weight="700" fill="#92400e">审核与发布</text>
+    <line x1="648" y1="222" x2="847" y2="222" stroke="#e2e8f0"/>
+    <circle cx="654" cy="248" r="4" fill="#f59e0b"/><text x="668" y="253" font-size="13.5" fill="#334155">审核状态机 + 清单卡点</text>
+    <circle cx="654" cy="276" r="4" fill="#f59e0b"/><text x="668" y="281" font-size="13.5" fill="#334155">合规预审</text>
+    <circle cx="654" cy="304" r="4" fill="#f59e0b"/><text x="668" y="309" font-size="13.5" fill="#334155">公众号发布执行</text>
+    <rect x="644" y="328" width="207" height="36" rx="8" fill="#fffbeb"/>
+    <text x="654" y="351" font-size="11.5" fill="#92400e">Review · Compliance · Publish</text>
+
+    <!-- stage 4 -->
+    <rect x="925" y="130" width="235" height="250" rx="14" fill="#ffffff" stroke="#a7f3d0" stroke-width="2"/>
+    <rect x="925" y="130" width="235" height="6" rx="3" fill="#10b981"/>
+    <text x="943" y="176" font-size="32" font-weight="800" fill="#a7f3d0">04</text>
+    <text x="943" y="208" font-size="19" font-weight="700" fill="#065f46">回收与核算</text>
+    <line x1="943" y1="222" x2="1142" y2="222" stroke="#e2e8f0"/>
+    <circle cx="949" cy="248" r="4" fill="#10b981"/><text x="963" y="253" font-size="13.5" fill="#334155">效果数据回收</text>
+    <circle cx="949" cy="276" r="4" fill="#10b981"/><text x="963" y="281" font-size="13.5" fill="#334155">阅读 / 涨粉归属</text>
+    <circle cx="949" cy="304" r="4" fill="#10b981"/><text x="963" y="309" font-size="13.5" fill="#334155">模型调用成本看板</text>
+    <rect x="939" y="328" width="207" height="36" rx="8" fill="#ecfdf5"/>
+    <text x="949" y="351" font-size="11.5" fill="#047857">ContentMetric · CostDashboard</text>
+
+    <!-- connectors -->
+    <line x1="278" y1="255" x2="330" y2="255" stroke="#cbd5e1" stroke-width="3" marker-end="url(#pa)"/>
+    <line x1="573" y1="255" x2="625" y2="255" stroke="#cbd5e1" stroke-width="3" marker-end="url(#pa)"/>
+    <line x1="868" y1="255" x2="920" y2="255" stroke="#cbd5e1" stroke-width="3" marker-end="url(#pa)"/>
+
+    <text x="40" y="416" font-size="13.5" fill="#64748b">contextSnapshot 定格　·　promptSnapshot 可复现　·　幂等 jobId = runId　·　软删与审计　·　sha256 内容寻址去重</text>
+  </g>
+</svg>

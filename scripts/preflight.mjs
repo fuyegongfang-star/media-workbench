@@ -47,7 +47,9 @@ const assets = [
   'Dockerfile', '.dockerignore', 'docker-compose.prod.yml',
   'deploy/nginx.conf', 'deploy/entrypoint.sh', 'deploy/.env.prod.example',
   'server/prisma/migrations/migration_lock.toml',
-  'server/dist/main.js', 'web/dist/index.html',
+  // 生产镜像在 Dockerfile 内自行 npm ci + build，仓库里并不存在 dist；
+  // 只校验源码入口，避免 clone 之后误报「构建产物缺失」。
+  'server/src/main.ts', 'web/index.html',
 ];
 for (const rel of assets) {
   if (existsSync(resolve(root, rel))) ok(`资产存在 ${rel}`);
@@ -92,8 +94,11 @@ if (!existsSync(envPath)) {
   else warn('NODE_ENV 不是 production');
 
   const origin = env.CORS_ORIGIN || '';
-  if (!origin || /localhost|127\.0\.0\.1|your-domain/.test(origin)) fail('CORS_ORIGIN 仍是开发地址/示例域名，需改成真实域名');
-  else ok('CORS_ORIGIN 为真实域名');
+  // 一键部署在无域名时会用 http://<服务器IP>:<端口>；同源反代下 CORS 不触发，
+  // 所以本机/内网地址只提示不阻断，仅示例域名视为未配置。
+  if (!origin || /your-domain|<|\s/.test(origin)) fail('CORS_ORIGIN 未填写或仍是示例域名，需改成真实访问地址');
+  else if (/localhost|127\.0\.0\.1/.test(origin)) warn(`CORS_ORIGIN=${origin} 为本机/内网地址，公网部署请改成真实域名`);
+  else ok(`CORS_ORIGIN 已设置为 ${origin}`);
 
   // 数据库连接串
   const url = env.DATABASE_URL || '';

@@ -2,6 +2,7 @@
   "name": "@media-workbench/server",
   "version": "0.1.0",
   "private": true,
+  "license": "MIT",
   "description": "NestJS API 服务（模块化单体，含 Prisma / BullMQ 接入点）",
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
