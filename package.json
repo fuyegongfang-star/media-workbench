@@ -1,0 +1,26 @@
+{
+  "name": "media-workbench",
+  "version": "0.1.0",
+  "private": true,
+  "description": "自媒体工作台重构 — 模块化单体（NestJS + Prisma/PostgreSQL + BullMQ/Redis + Vue3/Vite）",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "install:all": "npm --prefix server install && npm --prefix web install",
+    "build": "npm --prefix server run build && npm --prefix web run build",
+    "typecheck": "npm --prefix server run typecheck && npm --prefix web run typecheck",
+    "validate": "npx --prefix server prisma validate --schema server/prisma/schema.prisma",
+    "prisma:generate": "npm --prefix server run prisma:generate",
+    "start": "npm --prefix server run start",
+    "dev": "npm --prefix server run dev",
+    "worker": "npm --prefix server run worker",
+    "health": "node scripts/health-check.mjs",
+    "backup:db": "node scripts/backup-db.mjs",
+    "backup:files": "node scripts/backup-files.mjs",
+    "backup": "node scripts/backup-db.mjs && node scripts/backup-files.mjs",
+    "trial": "node scripts/trial-run.mjs --self-test",
+    "migrate:deploy": "npx --prefix server prisma migrate deploy --schema server/prisma/schema.prisma",
+    "preflight": "node scripts/preflight.mjs"
+  }
+}

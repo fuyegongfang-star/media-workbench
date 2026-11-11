@@ -1,0 +1,24 @@
+{
+  "name": "@media-workbench/web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Vue3 + Vite 前端 SPA（7 导航模块骨架，合并 T0.x 原型为可运行前端）",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview --port 5173",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "naive-ui": "^2.45.3",
+    "pinia": "^2.3.1",
+    "vue": "^3.5.44",
+    "vue-router": "^4.6.4"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.2.4",
+    "typescript": "^5.9.3",
+    "vite": "^6.4.5"
+  }
+}

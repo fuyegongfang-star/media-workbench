@@ -1,0 +1,774 @@
+// 自媒体工作台重构 — Prisma schema
+// 依据：技术方案与任务拆分 v1.0 §4（实体/字段）+ 深入设计 §2（软删/去重/审计/索引）。
+// 约定：字段蛇形（@map/@@map）、统一 createdAt/updatedAt、软删 deletedAt、createdBy 预留多用户 FK。
+// 首期仅 wechat 平台；JSONB 用 Json；密钥不落库明文（SystemConfig.apiKeyEncrypted 存 AES 密文）。
+// 注：pg_trgm GIN 全文索引（深入设计 §2.3）由 T1.3/T4.3 的迁移 SQL 建立，Prisma schema 不表达 gin_trgm_ops。
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============ 枚举 ============
+enum Platform {
+  wechat
+  xiaohongshu // T5.2 平台模板预留位：小红书
+  douyin // 抖音
+  toutiao // 今日头条
+}
+
+enum UserRole {
+  owner
+  admin
+  editor
+}
+
+enum OwnedAccountStatus {
+  active
+  paused
+  archived
+}
+
+enum MediaAssetType {
+  image
+  video
+  audio
+  file
+}
+
+enum MediaOwnerType {
+  source_material
+  content_project
+  owned_account
+  launch_task
+}
+
+enum AnalysisRunType {
+  single
+  account_summary
+}
+
+enum TaskStatus {
+  queued
+  running
+  success
+  failed
+  cancelled
+}
+
+// 异步任务类型（深入设计 §4.1：单队列 generation；jobId=runId 去重）。
+// 原 6 类含 TOPIC_GEN；T3.1 起标题生成独立为 TITLE_GEN（与 PromptTaskType.title_gen 对齐，见开发排期 T3.1）。
+enum TaskType {
+  ANALYSIS_SINGLE
+  ANALYSIS_ACCOUNT_SUMMARY
+  TOPIC_GEN
+  TITLE_GEN
+  ARTICLE_GEN
+  TEXT_DETECT
+  TEXT_POLISH
+}
+
+enum AnalysisKind {
+  single
+  aggregate
+}
+
+enum AccountStrategyStatus {
+  draft
+  active
+  archived
+}
+
+// 深入设计 §3.2：对应 PRD §9.1 九类提示词模板
+enum PromptTaskType {
+  single_analysis
+  account_summary
+  strategy_draft
+  topic_gen
+  title_gen
+  article_draft
+  article_edit
+  polish
+  caption_gen
+}
+
+enum TopicStatus {
+  draft
+  active
+  archived
+}
+
+enum TitleCandidateStatus {
+  draft
+  selected
+  rejected
+}
+
+enum ContentType {
+  article
+  image
+}
+
+// 对应 PRD：选题中 / 待创作 / 创作中 / 待审核 / 需修改 / 已审核 / 已发布 / 已归档
+enum ContentProjectStatus {
+  TOPIC_SELECTING
+  PENDING_CREATION
+  CREATING
+  PENDING_REVIEW
+  NEEDS_REVISION
+  APPROVED
+  PUBLISHED
+  ARCHIVED
+}
+
+// T3.9 公众号发布执行：草稿箱同步 / 发布 / 群发 / 定时发布 的回写状态机。
+// DRAFT_SYNCED = 已同步到草稿箱（拿到 media_id，待发布/群发）；
+// SCHEDULED = 已登记定时发布意图（待调度器或群发 schedule_time 触发）；
+// PUBLISHED = 已正式发布并回写文章链接；FAILED = 上一次发布调用失败（保留错误供排查）。
+enum PublishStatus {
+  DRAFT_SYNCED
+  PUBLISHED
+  SCHEDULED
+  FAILED
+}
+
+// 深入设计 §1.1：manual 为人工显式保存版本，其余为 AI/编辑动作产出的 staging
+enum ContentVersionSource {
+  manual
+  draft
+  continue
+  rewrite
+  compress
+  expand
+  polish
+  detect
+}
+
+enum LaunchPlanType {
+  article
+  image
+}
+
+enum LaunchPlanStatus {
+  draft
+  active
+  paused
+  done
+}
+
+enum LaunchTaskStatus {
+  pending
+  in_progress
+  done
+  skipped
+}
+
+// ============ 用户与账号 ============
+model User {
+  id           String   @id @default(uuid())
+  username     String   @unique
+  passwordHash String   @map("password_hash") // argon2 哈希，绝不存明文（T1.2）
+  role         UserRole @default(owner)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  ownedAccounts        OwnedAccount[]    @relation("OwnedAccountUser")
+  createdSourceMaterials SourceMaterial[] @relation("SourceMaterialCreatedBy")
+  createdMediaAssets   MediaAsset[]      @relation("MediaAssetCreatedBy")
+  createdAnalysisRuns  AnalysisRun[]     @relation("AnalysisRunCreatedBy")
+  createdContentProjects ContentProject[] @relation("ContentProjectCreatedBy")
+  createdContentVersions ContentVersion[] @relation("ContentVersionCreatedBy")
+  createdGenerationRuns  GenerationRun[]  @relation("GenerationRunCreatedBy")
+  createdTasks          Task[]            @relation("TaskCreatedBy")
+  auditEvents          AuditEvent[]      @relation("AuditEventUser")
+  decidedContentReviews ContentReview[]  @relation("ContentReviewDecidedBy")
+
+  @@map("users")
+}
+
+model OwnedAccount {
+  id                       String              @id @default(uuid())
+  userId                   String              @map("user_id")
+  user                     User                @relation("OwnedAccountUser", fields: [userId], references: [id])
+  platform                 Platform            @default(wechat)
+  name                     String
+  position                 Json?
+  audience                 Json?
+  columns                  Json?
+  status                   OwnedAccountStatus  @default(active)
+  defaultStrategyVersionId String?             @map("default_strategy_version_id")
+  // T2.5：策略版本绑定到自有账号
+  defaultStrategyVersion   AccountStrategy?    @relation("DefaultStrategyVersion", fields: [defaultStrategyVersionId], references: [id], onDelete: SetNull)
+  createdAt                DateTime            @default(now()) @map("created_at")
+  updatedAt                DateTime            @updatedAt @map("updated_at")
+  deletedAt                DateTime?           @map("deleted_at")
+
+  strategies      AccountStrategy[] @relation("OwnedAccountStrategies")
+  contentProjects ContentProject[]
+  launchPlans     LaunchPlan[]
+
+  @@index([userId, deletedAt])
+  @@map("owned_accounts")
+}
+
+model ReferenceAccount {
+  id          String    @id @default(uuid())
+  platform    Platform  @default(wechat)
+  name        String
+  homepageUrl String?   @map("homepage_url")
+  domain      String?
+  note        String?
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+
+  sourceMaterials SourceMaterial[]
+  analyses        Analysis[]
+
+  @@map("reference_accounts")
+}
+
+// ============ 素材与媒体 ============
+model SourceMaterial {
+  id                  String           @id @default(uuid())
+  referenceAccountId  String           @map("reference_account_id")
+  referenceAccount    ReferenceAccount @relation(fields: [referenceAccountId], references: [id])
+  title               String
+  body                String           @db.Text
+  sourceUrl           String?          @map("source_url")
+  author              String?
+  collectedAt         DateTime?        @map("collected_at")
+  importedAt          DateTime         @default(now()) @map("imported_at")
+  licenseNote         String?          @map("license_note")
+  // 深入设计 §2.1：sha256(normalize(title) + '\n' + normalize(body))
+  fingerprint         String
+  // 去重三选一：跳过 / 合并（duplicateOfId 指向原记录）/ 保留副本（直接入库）
+  duplicateOfId       String?          @map("duplicate_of_id")
+  duplicateOf         SourceMaterial?  @relation("SourceMaterialDuplicates", fields: [duplicateOfId], references: [id], onDelete: SetNull)
+  duplicates          SourceMaterial[] @relation("SourceMaterialDuplicates")
+  createdById         String?          @map("created_by")
+  createdBy           User?            @relation("SourceMaterialCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt           DateTime         @default(now()) @map("created_at")
+  updatedAt           DateTime         @updatedAt @map("updated_at")
+  deletedAt           DateTime?        @map("deleted_at")
+
+  analyses Analysis[]
+
+  // T4.3 素材库：标签（数组 GIN，深入设计 §2.3）/ 收藏 / 归档（状态维度）
+  tags      String[] @default([]) @map("tags")
+  favorite  Boolean  @default(false) @map("favorite")
+  archived  Boolean  @default(false) @map("archived")
+
+  // 允许"保留副本"→ 普通索引快速查重，绝不加唯一约束（深入设计 §2.1）
+  @@index([referenceAccountId, fingerprint])
+  @@index([referenceAccountId, favorite, archived])
+  @@index([deletedAt])
+  @@map("source_materials")
+}
+
+model MediaAsset {
+  id           String         @id @default(uuid())
+  // 多态归属：ownerType + ownerId（不建外键，避免跨表多态关系约束）
+  ownerType    MediaOwnerType @map("owner_type")
+  ownerId      String         @map("owner_id")
+  filePath     String         @map("file_path")
+  checksum     String // sha256 校验和（T1.4）
+  type         MediaAssetType
+  source       String?
+  licenseNote  String?        @map("license_note")
+  usage        String?
+  size         BigInt?
+  dimensions   Json?
+  createdById  String?        @map("created_by")
+  createdBy    User?          @relation("MediaAssetCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt    DateTime       @default(now()) @map("created_at")
+  updatedAt    DateTime       @updatedAt @map("updated_at")
+  deletedAt    DateTime?      @map("deleted_at")
+
+  @@index([ownerType, ownerId])
+  @@index([checksum])
+  @@map("media_assets")
+}
+
+// ============ 分析与策略 ============
+model AnalysisRun {
+  id                       String          @id @default(uuid())
+  type                     AnalysisRunType
+  status                   TaskStatus      @default(queued)
+  scope                    Json
+  promptTemplateVersionId  String?         @map("prompt_template_version_id")
+  promptTemplateVersion    PromptTemplate? @relation(fields: [promptTemplateVersionId], references: [id], onDelete: SetNull)
+  model                    String?
+  output                   Json?
+  error                    String?         @db.Text
+  retryCount               Int             @default(0) @map("retry_count")
+  createdById              String?         @map("created_by")
+  createdBy                User?           @relation("AnalysisRunCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt                DateTime        @default(now()) @map("created_at")
+  updatedAt                DateTime        @updatedAt @map("updated_at")
+
+  analyses Analysis[]
+
+  @@index([type, status])
+  @@map("analysis_runs")
+}
+
+model Analysis {
+  id           String            @id @default(uuid())
+  runId        String            @map("run_id")
+  run          AnalysisRun       @relation(fields: [runId], references: [id])
+  materialId   String?           @map("material_id")
+  material     SourceMaterial?   @relation(fields: [materialId], references: [id], onDelete: SetNull)
+  // accountId 指向对标账号（ReferenceAccount），用于账号级汇总
+  accountId    String?           @map("account_id")
+  account      ReferenceAccount? @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  kind         AnalysisKind
+  structured   Json
+  usefulFlag   Boolean?          @map("useful_flag")
+  version      Int               @default(1)
+  createdAt    DateTime          @default(now()) @map("created_at")
+
+  topics Topic[]
+
+  @@index([runId])
+  @@index([materialId])
+  @@index([accountId])
+  @@map("analyses")
+}
+
+model AccountStrategy {
+  id                 String                 @id @default(uuid())
+  ownedAccountId     String                 @map("owned_account_id")
+  ownedAccount       OwnedAccount           @relation("OwnedAccountStrategies", fields: [ownedAccountId], references: [id])
+  version            Int
+  status             AccountStrategyStatus  @default(draft)
+  isDefault          Boolean                @default(false) @map("is_default")
+  position           Json
+  audience           Json
+  pillars            Json
+  titlePref          Json                   @map("title_pref")
+  structure          Json
+  tone               Json
+  boundaries         Json
+  sourceAnalysisIds  Json                   @map("source_analysis_ids")
+  createdAt          DateTime               @default(now()) @map("created_at")
+  updatedAt          DateTime               @updatedAt @map("updated_at")
+  deletedAt          DateTime?              @map("deleted_at")
+
+  defaultForAccounts OwnedAccount[]   @relation("DefaultStrategyVersion")
+  topics             Topic[]
+  contentProjects    ContentProject[]
+
+  @@unique([ownedAccountId, version])
+  @@index([ownedAccountId, isDefault])
+  @@map("account_strategies")
+}
+
+// ============ 提示词与生成 ============
+model PromptTemplate {
+  id        String         @id @default(uuid())
+  taskType  PromptTaskType @map("task_type")
+  platform  Platform       @default(wechat)
+  version   Int
+  content   String         @db.Text // 含 {{strategy}} {{topic}} {{title}} {{analysisSummary}} {{tone}} {{constraints}}
+  variables Json
+  enabled   Boolean        @default(true)
+  createdAt DateTime       @default(now()) @map("created_at")
+  updatedAt DateTime       @updatedAt @map("updated_at")
+
+  analysisRuns   AnalysisRun[]
+  generationRuns GenerationRun[]
+
+  @@unique([taskType, platform, version])
+  @@map("prompt_templates")
+}
+
+model Topic {
+  id         String           @id @default(uuid())
+  strategyId String?          @map("strategy_id")
+  strategy   AccountStrategy? @relation(fields: [strategyId], references: [id], onDelete: SetNull)
+  analysisId String?          @map("analysis_id")
+  analysis   Analysis?        @relation(fields: [analysisId], references: [id], onDelete: SetNull)
+  title      String
+  audience   String?
+  angle      String?
+  status     TopicStatus      @default(draft)
+  tags       Json
+  sourceType String           @map("source_type")
+  createdAt  DateTime         @default(now()) @map("created_at")
+  updatedAt  DateTime         @updatedAt @map("updated_at")
+  deletedAt  DateTime?        @map("deleted_at")
+  // T4.4 内容日历：选题的计划发布/推进日期（拖拽改期的锚点；null 表示未排期，不进日历）
+  plannedAt  DateTime?        @map("planned_at")
+
+  titleCandidates TitleCandidate[]
+  contentProjects ContentProject[]
+
+  @@index([status, deletedAt])
+  @@index([plannedAt])
+  @@map("topics")
+}
+
+model TitleCandidate {
+  id        String               @id @default(uuid())
+  topicId   String               @map("topic_id")
+  topic     Topic                @relation(fields: [topicId], references: [id])
+  text      String               @db.Text
+  basis     String?              @db.Text
+  score     Float?
+  tags      Json
+  selected  Boolean              @default(false)
+  status    TitleCandidateStatus @default(draft)
+  createdAt DateTime             @default(now()) @map("created_at")
+  updatedAt DateTime             @updatedAt @map("updated_at")
+
+  contentProjects ContentProject[]
+
+  @@index([topicId, selected])
+  @@map("title_candidates")
+}
+
+model ContentProject {
+  id                 String               @id @default(uuid())
+  platform           Platform             @default(wechat)
+  ownedAccountId     String               @map("owned_account_id")
+  ownedAccount       OwnedAccount         @relation(fields: [ownedAccountId], references: [id])
+  topicId            String?              @map("topic_id")
+  topic              Topic?               @relation(fields: [topicId], references: [id], onDelete: SetNull)
+  selectedTitleId    String?              @map("selected_title_id")
+  selectedTitle      TitleCandidate?      @relation(fields: [selectedTitleId], references: [id], onDelete: SetNull)
+  strategyVersionId  String?              @map("strategy_version_id")
+  strategyVersion    AccountStrategy?     @relation(fields: [strategyVersionId], references: [id], onDelete: SetNull)
+  contentType        ContentType          @default(article) @map("content_type")
+  status             ContentProjectStatus @default(TOPIC_SELECTING)
+  // 深入设计 §1.1：自动保存缓冲区，不入版本历史
+  workingContent     String?              @db.Text @map("working_content")
+  currentVersionId   String?              @map("current_version_id")
+  currentVersion     ContentVersion?      @relation("CurrentVersion", fields: [currentVersionId], references: [id], onDelete: SetNull)
+  publishedAt        DateTime?            @map("published_at")
+  externalUrl        String?              @map("external_url")
+  // T3.2 继承上下文快照（策略/分析摘要 + 选题/标题），供 T3.5 渲染与可复现
+  contextSnapshot    Json?                @map("context_snapshot")
+  // T3.2 创建时快照当前启用的 article_draft 提示词模板版本（深入设计 §3.2 可复现）
+  promptTemplateVersionId String?         @map("prompt_template_version_id")
+  // T3.8：AI 生成标识声明入口（合规 §12）—— 是否由 AI 辅助生成 + 自定义声明文本。
+  aiGenerated       Boolean               @default(true) @map("ai_generated")
+  aiDeclaration     String?               @map("ai_declaration")
+  // T3.8：手动记录发布信息（PUBLISHED/ARCHIVED 后的补充说明，如发布反馈/数据）。
+  publishNote       String?               @map("publish_note")
+  // T3.9 公众号发布执行回写字段：草稿 media_id / 发布状态 / 错误 / 定时时间 / 内部发布任务 id
+  externalMediaId   String?               @map("external_media_id")
+  publishStatus     PublishStatus?        @map("publish_status")
+  publishError      String?               @map("publish_error")
+  scheduledAt       DateTime?             @map("scheduled_at")
+  publishTaskId     String?               @map("publish_task_id")
+  // T4.4 内容日历：内容项目的「计划发布日」（与 LaunchTask.scheduledAt 同为日历锚点；null 表示未排期）
+  plannedPublishAt  DateTime?             @map("planned_publish_at")
+  // T4.5 批量打标签：草稿（内容项目）标签数组（与 T4.3 素材库 tags 同构，GIN 索引，详见迁移 0018）
+  tags              String[]           @default([]) @map("tags")
+  createdById        String?              @map("created_by")
+  createdBy          User?                @relation("ContentProjectCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt          DateTime             @default(now()) @map("created_at")
+  updatedAt          DateTime             @updatedAt @map("updated_at")
+  deletedAt          DateTime?            @map("deleted_at")
+
+  versions        ContentVersion[] @relation("ProjectVersions")
+  generationRuns  GenerationRun[]
+  textReviewRuns  TextReviewRun[]
+  complianceChecks ComplianceCheck[]
+  launchTasks     LaunchTask[]
+  metrics         ContentMetric[] @relation("ProjectMetrics")
+  // T3.6 审核状态机：每项目一条审核记录（清单 + 意见 + 决定人/时间）
+  review          ContentReview?
+
+  @@index([ownedAccountId, status, deletedAt])
+  @@index([promptTemplateVersionId])
+  @@map("content_projects")
+}
+
+// T3.10 发布后效果数据回收：按已发布文章回收的阅读/分享/收藏/在看/涨粉/取关等指标。
+// 数据来源：公众号统计接口（getuserread/getarticleread/getusersummary）定时拉取，或人工录入。
+// 按 metricDate 维度存每日快照；同一 (contentProjectId, metricDate, source) 唯一，便于 upsert。
+model ContentMetric {
+  id                String   @id @default(uuid())
+  contentProjectId  String   @map("content_project_id")
+  contentProject    ContentProject @relation("ProjectMetrics", fields: [contentProjectId], references: [id], onDelete: Cascade)
+  // 微信图文唯一标识（msgid / article_id），用于与统计接口对齐（非空便于溯源）。
+  externalArticleId String?  @map("external_article_id")
+  // 指标所属日期（按天聚合）。
+  metricDate        DateTime @map("metric_date")
+  // 阅读（微信公众号 int_page_read_user / 图文页阅读人数）
+  readCount         Int      @default(0) @map("read_count")
+  // 分享（share_user / 分享人数）
+  shareCount        Int      @default(0) @map("share_count")
+  // 收藏（add_to_fav_user / 收藏人数）
+  favoriteCount     Int      @default(0) @map("favorite_count")
+  // 在看（like_user / 点赞（在看）人数）
+  likeCount         Int      @default(0) @map("like_count")
+  // 涨粉（new_user / 关注该公众号人数）
+  followerIncrease  Int      @default(0) @map("follower_increase")
+  // 取关（cancel_user / 取消关注人数）
+  unfollowCount     Int      @default(0) @map("unfollow_count")
+  // 数据来源：wechat_user_read / wechat_article_read / wechat_user_summary / manual
+  source            String   @default("manual")
+  // 拉取时间（人工录入为录入时间）。
+  fetchedAt         DateTime @default(now()) @map("fetched_at")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  @@unique([contentProjectId, metricDate, source])
+  @@index([contentProjectId, metricDate])
+  @@index([metricDate])
+  @@map("content_metrics")
+}
+
+// T3.6 审核状态机：每项目一条审核记录（审核清单 + 退回/通过意见 + 决定人/时间）
+model ContentReview {
+  id          String   @id @default(uuid())
+  projectId   String   @unique @map("project_id")
+  project     ContentProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  // 审核清单：[{ id, label, checked, note? }]，作为审核硬卡点（T3.11 合规预审将扩展）
+  checklist   Json     @default("[]") @map("checklist")
+  // 退回修改意见 / 通过备注
+  comment     String?  @map("comment")
+  decidedById String?  @map("decided_by_id")
+  decidedBy   User?    @relation("ContentReviewDecidedBy", fields: [decidedById], references: [id], onDelete: SetNull)
+  decidedAt   DateTime? @map("decided_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([projectId])
+  @@map("content_reviews")
+}
+
+model ContentVersion {
+  id          String                @id @default(uuid())
+  projectId   String                @map("project_id")
+  project     ContentProject        @relation("ProjectVersions", fields: [projectId], references: [id])
+  content     String                @db.Text
+  versionNo   Int                   @map("version_no")
+  source      ContentVersionSource
+  note        String?
+  createdById String?               @map("created_by")
+  createdBy   User?                 @relation("ContentVersionCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime              @default(now()) @map("created_at")
+
+  currentOfProjects ContentProject[] @relation("CurrentVersion")
+  generatedByRuns   GenerationRun[]  @relation("GenerationOutput")
+  textReviewRuns    TextReviewRun[]
+  complianceChecks  ComplianceCheck[]
+
+  @@unique([projectId, versionNo])
+  @@index([projectId, versionNo])
+  @@map("content_versions")
+}
+
+model GenerationRun {
+  id                      String                @id @default(uuid())
+  projectId               String                @map("project_id")
+  project                 ContentProject        @relation(fields: [projectId], references: [id])
+  stage                   ContentVersionSource
+  model                   String
+  promptTemplateVersionId String?               @map("prompt_template_version_id")
+  promptTemplateVersion   PromptTemplate?       @relation(fields: [promptTemplateVersionId], references: [id], onDelete: SetNull)
+  // 深入设计 §3.2：变量展开后的完整 prompt 文本（不只是模板版本号），保证旧稿可复现
+  promptSnapshot          String                @db.Text @map("prompt_snapshot")
+  outputVersionId         String?               @map("output_version_id")
+  outputVersion           ContentVersion?       @relation("GenerationOutput", fields: [outputVersionId], references: [id], onDelete: SetNull)
+  cost                    Float?
+  durationMs              Int?                  @map("duration_ms")
+  status                  TaskStatus            @default(queued)
+  error                   String?               @db.Text
+  createdById             String?               @map("created_by")
+  createdBy               User?                 @relation("GenerationRunCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt               DateTime              @default(now()) @map("created_at")
+
+  @@index([projectId, stage, status])
+  @@map("generation_runs")
+}
+
+// 异步任务中心记录（T1.5）：单队列 generation，jobId=runId 去重（深入设计 §4.2）。
+// 状态机见 server/src/modules/tasks/task-state-machine.ts。
+model Task {
+  id          String     @id @default(uuid())
+  taskType    TaskType
+  status      TaskStatus @default(queued)
+  objectType  String     @map("object_type") // 输入对象类型（如 source_material / content_project），详情页链接用
+  objectId    String     @map("object_id") // 输入对象 ID
+  payload     Json? // 轻量上下文快照（深入设计 §4.2：BullMQ Job 只存 taskId，Worker 按 id 取回上下文）
+  error       String?    @db.Text
+  retryCount  Int        @default(0) @map("retry_count")
+  jobId       String?    @unique @map("job_id") // BullMQ jobId = runId（= Task.id），重试去重
+  createdById String?    @map("created_by")
+  createdBy   User?      @relation("TaskCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
+  deletedAt   DateTime?  @map("deleted_at") // 软删（T1.3 作用域自动过滤）
+
+  @@index([status])
+  @@index([taskType, status])
+  @@index([objectType, objectId])
+  @@map("tasks")
+}
+
+model TextReviewRun {
+  id             String         @id @default(uuid())
+  projectId      String         @map("project_id")
+  project        ContentProject @relation(fields: [projectId], references: [id])
+  versionId      String         @map("version_id")
+  version        ContentVersion @relation(fields: [versionId], references: [id])
+  service        String
+  rawResponse    Json           @map("raw_response")
+  summary        String?        @db.Text
+  detectedAt     DateTime?      @map("detected_at")
+  status         TaskStatus     @default(queued)
+  userDecision   String?        @map("user_decision")
+  serviceVersion String?        @map("service_version")
+  createdAt      DateTime       @default(now()) @map("created_at")
+
+  @@index([projectId, versionId])
+  @@map("text_review_runs")
+}
+
+// T3.11 合规预审（广告法极限词/敏感词）：送审前自动标红的「硬卡点」记录。
+// 本地词典检测为确定性、离线可用，作为审核清单硬卡点（区别于朱雀 AI 痕迹/质量检测）。
+model ComplianceCheck {
+  id            String   @id @default(uuid())
+  projectId     String   @map("project_id")
+  project       ContentProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  // 被检测的版本（绑定具体版本，正文修改后旧结果自动失效，类比 TextReviewRun 的 stale 语义）
+  versionId     String?  @map("version_id")
+  version       ContentVersion? @relation(fields: [versionId], references: [id], onDelete: SetNull)
+  // 是否通过（无 blocking 级风险词即通过）
+  passed        Boolean  @default(false)
+  riskCount     Int      @default(0) @map("risk_count")
+  blockingCount Int      @default(0) @map("blocking_count")
+  warningCount  Int      @default(0) @map("warning_count")
+  // 最高风险级别：blocking / warning / null（无风险）
+  maxSeverity   String?  @map("max_severity")
+  // 检测来源：local（内置词典，离线确定性）/ llm（可选扩展，待接入）
+  service       String   @default("local") @map("service")
+  // 命中明细：[{ word, category, severity, start, end, suggestion }]，供前端标红
+  matches       Json     @default("[]") @map("matches")
+  summary       String?  @db.Text
+  // 检测时所用的词典版本号（内置词典随版本演进，便于追溯）
+  dictionaryVersion String @default("1") @map("dictionary_version")
+  checkedAt     DateTime @default(now()) @map("checked_at")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@index([projectId, checkedAt])
+  @@index([projectId, versionId])
+  @@map("compliance_checks")
+}
+
+// ============ 计划与审计 ============
+model LaunchPlan {
+  id             String           @id @default(uuid())
+  ownedAccountId String           @map("owned_account_id")
+  ownedAccount   OwnedAccount     @relation(fields: [ownedAccountId], references: [id])
+  type           LaunchPlanType
+  goal           String
+  start          DateTime?
+  end            DateTime?
+  frequency      String?
+  status         LaunchPlanStatus @default(draft)
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @updatedAt @map("updated_at")
+  deletedAt      DateTime?        @map("deleted_at")
+
+  tasks LaunchTask[]
+
+  @@index([ownedAccountId, status])
+  @@map("launch_plans")
+}
+
+model LaunchTask {
+  id           String           @id @default(uuid())
+  planId       String           @map("plan_id")
+  plan         LaunchPlan       @relation(fields: [planId], references: [id])
+  type         String
+  title        String?
+  caption      String?          @db.Text
+  materialRefs Json             @map("material_refs")
+  projectId    String?          @map("project_id")
+  project      ContentProject?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  imageItems   LaunchImageItem[]
+  status       LaunchTaskStatus @default(pending)
+  scheduledAt  DateTime?        @map("scheduled_at")
+  publishedAt  DateTime?        @map("published_at")
+  createdAt    DateTime         @default(now()) @map("created_at")
+
+  @@index([planId, status])
+  @@index([projectId])
+  @@map("launch_tasks")
+}
+
+// T4.2 贴图起号计划：图片组的有序图片项（任务即一个图片组，组内多图按 sortOrder 排序，每图独立配文）。
+// 稳定 id 支持前端拖拽预览后回写顺序；task 删除时级联清理。
+model LaunchImageItem {
+  id        String     @id @default(uuid())
+  taskId    String     @map("task_id")
+  task      LaunchTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  assetId   String     @map("asset_id")
+  caption   String?    @db.Text
+  sortOrder Int        @default(0) @map("sort_order")
+  createdAt DateTime   @default(now()) @map("created_at")
+
+  @@index([taskId, sortOrder])
+  @@map("launch_image_items")
+}
+
+// 深入设计 §2.4：拦截器在 create/update/delete 时写入；不记明文密钥
+model AuditEvent {
+  id         String   @id @default(uuid())
+  userId     String?  @map("user_id")
+  user       User?    @relation("AuditEventUser", fields: [userId], references: [id], onDelete: SetNull)
+  objectType String   @map("object_type")
+  objectId   String   @map("object_id")
+  action     String
+  at         DateTime @default(now())
+
+  @@index([objectType, objectId])
+  @@map("audit_events")
+}
+
+// 深入设计 §3.1：供应商配置。密钥经 AES-256-GCM 加密后入库，主密钥取自环境变量 APP_MASTER_KEY，绝不写日志
+model SystemConfig {
+  id              String   @id @default(uuid())
+  provider        String
+  label           String
+  baseUrl         String?  @map("base_url")
+  model           String
+  apiKeyEncrypted String   @map("api_key_encrypted")
+  // T4.6 成本/配额看板：每个供应商模型配置的月度预算（单位与 cost 一致，如美元/人民币），0/null 表示不限额。
+  monthlyBudget   Float?   @map("monthly_budget")
+  enabled         Boolean  @default(true)
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@unique([provider, model])
+  @@map("system_configs")
+}
+
+// T1.8 站点设置单例：基础信息 + 默认公众号 AppID 加密 + 合规开关。
+// 单行约束由服务层固定 id（SITE_CONFIG_ID）保证；AppID 经 AES-256-GCM 加密入库（深入设计 §3.1）。
+// T1.10 通知渠道与监控告警：notifications 存渠道配置 JSON，敏感字段（webhookUrl/secret/smtpPassword）
+//   经 AES-256-GCM 加密后以 `enc:` 前缀入库（深入设计 §3.1），读取时解密、展示时脱敏，绝不写日志。
+model SiteConfig {
+  id                          String   @id @default(uuid())
+  siteName                    String   @default("自媒体工作台") @map("site_name")
+  siteDesc                    String?  @map("site_desc")
+  defaultWechatAppIdEncrypted String?  @map("default_wechat_app_id_encrypted")
+  // T3.9 公众号发布执行需 AppSecret（与 AppID 配套）经 AES-256-GCM 加密入库，日志绝不打印明文。
+  defaultWechatAppSecretEncrypted String? @map("default_wechat_app_secret_encrypted")
+  compliance                  Json     @default("{}")
+  notifications               Json     @default("{}")
+  createdAt                   DateTime @default(now()) @map("created_at")
+  updatedAt                   DateTime @updatedAt @map("updated_at")
+
+  @@map("site_configs")
+}

@@ -1,0 +1,65 @@
+# 依赖
+node_modules/
+.pnpm-store/
+
+# 构建产物
+dist/
+dist-ssr/
+build/
+*.tsbuildinfo
+
+# 环境变量（仅提交 .env.example）
+.env
+.env.local
+.env.*.local
+
+# 日志
+logs/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# 本地数据与上传文件
+/data/
+/uploads/
+/storage/
+/backups/
+*.sqlite
+*.sqlite-journal
+
+# 编辑器 / 系统
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+
+# 测试覆盖率
+coverage/
+
+# 说明：.dev/state.json 为自动开发检查点，需入库，不忽略
+
+# ===== 接入 Git / GitHub 后补充（2026-11-11）=====
+# 环境变量：只允许 *.example 模板入库，任何真实环境文件一律拒绝
+.env.*
+!.env.example
+!.env.*.example
+*.env
+!*.env.example
+# 真实部署配置 / 密钥材料
+deploy/.env
+docker-compose.override.yml
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa
+id_ed25519
+# 自动开发与工具本地状态（.dev/state.json 仍入库）
+.dev/*.log
+.tmpdiag/
+.workbuddy/
+# 数据库导出与备份产物
+*.dump
+*.sql.gz
+*.bak

@@ -1,0 +1,86 @@
+# 自媒体工作台 — 生产编排（宝塔 Docker 管理器可直接导入本文件）
+# 用法：
+#   1) cp deploy/.env.prod.example .env && 填写全部真实值
+#   2) docker compose -f docker-compose.prod.yml build
+#   3) docker compose -f docker-compose.prod.yml up -d
+#   4) curl http://127.0.0.1:<WEB_PORT>/api/health
+# 与开发用的 docker-compose.yml 区别：本文件额外包含 api 与 web 两个应用服务。
+# 安全：PG / Redis 不暴露宿主端口，仅应用容器可访问；密钥只从 .env 注入，不写入镜像。
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?请在 .env 设置 POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?请在 .env 设置 POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-media_workbench}
+      TZ: Asia/Shanghai
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:?请在 .env 设置 POSTGRES_USER} -d ${POSTGRES_DB:-media_workbench}"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: >
+      sh -c "if [ -n \"$$REDIS_PASSWORD\" ]; then exec redis-server --appendonly yes --requirepass \"$$REDIS_PASSWORD\"; else exec redis-server --appendonly yes; fi"
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+  api:
+    build:
+      context: .
+      target: api
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      # 容器内必须监听 0.0.0.0，否则 nginx 容器无法访问（main.ts 默认 127.0.0.1）
+      HOST: 0.0.0.0
+      PORT: 3001
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      STORAGE_ROOT: /app/storage
+      # DATABASE_URL 由 .env 提供，主机名必须是 postgres（见 deploy/.env.prod.example）
+    volumes:
+      - storage:/app/storage
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3001/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
+
+  web:
+    build:
+      context: .
+      target: web
+    restart: unless-stopped
+    ports:
+      - "${WEB_HOST:-127.0.0.1}:${WEB_PORT:-8080}:80"
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  redisdata:
+  storage:

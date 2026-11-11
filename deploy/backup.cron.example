@@ -1,0 +1,18 @@
+# 自媒体工作台 — 备份定时任务示例（cron）
+# 用法：crontab -e 粘贴以下内容；脚本通过 dotenv 自动读取仓库根 .env（DATABASE_URL / STORAGE_ROOT / BACKUP_ROOT）。
+# 注意：cron 环境 PATH 较窄，请使用绝对路径的 node 与项目目录；日志建议落到独立文件便于排障。
+
+# 每天 03:10 做数据库逻辑备份（pg_dump 输出明文 SQL，口令来自 .env，不在命令行暴露）
+10 3 * * * cd /opt/media-workbench && /usr/bin/node scripts/backup-db.mjs >> /var/log/mw-backup.log 2>&1
+
+# 每天 03:30 做存储文件镜像 + 硬链接快照（优先 rsync；缺 rsync 时自动回退 Node 原生拷贝）
+30 3 * * * cd /opt/media-workbench && /usr/bin/node scripts/backup-files.mjs >> /var/log/mw-backup.log 2>&1
+
+# （可选）保留更久的周备：在脚本层面由 BACKUP_KEEP 控制保留份数；此处仅示例周日额外一份
+# 0 4 * * 0 cd /opt/media-workbench && /usr/bin/node scripts/backup-db.mjs >> /var/log/mw-backup.log 2>&1
+
+# 环境变量可在 /opt/media-workbench/.env 中设置：
+#   DATABASE_URL=postgresql://<user>:<password>@localhost:5432/media_workbench
+#   STORAGE_ROOT=./storage
+#   BACKUP_ROOT=/var/backups/media-workbench
+#   BACKUP_KEEP=14

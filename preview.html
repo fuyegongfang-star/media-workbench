@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>自媒体工作台重构 · 离线进展预览</title>
+<style>
+  :root {
+    --bg: #0f1218;
+    --bg-soft: #151a22;
+    --panel: #1b212c;
+    --panel-2: #222a37;
+    --border: #2c3543;
+    --text: #e6ebf2;
+    --muted: #95a1b3;
+    --dim: #6c7a8d;
+    --brand: #4c8dff;
+    --brand-ink: #ffffff;
+    --ok: #46c98b;
+    --warn: #e8b04b;
+    --err: #ef7a7a;
+    --purple: #a486f5;
+    --radius: 10px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+  .app { display: flex; min-height: 100vh; }
+
+  /* ---------- 侧栏 ---------- */
+  .sidebar {
+    width: 250px; flex: 0 0 250px;
+    background: var(--bg-soft);
+    border-right: 1px solid var(--border);
+    padding: 20px 12px;
+    position: sticky; top: 0; height: 100vh; overflow-y: auto;
+  }
+  .brand { padding: 2px 10px 18px; border-bottom: 1px solid var(--border); margin-bottom: 14px; }
+  .brand-title { display: block; font-size: 16px; font-weight: 700; letter-spacing: .5px; }
+  .brand-sub { display: block; font-size: 12px; color: var(--dim); margin-top: 5px; }
+  .nav-group { font-size: 11px; color: var(--dim); letter-spacing: 1px; padding: 12px 10px 6px; }
+  .nav-item {
+    display: flex; align-items: center; gap: 9px;
+    padding: 9px 10px; border-radius: 7px; margin-bottom: 3px;
+    cursor: pointer; color: var(--muted); border: 1px solid transparent;
+    transition: background .15s, color .15s;
+  }
+  .nav-item:hover { background: var(--panel); color: var(--text); }
+  .nav-item.active { background: rgba(76,141,255,.16); color: #cfe0ff; border-color: rgba(76,141,255,.35); }
+  .nav-icon { width: 18px; text-align: center; font-size: 15px; }
+  .nav-label { flex: 1; font-size: 13px; }
+  .nav-phase { font-size: 10px; color: var(--dim); font-family: ui-monospace, Consolas, monospace; }
+  .nav-item.active .nav-phase { color: #8fb4ff; }
+  .side-foot {
+    margin-top: 18px; padding: 12px 10px; border-top: 1px solid var(--border);
+    font-size: 11px; color: var(--dim); line-height: 1.8;
+  }
+  .side-foot b { color: var(--ok); font-weight: 600; }
+
+  /* ---------- 主区 ---------- */
+  .main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .topbar {
+    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    padding: 15px 26px; background: var(--bg-soft);
+    border-bottom: 1px solid var(--border);
+    position: sticky; top: 0; z-index: 5;
+  }
+  .topbar h1 { font-size: 17px; margin: 0; font-weight: 650; }
+  .tag {
+    display: inline-block; padding: 2px 9px; border-radius: 999px;
+    font-size: 11px; border: 1px solid var(--border); color: var(--muted); background: var(--panel);
+  }
+  .tag.blue { color: #a9c8ff; border-color: rgba(76,141,255,.4); background: rgba(76,141,255,.12); }
+  .tag.warn { color: #f0cb85; border-color: rgba(232,176,75,.4); background: rgba(232,176,75,.1); }
+  .tag.ok { color: #8fe0b8; border-color: rgba(70,201,139,.4); background: rgba(70,201,139,.1); }
+  .topbar .spacer { flex: 1; }
+  .topbar .stamp { font-size: 12px; color: var(--dim); }
+  .content { padding: 24px 26px 60px; max-width: 1240px; width: 100%; }
+  .view { display: none; }
+  .view.active { display: block; animation: fade .22s ease; }
+  @keyframes fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+  /* ---------- 通用组件 ---------- */
+  .note {
+    border: 1px solid rgba(76,141,255,.3); background: rgba(76,141,255,.08);
+    color: #bcd3ff; border-radius: var(--radius); padding: 12px 15px; font-size: 13px; margin-bottom: 20px;
+  }
+  .note strong { color: #e2edff; }
+  .section-title { font-size: 15px; font-weight: 650; margin: 26px 0 12px; display: flex; align-items: center; gap: 9px; }
+  .section-title:first-child { margin-top: 0; }
+  .section-title .bar { width: 3px; height: 15px; background: var(--brand); border-radius: 2px; }
+  .grid { display: grid; gap: 14px; }
+  .g2 { grid-template-columns: repeat(auto-fit, minmax(310px, 1fr)); }
+  .g3 { grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
+  .g4 { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+  .card {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 16px 18px;
+  }
+  .card h3 { margin: 0 0 10px; font-size: 14px; font-weight: 650; }
+  .card h3 .pill { margin-left: 8px; }
+  .hint { color: var(--muted); font-size: 12px; line-height: 1.7; margin: 6px 0 10px; }
+  .pill {
+    display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 11px;
+    border: 1px solid var(--border); background: var(--panel-2); color: var(--muted);
+  }
+  .pill.ok { color: #8fe0b8; border-color: rgba(70,201,139,.4); background: rgba(70,201,139,.1); }
+  .pill.warn { color: #f0cb85; border-color: rgba(232,176,75,.4); background: rgba(232,176,75,.1); }
+  .pill.err { color: #f3a5a5; border-color: rgba(239,122,122,.4); background: rgba(239,122,122,.1); }
+  .pill.blue { color: #a9c8ff; border-color: rgba(76,141,255,.4); background: rgba(76,141,255,.12); }
+  .btn {
+    border: 1px solid var(--border); background: var(--panel-2); color: var(--text);
+    border-radius: 6px; padding: 6px 13px; font-size: 12px; cursor: pointer;
+  }
+  .btn:hover { border-color: var(--brand); color: #a9c8ff; }
+  .btn.primary { background: var(--brand); border-color: var(--brand); color: var(--brand-ink); }
+  .btn.ghost { background: transparent; }
+  .row { display: flex; gap: 9px; align-items: center; flex-wrap: wrap; }
+  .input {
+    background: var(--bg); color: var(--text); border: 1px solid var(--border);
+    border-radius: 6px; padding: 6px 10px; font-size: 12px; min-width: 180px;
+  }
+  .input.wide { width: 100%; }
+  .field { margin-bottom: 11px; }
+  .field label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px; }
+  .mono { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
+  code, pre { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
+  code { background: var(--panel-2); padding: 1px 5px; border-radius: 4px; font-size: 12px; color: #bcd3ff; }
+  pre {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 7px;
+    padding: 12px; font-size: 12px; color: #b9c6d8; overflow-x: auto; margin: 10px 0 0;
+  }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 10px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+  th { color: var(--dim); font-weight: 600; font-size: 11px; letter-spacing: .3px; }
+  td { color: var(--muted); }
+  ul.tiny { margin: 8px 0 0; padding-left: 17px; color: var(--muted); font-size: 12px; line-height: 1.85; }
+  .kv { display: flex; justify-content: space-between; font-size: 12px; padding: 5px 0; border-bottom: 1px solid var(--border); }
+  .kv:last-child { border-bottom: none; }
+  .kv span { color: var(--muted); }
+  .kv b.up { color: var(--ok); }
+  .kv b.down { color: var(--warn); }
+  .ph {
+    border: 1px dashed var(--border); border-radius: 7px; padding: 22px;
+    text-align: center; color: var(--dim); background: var(--bg-soft); font-size: 12px;
+  }
+  .tabs { display: flex; gap: 6px; border-bottom: 1px solid var(--border); margin-bottom: 16px; flex-wrap: wrap; }
+  .tab {
+    border: none; background: transparent; color: var(--muted); padding: 8px 15px;
+    cursor: pointer; border-bottom: 2px solid transparent; font-size: 13px;
+  }
+  .tab.active { color: #a9c8ff; border-bottom-color: var(--brand); }
+  .tabpane { display: none; }
+  .tabpane.active { display: block; }
+
+  /* ---------- 进展看板 ---------- */
+  .kpi {
+    background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 15px 17px;
+  }
+  .kpi .num { font-size: 27px; font-weight: 700; line-height: 1.2; letter-spacing: -.5px; }
+  .kpi .num.ok { color: var(--ok); }
+  .kpi .num.blue { color: #79a9ff; }
+  .kpi .num.warn { color: var(--warn); }
+  .kpi .lbl { font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .kpi .sub { font-size: 11px; color: var(--dim); margin-top: 6px; }
+  .phase-row { display: flex; align-items: center; gap: 12px; margin-bottom: 11px; }
+  .phase-row .name { width: 150px; flex: 0 0 150px; font-size: 12px; color: var(--muted); }
+  .phase-row .track { flex: 1; height: 8px; background: var(--bg); border-radius: 99px; overflow: hidden; border: 1px solid var(--border); }
+  .phase-row .fill { height: 100%; border-radius: 99px; }
+  .phase-row .pct { width: 52px; text-align: right; font-size: 12px; font-family: ui-monospace, Consolas, monospace; }
+  .task {
+    display: flex; gap: 11px; align-items: flex-start; padding: 10px 0;
+    border-bottom: 1px solid var(--border); font-size: 12.5px;
+  }
+  .task:last-child { border-bottom: none; }
+  .task .tid {
+    font-family: ui-monospace, Consolas, monospace; font-size: 11px; color: #a9c8ff;
+    background: rgba(76,141,255,.1); border: 1px solid rgba(76,141,255,.25);
+    border-radius: 5px; padding: 1px 7px; flex: 0 0 auto; margin-top: 1px;
+  }
+  .task .tbody { flex: 1; color: var(--text); }
+  .task .tbody small { display: block; color: var(--dim); font-size: 11px; margin-top: 3px; line-height: 1.6; }
+  .task .tstate { color: var(--ok); font-size: 11px; flex: 0 0 auto; }
+  .badge-line { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  .footer-note { margin-top: 34px; padding-top: 18px; border-top: 1px solid var(--border); font-size: 11.5px; color: var(--dim); line-height: 1.9; }
+
+  @media (max-width: 860px) {
+    .app { flex-direction: column; }
+    .sidebar { width: 100%; height: auto; position: relative; flex: none; border-right: none; border-bottom: 1px solid var(--border); }
+    .sidebar nav { display: flex; flex-wrap: wrap; gap: 4px; }
+    .nav-group, .side-foot { display: none; }
+    .nav-item { padding: 6px 9px; }
+    .nav-phase { display: none; }
+    .content { padding: 18px 14px 50px; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <span class="brand-title">自媒体工作台</span>
+      <span class="brand-sub">v0.1.0 · 重构中 · 离线快照</span>
+    </div>
+    <div class="nav-group">进展</div>
+    <div class="nav-item active" data-view="overview"><span class="nav-icon">▦</span><span class="nav-label">进展总览</span><span class="nav-phase">11-10</span></div>
+    <div class="nav-group">业务界面（真实代码还原）</div>
+    <div class="nav-item" data-view="dashboard"><span class="nav-icon">◧</span><span class="nav-label">工作台</span><span class="nav-phase">T1.1</span></div>
+    <div class="nav-item" data-view="content"><span class="nav-icon">✎</span><span class="nav-label">内容项目</span><span class="nav-phase">T3.x</span></div>
+    <div class="nav-item" data-view="project"><span class="nav-icon">✐</span><span class="nav-label">创作上下文</span><span class="nav-phase">T3.3</span></div>
+    <div class="nav-item" data-view="analysis"><span class="nav-icon">◎</span><span class="nav-label">对标分析</span><span class="nav-phase">T2.x</span></div>
+    <div class="nav-item" data-view="launch"><span class="nav-icon">⇧</span><span class="nav-label">起号计划</span><span class="nav-phase">T4.1/4.2</span></div>
+    <div class="nav-item" data-view="calendar"><span class="nav-icon">▦</span><span class="nav-label">内容日历</span><span class="nav-phase">T4.4</span></div>
+    <div class="nav-item" data-view="library"><span class="nav-icon">▤</span><span class="nav-label">素材库</span><span class="nav-phase">T4.3</span></div>
+    <div class="nav-item" data-view="batch"><span class="nav-icon">⛒</span><span class="nav-label">批量操作</span><span class="nav-phase">T4.5</span></div>
+    <div class="nav-item" data-view="cost"><span class="nav-icon">¥</span><span class="nav-label">成本看板</span><span class="nav-phase">T4.6</span></div>
+    <div class="nav-item" data-view="metrics"><span class="nav-icon">📈</span><span class="nav-label">效果看板</span><span class="nav-phase">T3.10</span></div>
+    <div class="nav-group">系统</div>
+    <div class="nav-item" data-view="system"><span class="nav-icon">⚙</span><span class="nav-label">系统设置</span><span class="nav-phase">T1.8</span></div>
+    <div class="nav-item" data-view="observability"><span class="nav-icon">◉</span><span class="nav-label">可观测性</span><span class="nav-phase">T1.9</span></div>
+    <div class="nav-group">人工补齐（11-08）</div>
+    <div class="nav-item" data-view="account"><span class="nav-icon">☰</span><span class="nav-label">账号与策略</span><span class="nav-phase">真实 UI</span></div>
+    <div class="side-foot">
+      检查点 <b>已对齐 T5.2</b><br />
+      34 项全完成 · 0 阻塞<br />
+      单测 332/332 通过<br />
+      全清单收官 · 待环境联调
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <h1 id="pageTitle">进展总览</h1>
+      <span class="tag blue">离线快照 · 无需服务</span>
+      <span class="tag ok">332/332 单测</span>
+      <span class="tag warn">DB / LLM 待环境</span>
+      <span class="spacer"></span>
+      <span class="stamp">数据截止 2026-11-10 07:07 · 生成于 11-10 21:05</span>
+    </div>
+
+    <div class="content">
+
+      <!-- ============ 进展总览 ============ -->
+      <section class="view active" id="overview">
+        <div class="note">
+          <strong>为什么之前预览地址打不开？</strong> 原先给的是本机 dev server（<code>127.0.0.1:5173</code>），常驻后台进程会被沙箱回收，隔一阵就失效。
+          本页是<strong>单文件静态快照</strong>，不连任何服务、不依赖端口，打开即看、永不失效。下方界面结构按真实源码还原（配色适配暗色主题），
+          <strong>数据为离线快照，非实时应用</strong>，按钮不可真实提交。
+        </div>
+
+        <div class="section-title"><span class="bar"></span>关键指标</div>
+        <div class="grid g4">
+          <div class="kpi"><div class="num ok">34</div><div class="lbl">已完成功能项</div><div class="sub">T1.1–T1.10 / T2.1–T2.5 / T3.1–T3.11 / T4.1–T4.6 / T5.1–T5.2</div></div>
+          <div class="kpi"><div class="num blue">332</div><div class="lbl">单测全量通过</div><div class="sub">332 pass / 0 fail · 27 测试文件</div></div>
+          <div class="kpi"><div class="num ok">0</div><div class="lbl">本夜新增代码</div><div class="sub">11-09 02:24 全清单收官；11-10 四次触发均为纯状态巡检</div></div>
+          <div class="kpi"><div class="num warn">3</div><div class="lbl">待补外部条件</div><div class="sub">PG16 · Redis · LLM 密钥</div></div>
+        </div>
+
+        <div class="section-title"><span class="bar"></span>各阶段完成度</div>
+        <div class="card">
+          <div class="phase-row"><span class="name">Phase 0 原型验证</span><span class="track"><span class="fill" style="width:40%;background:#e8b04b"></span></span><span class="pct">40%</span></div>
+          <div class="phase-row"><span class="name">Phase 1 基础底座</span><span class="track"><span class="fill" style="width:100%;background:#46c98b"></span></span><span class="pct">100%</span></div>
+          <div class="phase-row"><span class="name">Phase 2 分析闭环</span><span class="track"><span class="fill" style="width:100%;background:#46c98b"></span></span><span class="pct">100%</span></div>
+          <div class="phase-row"><span class="name">Phase 3 创作闭环</span><span class="track"><span class="fill" style="width:100%;background:#46c98b"></span></span><span class="pct">100%</span></div>
+          <div class="phase-row"><span class="name">Phase 4 起号与素材库</span><span class="track"><span class="fill" style="width:100%;background:#46c98b"></span></span><span class="pct">100%</span></div>
+          <div class="phase-row"><span class="name">Phase 5 试运行调优</span><span class="track"><span class="fill" style="width:100%;background:#46c98b"></span></span><span class="pct">100%（代码）</span></div>
+          <p class="hint" style="margin-bottom:0">百分比指<strong>代码完成度</strong>；全清单 34/34 代码就绪，但依赖 PG/Redis/LLM 的端到端真实跑通一律标「待环境」，未计入完成、未伪造通过。Phase 0 的 T0.2/T0.3 交互走查未排期，保持 40%。</p>
+        </div>
+
+        <div class="section-title"><span class="bar"></span>累计已完成功能项（34 项 · 按阶段 · 不含 T0.2/T0.3）</div>
+        <div class="card">
+          <div class="task"><span class="tid">Phase 1</span><span class="tbody">基础底座 · 10 项全完成<small>T1.1 脚手架 / T1.2 JWT+argon2 认证 / T1.3 数据模型+软删+审计 / T1.4 文件内容寻址存储 / T1.5 BullMQ 任务中心 / T1.6 备份恢复骨架 / T1.7 账号策略 CRUD / T1.8 站点设置 / T1.9 可观测性 UI / T1.10 通知与监控告警</small></span><span class="tstate">✓ 100%</span></div>
+          <div class="task"><span class="tid">Phase 2</span><span class="tbody">分析闭环 · 5 项全完成<small>T2.1 对标账号建档 / T2.2 素材六格式导入+指纹去重 / T2.3 单篇拆解 ANALYSIS_SINGLE / T2.4 账号级汇总→策略草稿 / T2.5 策略版本绑定自有账号</small></span><span class="tstate">✓ 100%</span></div>
+          <div class="task"><span class="tid">Phase 3</span><span class="tbody">创作闭环 · 11/11 全完成<small>T3.1 选题标题 / T3.2 一键建项目 / T3.3 创作上下文 / T3.4 Markdown编辑器+版本链 / T3.5 生成处理器 / T3.6 审核状态机 / T3.7 检测润色 / T3.8 复制导出 / T3.9 公众号发布执行 / T3.10 效果数据回收 / T3.11 合规预审</small></span><span class="tstate">✓ 100%</span></div>
+          <div class="task"><span class="tid">Phase 4</span><span class="tbody">起号与素材库 · 7/7 完成<small>T4.1 图文起号计划 / T4.2 贴图起号计划 / T4.3 素材库 / T4.4 内容日历(拖拽改期) / T4.5 批量操作 / T4.6 成本/配额看板 / T3.10 效果数据回收</small></span><span class="tstate">100%</span></div>
+          <div class="task"><span class="tid">Phase 5</span><span class="tbody">试运行调优 · 2/2 完成<small>T5.1 试跑脚手架 <code>scripts/trial-run.mjs</code> + 9 阶段继承契约与观察清单 <code>trial-run.report.md</code> ／ T5.2 默认继承微调、字段修复、<code>Platform</code> 枚举扩展（小红书/抖音/头条预留，迁移 0020）</small></span><span class="tstate">✓ 100%</span></div>
+          <div class="task"><span class="tid">Phase 0</span><span class="tbody">原型验证 · 40%（唯一未闭环项）<small>T0.1 信息结构骨架已转可运行前端；T0.2 端到端假数据走通、T0.3 默认继承出错点自评清单未做 —— 收官报告建议作为下一阶段独立排期</small></span><span class="tstate">40%</span></div>
+        </div>
+
+        <div class="section-title"><span class="bar"></span>自验结果（本次会话实跑复核）</div>
+        <div class="grid g2">
+          <div class="card">
+            <h3>构建与类型</h3>
+            <div class="kv"><span>npm run build（server tsc + web vite）</span><b class="up">✓ 通过 · 4.57s</b></div>
+            <div class="kv"><span>web 产物</span><b>13 视图 chunk + index</b></div>
+            <div class="kv"><span>node --test server/test/*.test.mjs（27 文件）</span><b class="up">✓ 332/332</b></div>
+            <div class="kv"><span>npm run typecheck（tsc --noEmit）</span><b class="up">✓ 通过</b></div>
+            <div class="kv"><span>npm run validate → prisma validate</span><b class="up">✓ schema valid</b></div>
+          </div>
+          <div class="card">
+            <h3>安全护栏（夜间任务约束）</h3>
+            <ul class="tiny">
+              <li>密钥/口令仅环境变量 + <code>.env.example</code> 占位，未硬编码、日志无回显</li>
+              <li>写库参数绑定防注入，导入合并走白名单</li>
+              <li>新增写接口全经 AccessTokenGuard，无令牌 401</li>
+              <li>无 DB 时预览优雅降级（dbChecked:false），不伪造成功</li>
+              <li>未注册 LLM 处理器时 Worker 如实置 failed，不假报生成成功</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="section-title"><span class="bar"></span>卡点与收尾说明</div>
+        <div class="grid g3">
+          <div class="card"><h3>🔴 环境缺失</h3><p class="hint">本机无 Docker / PostgreSQL 16 / Redis，也无 LLM 供应商密钥。依赖 DB、队列、AI 的功能只到代码层 + 纯函数单测，真实联调全部「待环境」。</p></div>
+          <div class="card"><h3>🟡 版本管理</h3><p class="hint">git 仓库尚未 init（夜间护栏禁止自动动 git）。代码目前无版本管理，建议人工首次提交。</p></div>
+          <div class="card"><h3>🟢 检查点漂移已修正（11-10 06:02）</h3><p class="hint">夜间巡检发现 <code>.dev/state.json</code> 的 <code>completed</code> 仅 33 项、缺 <b>T4.6</b>（巡检文案却写 34 项）。核验 T4.6 代码真实性（成本看板 4 文件 + 19/19 单测 + <code>CostDashboardView.vue</code> + 路由）后按护栏补回，对齐 <b>34 项</b>，杜绝误认领重做。</p></div>
+          <div class="card"><h3>🏁 全清单收官（11-09 02:24）</h3><p class="hint"><b>34/34 代码完成</b>：T5.1 试跑脚手架 + 观察清单、T5.2 默认继承微调与 <code>Platform</code> 扩展（迁移 0020）。<code>进度.md</code> 已写收尾报告；11-10 的 03:56 / 04:59 / 06:02 / 07:07 四次触发均为<b>纯状态巡检</b>，无任务可认领、不写码、不伪造通过。</p></div>
+          <div class="card"><h3>🟢 人工补齐：账号与策略面板（11-08）</h3><p class="hint">白天会话按用户指示把全站最后一个占位 <code>AccountView.vue</code> 重写为真实三页签面板（自有账号 CRUD / 策略版本七字段卡与默认绑定 / 对标账号只读概览），并补齐 <code>http.ts</code> 的 OwnedAccount CRUD 与策略新建/删除封装。<b>非排期 T 任务，不计入 34 项</b>；自验 build + typecheck + 单测 + prisma validate 全过。</p></div>
+          <div class="card"><h3>🚀 生产部署资产（11-10 人工补齐）</h3><p class="hint">已补 <code>Dockerfile</code>（api/web 双目标）、<code>docker-compose.prod.yml</code>（PG16+Redis+API+nginx）、nginx 反代、自动 <code>prisma migrate deploy</code> 入口、<code>deploy/.env.prod.example</code>、<code>scripts/preflight.mjs</code> 与 <code>deploy/README.md</code>。<b>静态自检可达成 FAIL=0，但本机无 Docker：镜像构建、22 个迁移的真实执行、登录/队列/AI 联调仍属首次上线核验项</b>，未伪造通过。</p></div>
+        </div>
+
+        <div class="section-title"><span class="bar"></span>后续触发说明（全清单已收官）</div>
+        <div class="card">
+          <p class="hint" style="margin-top:0">夜间任务 <code>04c31a65</code> 仍 ACTIVE，每小时巡检，时间守卫限定 23:00–07:50。但 <code>开发排期.md</code> 已<b>无未开始 T 任务可认领</b>：11-10 起各次触发只做「时间守卫 → 读检查点 → 代码真实性复核 → 重跑自验 → 刷新 <code>updatedAt</code>」，不写任何源码。要继续推进需二选一：<b>① 补齐 PG16 / Redis / LLM 密钥</b> → 跑 <code>prisma migrate deploy</code> + <code>scripts/trial-run.mjs</code> 真实素材全流程，把「待环境」项变绿；<b>② 新增排期任务</b>（如 T0.2/T0.3 原型走查）→ 巡检会按新顺序自动认领。</p>
+          <div class="badge-line"><span class="pill ok">一次一条 · 写→验→报</span><span class="pill blue">检查点幂等防并发</span><span class="pill warn">连续 3 次失败记 blocked 跳过</span><span class="pill">计划文档只读</span></div>
+        </div>
+
+        <div class="footer-note">
+          数据真相源：<code>进度.md</code>（每晚 23:10 刷新）· 计划文档：<code>开发排期.md</code> / <code>技术方案与任务拆分.md</code> / <code>深入设计.md</code> / <code>功能遗漏盘点.md</code>。<br />
+          本页由会话生成，仅用于离线查看，不参与自动开发流程，不修改任何业务代码。
+        </div>
+      </section>
+
+      <!-- ============ 工作台 ============ -->
+      <section class="view" id="dashboard">
+        <div class="note">按 <code>DashboardView.vue</code> 还原。真实应用会调 <code>/api/health</code> 展示 JSON；离线快照下展示最近一次实测响应。</div>
+        <div class="grid g2">
+          <div class="card">
+            <div class="row" style="justify-content:space-between"><h3 style="margin:0">服务健康检查</h3><span class="pill ok">接口正常（快照）</span></div>
+            <p class="hint">接口 <code>/api/health</code> 不依赖 PostgreSQL，供 T1.1 冒烟与夜间巡检使用。数据库不可用时仍返回 200，并在 <code>dependencies.postgres</code> 如实标注「待环境」。</p>
+            <button class="btn">重新检查</button>
+            <pre>{
+  "status": "ok",
+  "service": "media-workbench",
+  "dependencies": {
+    "postgres": "unavailable (待环境)",
+    "redis": "not_initialized (T1.5 待环境)"
+  }
+}</pre>
+          </div>
+          <div class="card">
+            <h3>工程骨架状态</h3>
+            <ul class="tiny">
+              <li>server：NestJS 11 模块（7 导航 + 4 跨切面）+ Prisma schema</li>
+              <li>web：Vue3 / Vite / vue-router / Pinia，模块导航骨架</li>
+              <li>docker-compose：PostgreSQL 16 + Redis 7</li>
+              <li>配置：<code>.env.example</code> 占位，密钥不硬编码、不写日志</li>
+            </ul>
+            <p class="hint">T0.x 原型已合并为可运行前端骨架（无人值守不做纯静态原型）。</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ 内容项目 ============ -->
+      <section class="view" id="content">
+        <div class="note">按 <code>ContentView.vue</code> 还原（T3.1）。三个页签：选题管理 / 标题管理 / 内容项目。写接口需 Bearer 令牌，未填返回 401。</div>
+        <div class="card">
+          <h3>访问令牌（开发/QA）</h3>
+          <div class="row"><input class="input wide" style="max-width:420px" placeholder="粘贴 Bearer 令牌（本地联调用，存于浏览器 localStorage）" /><button class="btn">保存令牌</button><button class="btn ghost">清除</button></div>
+          <p class="hint">提示：登录后从 <code>/api/auth/login</code> 响应取 accessToken 填入。</p>
+        </div>
+        <div class="tabs" style="margin-top:18px">
+          <button class="tab active" data-tab="c-topics">选题管理</button>
+          <button class="tab" data-tab="c-titles">标题管理</button>
+          <button class="tab" data-tab="c-projects">内容项目</button>
+        </div>
+        <div class="tabpane active" id="c-topics">
+          <div class="card">
+            <div class="row" style="justify-content:space-between"><h3 style="margin:0">选题（Topic）</h3><button class="btn">刷新</button></div>
+            <table><thead><tr><th>标题</th><th>来源</th><th>状态</th><th>受众</th><th>角度</th><th>标签</th><th></th></tr></thead>
+              <tbody><tr><td colspan="7" style="text-align:center;color:var(--dim);padding:22px">暂无选题 · 离线快照（真实数据需 PG + 令牌）</td></tr></tbody></table>
+            <div class="grid g2" style="margin-top:18px">
+              <div class="card"><h3>新建选题</h3>
+                <div class="field"><label>标题 *</label><input class="input wide" placeholder="选题标题" /></div>
+                <div class="field"><label>来源</label><select class="input wide"><option>manual</option><option>ai_gen</option><option>derived</option></select></div>
+                <div class="field"><label>关联策略 ID / 分析 ID</label><input class="input wide mono" placeholder="可选" /></div>
+                <div class="field"><label>受众 / 角度 / 标签</label><input class="input wide" placeholder="如：干货,职场" /></div>
+                <button class="btn primary">创建选题</button>
+              </div>
+              <div class="card"><h3>AI 生成选题 <span class="pill blue">TOPIC_GEN</span></h3>
+                <p class="hint">基于策略与/或对标分析，异步产出候选选题（返回任务 ID；需配置 LLM 供应商并待环境就绪才会真正落库）。</p>
+                <div class="field"><label>策略 ID / 分析 ID</label><input class="input wide mono" placeholder="可选" /></div>
+                <div class="field"><label>数量</label><input class="input" type="number" value="5" min="1" max="20" /></div>
+                <button class="btn">AI 生成选题</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="tabpane" id="c-titles">
+          <div class="card"><h3>标题候选 <span class="pill">TITLE_GEN</span></h3>
+            <p class="hint">先在「选题管理」点击某选题的「标题」按钮进入。支持新建、AI 生成候选、选中标题（选中后由 T3.2 一键建内容项目）。</p>
+            <div class="ph">📋 标题候选列表 · 离线快照无数据</div>
+          </div>
+        </div>
+        <div class="tabpane" id="c-projects">
+          <div class="card"><h3>内容项目</h3>
+            <p class="hint">T3.2：选中标题一键建项目，继承账号 / 策略 / 选题 / 标题并写入上下文快照。点击「打开」进入创作上下文页（见左侧「创作上下文」）。</p>
+            <div class="ph">📁 内容项目列表 · 离线快照无数据</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ 创作上下文 ============ -->
+      <section class="view" id="project">
+        <div class="note">按 <code>ContentProjectView.vue</code> 还原（T3.3 + T3.4 + T3.6）。两栏布局：左为正文 Markdown 编辑器与版本历史（T3.4 已落地：自动保存 workingContent + 显式保存版本 + 版本恢复/预览），以及审核状态机（T3.6 已落地）；右为创作上下文侧栏与 AI 操作入口。</div>
+        <div class="row" style="justify-content:space-between;margin-bottom:16px">
+          <div class="row"><button class="btn ghost">← 返回内容项目</button><h3 style="margin:0">内容项目详情</h3></div>
+          <span class="pill ok">已加载继承上下文（快照）</span>
+        </div>
+        <div style="display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:16px;align-items:start" class="proj-grid">
+          <div>
+            <div class="card" style="margin-bottom:16px"><h3>正文编辑区 <span class="pill ok">T3.4 ✓</span></h3>
+              <p class="hint">Markdown 编辑器已落地：自动保存 workingContent（不入版本）+ 显式「保存版本」落 ContentVersion + 版本历史/恢复/预览。创作上下文可在右侧面板查看。</p>
+              <div class="ph">📝 Markdown 编辑器（自动保存 / 版本历史 / 恢复）· 离线快照</div>
+            </div>
+            <div class="card"><h3>AI 生成结果 / 版本 / 审核 <span class="pill ok">T3.5 / T3.6 ✓</span></h3>
+              <p class="hint">生成初稿/续写/改写/压缩/扩写产出 staging 版本（T3.5 处理器已注册）；版本历史、采纳/放弃、审核状态机（待审核/需修改/已审核 + 审核清单，T3.6 已落地）均可用。</p>
+              <div class="ph">🧬 版本与生成结果 / 审核状态 · 离线快照</div>
+            </div>
+          </div>
+          <div>
+            <div class="card" style="margin-bottom:16px"><h3>创作上下文（继承依据）</h3>
+              <p class="hint">下列依据在「选中标题一键建项目」时定格，仅策略版本号与提示词模板版本号取实时绑定值；来源漂移由 <code>contextSnapshot</code> 隔离。</p>
+              <div class="kv"><span>归属账号</span><b>—</b></div>
+              <div class="kv"><span>选中标题</span><b>—</b></div>
+              <div class="kv"><span>选题 / 受众 / 角度 / 标签</span><b>—</b></div>
+              <div class="kv"><span>策略版本</span><b>— <span class="pill">实时绑定</span></b></div>
+              <div class="kv"><span>提示词模板版本</span><b>—（未启用 article_draft 模板）</b></div>
+              <div class="kv"><span>分析摘要</span><b>—（无关联分析）</b></div>
+            </div>
+            <div class="card"><h3>AI 操作入口</h3>
+              <p class="hint">触发 <code>ARTICLE_GEN</code> 异步任务；实际 LLM 调用与版本写出由 T3.5 注册的 OpenAI 兼容处理器完成。本机无 Redis/Worker → 任务保留 queued（待环境）；未配 LLM 密钥时处理器如实置 failed，不伪造。</p>
+              <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+                <button class="btn">生成初稿</button><button class="btn">续写</button><button class="btn">改写</button>
+                <button class="btn">压缩</button><button class="btn">扩写</button>
+              </div>
+              <p class="hint" style="margin-bottom:0">本机无 Redis/Worker → 任务保留 queued（待环境）；T3.5 处理器就绪后才会真正生成。</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ 对标分析 ============ -->
+      <section class="view" id="analysis">
+        <div class="note">按 <code>AnalysisView.vue</code> 还原（T2.1/T2.2）。对标账号列表 + 新建 + 批量导入（六格式解析、指纹去重三态）。无 DB 时预览优雅降级。</div>
+        <div class="card"><h3>对标账号（ReferenceAccount）</h3>
+          <table><thead><tr><th>名称</th><th>平台</th><th>主页</th><th>域名</th><th>备注</th><th></th></tr></thead>
+            <tbody><tr><td colspan="6" style="text-align:center;color:var(--dim);padding:20px">暂无对标账号 · 可新建或批量导入（离线快照）</td></tr></tbody></table>
+        </div>
+        <div class="grid g2" style="margin-top:16px">
+          <div class="card"><h3>新建对标账号</h3>
+            <div class="field"><label>名称 *</label><input class="input wide" placeholder="如：某头部公众号" /></div>
+            <div class="field"><label>平台</label><select class="input wide"><option>wechat</option></select></div>
+            <div class="field"><label>主页 URL</label><input class="input wide mono" placeholder="https://..." /></div>
+            <div class="field"><label>域名（留空自动派生）</label><input class="input wide mono" placeholder="example.com" /></div>
+            <button class="btn primary">创建</button>
+          </div>
+          <div class="card"><h3>批量导入 <span class="pill blue">T2.2</span></h3>
+            <p class="hint">支持 CSV / JSON / 每行文本 / Markdown / 表单 / Excel 六格式。预览标记库内命中与批次内重复；提交时按 skip / merge / copy 三选一处理。</p>
+            <div class="row"><select class="input"><option>CSV</option><option>JSON</option><option>每行文本</option></select><button class="btn">解析并预览</button></div>
+            <table><thead><tr><th>导入</th><th>名称</th><th>平台</th><th>状态</th></tr></thead>
+              <tbody><tr><td colspan="4" style="text-align:center;color:var(--dim);padding:16px">预览区 · 离线快照无数据</td></tr></tbody></table>
+            <p class="hint" style="margin-bottom:0">解析 N 行 · 跳过 N 行 · 去重命中 N 项 · 无 DB 时「未比对库内数据」</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ 系统设置 ============ -->
+      <section class="view" id="system">
+        <div class="note">按 <code>SystemView.vue</code> 还原（T1.8 站点设置 + 此前空白根因修复）。敏感字段 AppID 提交后由服务端 AES-256-GCM 加密入库。</div>
+        <div class="card" style="margin-bottom:16px"><h3>状态总览 <span class="pill ok">此前空白已修复</span></h3>
+          <div class="grid g4" style="gap:12px">
+            <div class="card" style="background:var(--panel-2)"><span class="pill ok">JWT + argon2</span><ul class="tiny"><li>双令牌</li><li>users 表</li><li>登录守卫</li></ul></div>
+            <div class="card" style="background:var(--panel-2)"><span class="pill warn">队列待环境</span><ul class="tiny"><li>BullMQ 队列</li><li>状态机</li><li>SSE 推送</li></ul></div>
+            <div class="card" style="background:var(--panel-2)"><span class="pill ok">脚本就绪</span><ul class="tiny"><li>pg_dump</li><li>rsync</li><li>restore.md</li></ul></div>
+            <div class="card" style="background:var(--panel-2)"><span class="pill err">依赖未就绪</span>
+              <div class="kv"><span>PostgreSQL</span><b class="down">待环境</b></div><div class="kv"><span>Redis</span><b class="down">待环境</b></div>
+            </div>
+          </div>
+        </div>
+        <div class="card"><h3>站点设置（单例 SystemConfig）</h3>
+          <div class="grid g2">
+            <div>
+              <div class="field"><label>站点名称</label><input class="input wide" value="自媒体工作台" /></div>
+              <div class="field"><label>站点描述</label><input class="input wide" placeholder="可选" /></div>
+              <div class="field"><label>默认公众号 AppID</label><input class="input wide mono" placeholder="留空表示清空；提交后 AES-256-GCM 加密入库" /></div>
+            </div>
+            <div>
+              <div class="field"><label>合规开关</label>
+                <label class="hint" style="display:block"><input type="checkbox" checked /> AI 生成内容需声明标识（必填）</label>
+                <label class="hint" style="display:block"><input type="checkbox" checked /> 编辑器自动保存</label>
+                <label class="hint" style="display:block"><input type="checkbox" /> 严格审核（发布前强制复核）</label>
+              </div>
+              <p class="hint">当前状态：<b>未配置</b>（AppID 脱敏展示）</p>
+            </div>
+          </div>
+          <button class="btn primary">保存设置</button>
+        </div>
+      </section>
+
+      <!-- ============ 可观测性 ============ -->
+      <section class="view" id="observability">
+        <div class="note">按 <code>ObservabilityView.vue</code> 还原（T1.9）。审计日志 + 回收站（软删记录恢复），后端路由 <code>/api/observability/audit</code>、<code>/api/observability/recycle-bin</code>。</div>
+        <div class="tabs">
+          <button class="tab active" data-tab="o-audit">审计日志</button>
+          <button class="tab" data-tab="o-recycle">回收站</button>
+        </div>
+        <div class="tabpane active" id="o-audit">
+          <div class="card"><div class="row" style="justify-content:space-between"><h3 style="margin:0">审计日志（AuditEvent）</h3><button class="btn primary">查询</button></div>
+            <table><thead><tr><th>时间</th><th>用户</th><th>对象</th><th>动作</th><th>详情</th></tr></thead>
+              <tbody><tr><td colspan="5" style="text-align:center;color:var(--dim);padding:22px">无数据 · 真实查询需 PG + 令牌（离线快照）</td></tr></tbody></table>
+            <div class="row" style="justify-content:flex-end;margin-top:12px"><button class="btn ghost">上一页</button><button class="btn ghost">下一页</button></div>
+          </div>
+        </div>
+        <div class="tabpane" id="o-recycle">
+          <div class="card"><div class="row" style="justify-content:space-between"><h3 style="margin:0">回收站（软删记录 + 恢复入口）</h3><button class="btn primary">刷新</button></div>
+            <p class="hint">软删统一走 Prisma 中间件过滤 <code>deletedAt</code>；恢复入口 <code>POST /recycle-bin/:type/:id/restore</code>，硬删前做引用检查。</p>
+            <div class="ph">🗑 回收站列表 · 离线快照无数据</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ 账号与策略（11-08 人工补齐，真实 UI） ============ -->
+      <section class="view" id="account">
+        <div class="note">按 <code>AccountView.vue</code> 还原 —— <strong>已由占位重写为真实面板</strong>。三页签分别接入后端 T1.7 / T2.5 的 <code>/api/owned-accounts</code>、<code>/api/strategies</code>、<code>/api/reference-accounts</code>；离线快照无数据，按真实接口结构展示。</div>
+        <div class="card">
+          <div class="row" style="justify-content:space-between"><h3 style="margin:0">账号与策略 <span class="pill ok">真实 UI</span></h3><span class="pill blue">后端 T1.7 / T2.5 已就绪</span></div>
+          <p class="hint" style="margin-top:8px">访问令牌（开发/QA）：粘贴 Bearer 令牌存 localStorage；未填或过期时接口返回 401，页面明确提示而不吞错。</p>
+          <div class="row" style="margin-top:10px"><input class="input wide" placeholder="粘贴 Bearer 令牌（存于浏览器 localStorage，仅本地联调使用）" /><button class="btn">保存令牌</button><button class="btn ghost">清除</button></div>
+        </div>
+        <div class="tabs">
+          <button class="tab active" data-tab="a-owned">自有账号</button>
+          <button class="tab" data-tab="a-strategy">策略版本</button>
+          <button class="tab" data-tab="a-reference">对标账号概览</button>
+        </div>
+
+        <div class="tabpane active" id="a-owned">
+          <div class="card">
+            <div class="row" style="justify-content:space-between"><h3 style="margin:0">自有账号（OwnedAccount）</h3><div class="row"><select class="input sm"><option>全部状态</option><option>active · 运营中</option><option>paused · 暂停</option><option>archived · 归档</option></select><button class="btn">刷新</button></div></div>
+            <p class="hint">按当前登录用户隔离；删除为软删，可在「可观测性 → 回收站」恢复。</p>
+            <table><thead><tr><th>名称</th><th>平台</th><th>状态</th><th>默认策略</th><th>创建时间</th><th>操作</th></tr></thead>
+              <tbody><tr><td colspan="6" style="text-align:center;color:var(--dim);padding:20px">离线快照无数据（真实列表需 PG + 令牌）</td></tr></tbody></table>
+          </div>
+          <div class="card"><h3>新建 / 编辑自有账号</h3>
+            <div class="row"><input class="input wide" placeholder="名称 *（如：主号·职场成长）" /><select class="input"><option>wechat（首期）</option></select><select class="input"><option>active · 运营中</option><option>paused · 暂停</option><option>archived · 归档</option></select></div>
+            <div class="row" style="margin-top:10px"><textarea class="input wide mono" rows="2" placeholder='定位 position（JSON 对象）'></textarea><textarea class="input wide mono" rows="2" placeholder='受众 audience（JSON 对象）'></textarea><textarea class="input wide mono" rows="2" placeholder='栏目规划 columns（JSON 对象）'></textarea></div>
+            <div class="row" style="margin-top:10px"><button class="btn primary">创建账号</button><span class="hint">JSON 字段留空按空对象提交；格式不合法会明确报错，不静默丢弃。</span></div>
+            <div class="badge-line" style="margin-top:10px"><span class="pill ok">POST /owned-accounts</span><span class="pill blue">PATCH /owned-accounts/:id</span><span class="pill">DELETE 软删</span><span class="pill warn">AccessTokenGuard</span></div>
+          </div>
+        </div>
+
+        <div class="tabpane" id="a-strategy">
+          <div class="card">
+            <div class="row" style="justify-content:space-between"><h3 style="margin:0">策略版本（AccountStrategy）</h3><div class="row"><select class="input"><option>— 选择自有账号 —</option></select><button class="btn">刷新</button><button class="btn primary">新建版本</button></div></div>
+            <p class="hint">账号级汇总（对标分析页）产出草稿版本；此处可手动新建、编辑七字段卡、设为账号默认或解绑。默认策略会被内容项目 T3.2 继承。</p>
+            <table><thead><tr><th>版本</th><th>状态</th><th>账号默认</th><th>来源拆解</th><th>更新时间</th><th>操作</th></tr></thead>
+              <tbody><tr><td colspan="6" style="text-align:center;color:var(--dim);padding:20px">离线快照无数据（选择账号后加载版本列表）</td></tr></tbody></table>
+            <div class="badge-line" style="margin-top:10px"><span class="pill ok">GET /strategies?ownedAccountId=</span><span class="pill blue">POST /strategies</span><span class="pill">PATCH /strategies/:id</span><span class="pill warn">POST /owned-accounts/:id/bind-strategy</span></div>
+          </div>
+          <div class="card"><h3>七字段卡（选中版本后展开）</h3>
+            <div class="row"><select class="input"><option>draft · 草稿</option><option>active · 启用</option><option>archived · 归档</option></select></div>
+            <div class="row" style="margin-top:10px"><textarea class="input wide mono" rows="2" placeholder='定位 position（JSON 对象）'></textarea><textarea class="input wide mono" rows="2" placeholder='受众 audience（JSON 对象）'></textarea><textarea class="input wide mono" rows="2" placeholder='栏目支柱 pillars（JSON 数组）'></textarea><textarea class="input wide mono" rows="2" placeholder='标题偏好 titlePref（JSON 对象）'></textarea><textarea class="input wide mono" rows="2" placeholder='结构范式 structure（文本或 JSON）'></textarea><textarea class="input wide mono" rows="2" placeholder='调性 tone（JSON 对象）'></textarea><textarea class="input wide mono" rows="2" placeholder='边界 boundaries（JSON 数组）'></textarea></div>
+            <div class="row" style="margin-top:10px"><button class="btn primary">保存修改</button><span class="hint">仅 PATCH 字段卡；来源拆解由账号级汇总写入，不在手工编辑范围。</span></div>
+          </div>
+        </div>
+
+        <div class="tabpane" id="a-reference">
+          <div class="card">
+            <div class="row" style="justify-content:space-between"><h3 style="margin:0">对标账号（ReferenceAccount）概览</h3><button class="btn">刷新</button></div>
+            <p class="hint">全局参考账号，不属于某个用户。新建、批量导入、素材收集与单篇拆解请到「对标分析」页操作，此处仅作账号总览，避免两处重复维护。</p>
+            <table><thead><tr><th>名称</th><th>平台</th><th>主页</th><th>领域</th><th>备注</th></tr></thead>
+              <tbody><tr><td colspan="5" style="text-align:center;color:var(--dim);padding:20px">离线快照无数据（真实列表需 PG + 令牌）</td></tr></tbody></table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ 起号计划（T4.1 + T4.2） ============ -->
+      <section class="view" id="launch">
+        <div class="note">按 <code>LaunchView.vue</code> 还原（T4.1 图文 + T4.2 贴图）。非占位：计划/任务 CRUD、图片组每图配文与顺序拖拽、进度统计、状态随关联项目发布自动回写。</div>
+        <div class="tabs">
+          <button class="tab active" data-tab="l-article">图文计划</button>
+          <button class="tab" data-tab="l-image">贴图计划</button>
+        </div>
+        <div class="tabpane active" id="l-article">
+          <div class="card"><h3>图文起号计划 <span class="pill ok">T4.1 ✓</span></h3>
+            <table><thead><tr><th>计划名</th><th>类型</th><th>关联账号</th><th>进度</th><th>状态</th></tr></thead>
+              <tbody><tr><td colspan="5" style="text-align:center;color:var(--dim);padding:20px">离线快照无数据（真实列表需 PG + 令牌）</td></tr></tbody></table>
+            <div class="row" style="margin-top:12px"><button class="btn primary">新建计划</button><button class="btn">同步项目状态</button></div>
+          </div>
+        </div>
+        <div class="tabpane" id="l-image">
+          <div class="card"><h3>贴图起号计划 <span class="pill ok">T4.2 ✓</span></h3>
+            <p class="hint">图片组：每图配文 + 顺序拖拽预览 + <code>reorderImages</code> 纯函数，单测 5/5。</p>
+            <div class="ph">🖼 图片组拖拽排序区 · 离线快照</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ 内容日历（T4.4） ============ -->
+      <section class="view" id="calendar">
+        <div class="note">按 <code>CalendarView.vue</code> 还原（T4.4）。串选题 → 标题 → 内容项目 → 计划发布日的统一日历；月历网格（6×7，周一起始）+ agenda 双视图 + 原生 HTML5 拖拽改期。</div>
+        <div class="card">
+          <div class="row" style="justify-content:space-between"><h3 style="margin:0">2026 年 11 月</h3><div class="row"><button class="btn ghost">‹ 上月</button><button class="btn ghost">本月</button><button class="btn ghost">下月 ›</button></div></div>
+          <div class="badge-line"><span class="pill blue">选题</span><span class="pill blue">标题</span><span class="pill blue">内容项目</span><span class="pill blue">起号任务</span></div>
+          <div class="ph" style="margin-top:14px">▦ 6×7 月历网格 · 拖拽条目改期（<code>PATCH /api/calendar/items/:kind/:id</code>）· 离线快照无数据</div>
+          <p class="hint" style="margin-bottom:0">四类聚合走 <code>CalendarService.getCalendar</code>；半开区间 <code>[from,to)</code> 与用户归属隔离均经纯函数单测 16/16。</p>
+        </div>
+      </section>
+
+      <!-- ============ 素材库（T4.3） ============ -->
+      <section class="view" id="library">
+        <div class="note">按 <code>LibraryView.vue</code> 还原（T4.3，§14 #9 主条目）。跨类型搜索 / 多维筛选 / 关系回溯 / 收藏·标签·归档 / 软删恢复。</div>
+        <div class="tabs">
+          <button class="tab active" data-tab="lib-list">素材库</button>
+          <button class="tab" data-tab="lib-recycle">回收站</button>
+        </div>
+        <div class="tabpane active" id="lib-list">
+          <div class="card"><h3>素材库 · 跨类型搜索与筛选</h3>
+            <div class="row"><input class="input" placeholder="关键词（pg_trgm 全文）" /><select class="input"><option>全部类型</option><option>文章</option><option>图片</option><option>选题</option></select><button class="btn">筛选</button></div>
+            <div class="ph" style="margin-top:14px">▤ 素材列表 / 关系回溯弹窗 / 标签编辑 · 离线快照无数据</div>
+          </div>
+        </div>
+        <div class="tabpane" id="lib-recycle">
+          <div class="card"><h3>回收站（软删素材 + 恢复入口）</h3><div class="ph">🗑 离线快照无数据</div></div>
+        </div>
+      </section>
+
+      <!-- ============ 批量操作（T4.5） ============ -->
+      <section class="view" id="batch">
+        <div class="note">按 <code>BatchView.vue</code> 还原（<strong>T4.5 批量操作</strong>）。跨实体批量状态变更 / 打标签 / 删除 / 发布，逐条返回结果；<code>BatchController</code> 已注册、单测 17/17。</div>
+        <div class="card"><h3>批量操作</h3>
+          <div class="row"><select class="input"><option>选题 Topic</option><option>标题候选</option><option>内容项目（草稿）</option></select><select class="input"><option>变更状态</option><option>打标签</option><option>归档</option><option>删除</option></select><button class="btn primary">执行批量操作</button></div>
+          <div class="ph" style="margin-top:14px">⛒ 勾选列表 + 逐条结果（成功/失败原因）· 离线快照无数据</div>
+          <p class="hint" style="margin-bottom:0">服务端按 ID 列表逐条校验归属与状态，失败单项不影响其余；全部端点经 <code>AccessTokenGuard</code>。</p>
+        </div>
+      </section>
+
+      <!-- ============ 效果看板（T3.10） ============ -->
+      <section class="view" id="metrics">
+        <div class="note">按 <code>MetricsView.vue</code> 还原（T3.10）。补上 PRD §3.2 缺失的「内容表现」指标：<code>ContentMetric</code> + 微信统计拉取 + 维度看板 + 手动录入。</div>
+        <div class="grid g4">
+          <div class="kpi"><div class="num blue">—</div><div class="lbl">阅读数</div></div>
+          <div class="kpi"><div class="num blue">—</div><div class="lbl">分享数</div></div>
+          <div class="kpi"><div class="num blue">—</div><div class="lbl">在看数</div></div>
+          <div class="kpi"><div class="num blue">—</div><div class="lbl">涨粉数</div></div>
+        </div>
+        <div class="card" style="margin-top:14px"><h3>效果数据</h3>
+          <div class="row"><button class="btn">拉取微信统计</button><button class="btn ghost">手动录入</button></div>
+          <div class="ph" style="margin-top:14px">📈 维度看板 · 离线快照无数据（微信接口凭据 + PG 待环境）</div>
+        </div>
+      </section>
+
+      <!-- ============ 成本看板（T4.6） ============ -->
+      <section class="view" id="cost">
+        <div class="note">按 <code>CostDashboardView.vue</code> 还原（T4.6，Phase 4 收官项）。基于 <code>GenerationRun</code> 的花费/耗时按模型·阶段·日聚合，并按各供应商模型在系统设置配置的 <code>monthlyBudget</code> 做配额预警。</div>
+        <div class="grid g4">
+          <div class="kpi"><div class="num blue">¥—</div><div class="lbl">总花费</div></div>
+          <div class="kpi"><div class="num blue">—</div><div class="lbl">生成次数</div></div>
+          <div class="kpi"><div class="num blue">—%</div><div class="lbl">成功率</div></div>
+          <div class="kpi"><div class="num blue">—</div><div class="lbl">平均时长</div></div>
+        </div>
+        <div class="card" style="margin-top:14px"><h3>配额预警（本月）</h3>
+          <p class="hint">按供应商模型对比「本月已花费 / 月度预算」：≥80% 预警、≥100% 越界。预算需在「系统设置 → 模型与提示词」为每个供应商模型填写 <code>monthlyBudget</code>。</p>
+          <div class="ph" style="margin-top:12px">¥ 配额进度条 · 离线快照无数据（需 PG + 已配置预算）</div>
+        </div>
+        <div class="card" style="margin-top:14px"><h3>每日花费趋势</h3>
+          <div class="ph">📊 柱状图 · 离线快照无数据（需真实 GenerationRun 落库）</div>
+        </div>
+      </section>
+
+    </div>
+  </main>
+</div>
+
+<script>
+  (function () {
+    var labels = {
+      overview: '进展总览', dashboard: '工作台', content: '内容项目', project: '创作上下文',
+      analysis: '对标分析', launch: '起号计划', calendar: '内容日历', library: '素材库',
+      batch: '批量操作', cost: '成本看板', metrics: '效果看板', system: '系统设置', observability: '可观测性',
+      account: '账号与策略'
+    };
+    var navs = document.querySelectorAll('.nav-item');
+    navs.forEach(function (n) {
+      n.addEventListener('click', function () {
+        navs.forEach(function (x) { x.classList.remove('active'); });
+        n.classList.add('active');
+        var id = n.getAttribute('data-view');
+        document.querySelectorAll('.view').forEach(function (v) { v.classList.remove('active'); });
+        var target = document.getElementById(id);
+        if (target) target.classList.add('active');
+        document.getElementById('pageTitle').textContent = labels[id] || id;
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      });
+    });
+    document.querySelectorAll('.tab').forEach(function (t) {
+      t.addEventListener('click', function () {
+        var pane = t.closest('.view');
+        pane.querySelectorAll('.tab').forEach(function (x) { x.classList.remove('active'); });
+        pane.querySelectorAll('.tabpane').forEach(function (x) { x.classList.remove('active'); });
+        t.classList.add('active');
+        var p = document.getElementById(t.getAttribute('data-tab'));
+        if (p) p.classList.add('active');
+      });
+    });
+  })();
+</script>
+<style>
+  @media (max-width: 900px) { .proj-grid { grid-template-columns: 1fr !important; } }
+</style>
+</body>
+</html>

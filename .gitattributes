@@ -1,0 +1,40 @@
+# 统一换行符：仓库内一律 LF
+# 关键原因：deploy/entrypoint.sh 若在 Windows 上被转成 CRLF，
+# Linux 容器启动会报 `bad interpreter: /bin/sh^M`，属真实部署故障。
+* text=auto eol=lf
+
+*.sh        text eol=lf
+*.mjs       text eol=lf
+*.cjs       text eol=lf
+*.js        text eol=lf
+*.ts        text eol=lf
+*.tsx       text eol=lf
+*.vue       text eol=lf
+*.json      text eol=lf
+*.md        text eol=lf
+*.yml       text eol=lf
+*.yaml      text eol=lf
+*.conf      text eol=lf
+*.prisma    text eol=lf
+*.html      text eol=lf
+*.css       text eol=lf
+*.sql       text eol=lf
+Dockerfile  text eol=lf
+.dockerignore   text eol=lf
+.gitignore      text eol=lf
+.gitattributes  text eol=lf
+
+# 二进制资源，禁止任何换行/编码转换
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.webp  binary
+*.ico   binary
+*.woff  binary
+*.woff2 binary
+*.ttf   binary
+*.eot   binary
+*.zip   binary
+*.gz    binary
+*.pdf   binary
