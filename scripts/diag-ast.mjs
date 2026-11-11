@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
-const require = createRequire('D:/Workbuddy/2026-11-02-17-32-58/web/package.json');
+import { fileURLToPath } from 'node:url';
+const require = createRequire(fileURLToPath(new URL('../web/package.json', import.meta.url)));
 const { parse } = require('@vue/compiler-sfc');
 const { baseParse } = require('@vue/compiler-dom');
 const { NodeTypes } = require('@vue/compiler-core');

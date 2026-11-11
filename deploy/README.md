@@ -37,7 +37,9 @@
 
 ## 三、宝塔面板路线（推荐，贴合现有运维习惯）
 
-1. **放代码**：把项目目录上传到 `/opt/media-workbench`（宝塔「文件」上传 zip 解压，或 `git clone`）。
+1. **放代码**：仓库已公开，服务器可直接匿名拉取（**无需 deploy key / PAT**）：
+   `git clone https://github.com/fuyegongfang-star/media-workbench.git /opt/media-workbench`。
+   也可在宝塔「文件」上传项目 zip 解压到同一目录。
 2. **建环境文件**：在 `/opt/media-workbench` 下执行
    `cp deploy/.env.prod.example .env`，然后编辑 `.env` 把所有 `<...>` 换成真实值。
    - `APP_MASTER_KEY`：`node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`
@@ -62,6 +64,7 @@
 ## 四、命令行路线（等价）
 
 ```bash
+git clone https://github.com/fuyegongfang-star/media-workbench.git /opt/media-workbench
 cd /opt/media-workbench
 cp deploy/.env.prod.example .env
 # 编辑 .env 填真实值（务必替换全部 <...>）
