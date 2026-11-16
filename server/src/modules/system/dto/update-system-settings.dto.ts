@@ -38,4 +38,12 @@ export class UpdateSystemSettingsDto {
   @IsOptional()
   @IsBoolean()
   allowRegistration?: boolean;
+
+  /**
+   * T6.7 品牌 / TDK / SEO·GEO / 页脚配置（字段白名单清洗见 system/seo.util.ts）。
+   * 只传本次要改的键即可；未传字段保持原值，传空串表示清空 / 回落。
+   */
+  @IsOptional()
+  @IsObject()
+  seo?: Record<string, unknown>;
 }

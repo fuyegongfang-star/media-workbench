@@ -75,7 +75,7 @@ export const navItems: NavItem[] = navGroups.flatMap((group) => group.items);
 
 /** 系统设置二级页面的标题与说明（供 SystemView 渲染页头）。 */
 export const systemSections: { key: string; label: string; desc: string }[] = [
-  { key: 'site', label: '站点设置', desc: '站点名称、描述、合规与注册开关' },
+  { key: 'site', label: '站点设置', desc: '站点信息、TDK / Logo、SEO·GEO 与页脚所有者信息' },
   { key: 'users', label: '用户与权限', desc: '账号列表、角色、启停与口令重置' },
   { key: 'ai', label: 'AI 与密钥', desc: '全站密钥与凭据集中管理、LLM 供应商配置' },
   { key: 'notifications', label: '通知与告警', desc: '企业微信 / 钉钉 / 邮件渠道与转发规则' },

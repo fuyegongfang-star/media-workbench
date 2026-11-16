@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" role="img" aria-label="自媒体工作台">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f4f7fc"/>
+      <stop offset="1" stop-color="#e6efff"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <rect x="72" y="72" width="64" height="64" rx="18" fill="#2f6fed"/>
+  <path d="M104 84c1.4 8 3.6 10.2 11.6 11.6-8 1.4-10.2 3.6-11.6 11.6-1.4-8-3.6-10.2-11.6-11.6 8-1.4 10.2-3.6 11.6-11.6z" fill="#ffffff"/>
+  <text x="152" y="118" font-family="Microsoft YaHei, PingFang SC, sans-serif" font-size="30" font-weight="700" fill="#1f2733">自媒体工作台</text>
+  <text x="72" y="278" font-family="Microsoft YaHei, PingFang SC, sans-serif" font-size="62" font-weight="700" fill="#1f2733">把选题到发布，</text>
+  <text x="72" y="358" font-family="Microsoft YaHei, PingFang SC, sans-serif" font-size="62" font-weight="700" fill="#2f6fed">收进一条流水线</text>
+  <text x="72" y="424" font-family="Microsoft YaHei, PingFang SC, sans-serif" font-size="26" fill="#5b6675">热点雷达 · 对标拆解 · AI 起草 · 合规预审 · 发布归档 · 效果复盘</text>
+  <text x="72" y="548" font-family="Microsoft YaHei, PingFang SC, sans-serif" font-size="22" fill="#7b8798">私有部署 · 数据自持 · MIT 开源</text>
+</svg>

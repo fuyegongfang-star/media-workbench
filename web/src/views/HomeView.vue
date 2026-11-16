@@ -2,12 +2,19 @@
   <div class="home">
     <header class="home-nav">
       <router-link class="home-brand" to="/">
-        <span class="brand-mark">✦</span>
-        <span>自媒体工作台</span>
+        <img
+          v-if="logo"
+          class="brand-logo"
+          :src="logo"
+          :alt="seo.logoAlt || siteName"
+        />
+        <span v-else class="brand-mark">✦</span>
+        <span>{{ siteName }}</span>
       </router-link>
       <div class="home-nav-links">
         <a class="home-link" href="#features">功能</a>
         <a class="home-link" href="#flow">工作流</a>
+        <a class="home-link" href="#privacy">隐私</a>
         <router-link v-if="loggedIn" class="home-btn primary" to="/dashboard">进入工作台</router-link>
         <template v-else>
           <router-link class="home-btn" to="/login">登录</router-link>
@@ -16,34 +23,48 @@
       </div>
     </header>
 
-    <section class="home-hero">
-      <div>
-        <span class="home-eyebrow">私有部署 · 内容生产中枢</span>
-        <h1>把选题到发布，<br />收进<em>一条流水线</em></h1>
-        <p class="home-lead">
-          每日热点雷达自动汇总赛道情报，对标拆解沉淀策略，AI 起草与合规预审衔接审核，
-          最后发布归档并回收效果数据。全流程留痕、可回溯，密钥统一加密保管。
-        </p>
-        <div class="home-actions">
-          <router-link v-if="loggedIn" class="home-btn primary" to="/dashboard">进入工作台 →</router-link>
-          <template v-else>
-            <router-link class="home-btn primary" to="/login">登录工作台 →</router-link>
-            <a class="home-btn" href="#features">先看看功能</a>
-          </template>
+    <div class="home-hero-wrap">
+      <section class="home-hero">
+        <div>
+          <span class="home-eyebrow">私有部署 · 内容生产中枢</span>
+          <h1>把选题到发布，<br />收进<em>一条流水线</em></h1>
+          <p class="home-lead">
+            每日热点雷达自动汇总赛道情报，对标拆解沉淀策略，AI 起草与合规预审衔接审核，
+            最后发布归档并回收效果数据。全流程留痕、可回溯，密钥统一加密保管。
+          </p>
+          <div class="home-actions">
+            <router-link v-if="loggedIn" class="home-btn primary" to="/dashboard">进入工作台 →</router-link>
+            <template v-else>
+              <router-link class="home-btn primary" to="/login">登录工作台 →</router-link>
+              <a class="home-btn" href="#features">先看看功能</a>
+            </template>
+          </div>
+          <p class="home-meta">支持一键部署到自有服务器 · 数据留在自己的数据库 · MIT 开源 · 5 组业务导航</p>
         </div>
-        <p class="home-meta">支持一键部署到自有服务器 · 数据留在自己的数据库 · MIT 开源</p>
-      </div>
 
-      <div id="flow" class="hero-card">
-        <div class="hero-card-head">
-          <span>一条内容是怎么走完的</span>
-          <span class="pill ok">5 个环节</span>
+        <div id="flow" class="hero-card">
+          <div class="hero-card-head">
+            <span>一条内容是怎么走完的</span>
+            <span class="pill ok">5 个环节</span>
+          </div>
+          <div class="hero-flow">
+            <div v-for="(s, i) in flow" :key="s.title" class="hero-step">
+              <b>{{ i + 1 }}</b>
+              <span>{{ s.title }}</span>
+              <span>{{ s.tag }}</span>
+            </div>
+          </div>
         </div>
-        <div class="hero-flow">
-          <div v-for="(s, i) in flow" :key="s.title" class="hero-step">
-            <b>{{ i + 1 }}</b>
-            <span>{{ s.title }}</span>
-            <span>{{ s.tag }}</span>
+      </section>
+    </div>
+
+    <section class="home-band">
+      <div class="band-inner">
+        <div v-for="s in highlights" :key="s.title" class="band-item">
+          <span class="band-icon">{{ s.icon }}</span>
+          <div>
+            <h3>{{ s.title }}</h3>
+            <p>{{ s.desc }}</p>
           </div>
         </div>
       </div>
@@ -61,16 +82,103 @@
       </div>
     </section>
 
+    <section id="privacy" class="home-band home-band-soft">
+      <div class="band-inner home-section privacy-inner">
+        <h2>隐私与数据</h2>
+        <p class="privacy-lead">
+          本站是私有部署实例，工作台内容不对公众开放。公开页面只用于介绍这套系统，不承载任何业务数据。
+        </p>
+        <div class="privacy-grid">
+          <div class="home-feature">
+            <h3>数据留在自己的服务器</h3>
+            <p>选题、素材、内容与效果数据存放在自有 PostgreSQL；附件落在自有存储卷，备份脚本可定时导出。</p>
+          </div>
+          <div class="home-feature">
+            <h3>凭据加密入库</h3>
+            <p>LLM API Key、公众号 AppID / AppSecret 与通知渠道凭据经 AES-256-GCM 加密保存，前端只显示脱敏状态。</p>
+          </div>
+          <div class="home-feature">
+            <h3>登录与权限边界</h3>
+            <p>JWT + argon2，所有者 / 管理员 / 编辑三级角色；自助注册默认关闭，是否开放由管理员决定。</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <footer class="home-foot">
-      自媒体工作台 · v0.1.0 · MIT License · 私有部署，数据自持
+      <div class="foot-inner">
+        <div class="foot-grid">
+          <div class="foot-col foot-about">
+            <div class="foot-brand">
+              <img v-if="logo" class="brand-logo" :src="logo" :alt="seo.logoAlt || siteName" />
+              <span v-else class="brand-mark">✦</span>
+              <b>{{ siteName }}</b>
+            </div>
+            <p>{{ siteDesc }}</p>
+            <p class="foot-note">
+              本站为私有部署实例，页面信息由站点所有者维护；不代表上游开源项目立场。
+            </p>
+          </div>
+
+          <div class="foot-col">
+            <h4>产品</h4>
+            <a href="#features">功能模块</a>
+            <a href="#flow">工作流</a>
+            <a href="#privacy">隐私与数据</a>
+            <router-link to="/login">登录工作台</router-link>
+          </div>
+
+          <div class="foot-col">
+            <h4>资源</h4>
+            <a :href="REPO" target="_blank" rel="noopener noreferrer">源码仓库</a>
+            <a :href="REPO + '/blob/main/README.md'" target="_blank" rel="noopener noreferrer">部署文档</a>
+            <a :href="REPO + '/commits/main'" target="_blank" rel="noopener noreferrer">更新记录</a>
+            <a :href="REPO + '/blob/main/LICENSE'" target="_blank" rel="noopener noreferrer">MIT 许可证</a>
+          </div>
+
+          <div class="foot-col">
+            <h4>站点信息</h4>
+            <span class="foot-static">所有者：{{ owner }}</span>
+            <a v-if="ownerHref" :href="ownerHref" target="_blank" rel="noopener noreferrer">所有者主页 ↗</a>
+            <a v-if="supportMail" :href="supportMail">联系邮箱：{{ seo.supportEmail }}</a>
+            <span v-else class="foot-static">联系邮箱：未公开</span>
+            <a v-if="seo.icpNumber" :href="icpHref" target="_blank" rel="noopener noreferrer">{{ seo.icpNumber }}</a>
+            <a v-if="seo.policeRecord" :href="policeHref" target="_blank" rel="noopener noreferrer">{{ seo.policeRecord }}</a>
+            <span class="foot-static">部署方式：私有部署 · 数据自持</span>
+          </div>
+        </div>
+
+        <div class="foot-bottom">
+          <span>© {{ year }} {{ owner }} · 保留所有权利</span>
+          <span v-if="seo.copyrightNote">{{ seo.copyrightNote }}</span>
+          <span>v0.1.0 · MIT License</span>
+          <span>本页为静态介绍，业务数据不对外公开</span>
+        </div>
+      </div>
     </footer>
   </div>
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue';
 import { isLoggedIn } from '../api/auth';
+import { safeMailto, safeUrl, siteInfo } from '../api/site';
 
+const REPO = 'https://github.com/fuyegongfang-star/media-workbench';
 const loggedIn = isLoggedIn();
+const year = new Date().getFullYear();
+
+const seo = computed(() => siteInfo.value.seo);
+const siteName = computed(() => siteInfo.value.siteName || '自媒体工作台');
+const siteDesc = computed(
+  () => siteInfo.value.siteDesc || '把选题到发布收进一条流水线，私有部署、数据自持。',
+);
+const logo = computed(() => safeUrl(seo.value.logoUrl));
+const owner = computed(() => seo.value.ownerName.trim() || siteName.value);
+const ownerHref = computed(() => safeUrl(seo.value.ownerUrl));
+const supportMail = computed(() => safeMailto(seo.value.supportEmail));
+const icpHref = computed(() => safeUrl(seo.value.icpUrl) || 'https://beian.miit.gov.cn/');
+const policeHref = computed(() => safeUrl(seo.value.policeUrl) || 'https://www.beian.gov.cn/');
 
 const flow = [
   { title: '选题雷达采集赛道热点', tag: '零 Key 免费源' },
@@ -80,6 +188,13 @@ const flow = [
   { title: '发布归档与效果成本复盘', tag: '看板' },
 ];
 
+const highlights = [
+  { icon: '⌖', title: '全链路覆盖', desc: '找题 → 拆解 → 起草 → 审核 → 发布 → 复盘，五个环节串成一条线。' },
+  { icon: '◔', title: '零 Key 起步', desc: '免费热点源与模板兜底可用；接入 LLM 后再解锁生成能力。' },
+  { icon: '⚿', title: '凭据加密入库', desc: 'AES-256-GCM 保存第三方密钥，日志不打印明文、前端不回显。' },
+  { icon: '⛁', title: '数据自持', desc: 'PostgreSQL + 自有存储卷，备份脚本与一键更新都在自己手里。' },
+];
+
 const features = [
   { icon: '⌖', title: '选题与洞察', desc: '每日简报、盯号更新、对标账号与策略版本，先看清再动笔。' },
   { icon: '✎', title: '内容生产', desc: '内容项目、素材库、内容日历、批量操作与起号计划，一屏贯通。' },
@@ -87,5 +202,7 @@ const features = [
   { icon: '⚿', title: '密钥集中管理', desc: 'LLM、公众号、通知渠道凭据统一在设置中心维护，不再散落各处。' },
   { icon: '♧', title: '用户与权限', desc: '所有者 / 管理员 / 编辑三级角色，注册开关与口令重置由管理员掌控。' },
   { icon: '⟳', title: '后台一键更新', desc: '后台检查 GitHub 新提交并自动备份、重建，无需登录服务器敲命令。' },
+  { icon: '◉', title: '审计与回收站', desc: '关键操作留痕，软删记录可恢复，改错了也能找回来。' },
+  { icon: '▤', title: '备份与恢复', desc: '数据库逻辑备份与附件卷镜像按计划轮换，恢复步骤有据可查。' },
 ];
 </script>

@@ -1,3 +1,5 @@
+import type { SiteSeoConfig } from './site';
+
 export interface HealthPayload {
   status: string;
   service: string;
@@ -41,6 +43,7 @@ export interface SiteSettingsView {
   appSecretConfigured: boolean;
   compliance: Record<string, boolean>;
   allowRegistration?: boolean;
+  seo?: SiteSeoConfig; // T6.7 品牌 / TDK / SEO·GEO / 页脚
   updatedAt: string | null;
 }
 
@@ -102,6 +105,8 @@ export async function saveSystemSettings(
     defaultWechatAppSecret?: string;
     compliance?: Record<string, boolean>;
     allowRegistration?: boolean;
+    /** T6.7 品牌 / TDK / SEO·GEO / 页脚；只传本次要改的键即可。 */
+    seo?: Partial<SiteSeoConfig>;
   },
   timeoutMs = 5000,
 ): Promise<SiteSettingsView> {

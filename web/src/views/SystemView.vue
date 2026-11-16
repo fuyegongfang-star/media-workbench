@@ -175,6 +175,121 @@
       </div>
     </section>
 
+    <!-- T6.7 站点设置：TDK 与搜索引擎收录 -->
+    <section v-if="section === 'site'" class="card">
+      <h2 class="card-title">TDK 与搜索引擎收录 <span class="pill">SEO</span></h2>
+      <p class="hint">
+        留空时自动回落到「站点名称 / 站点描述」。这些值会写进公开首页的 &lt;title&gt;、description、keywords、
+        Open Graph 与 canonical；<code>web/index.html</code> 另内置静态基线，供不执行 JS 的爬虫读取。
+      </p>
+      <div class="seo-grid">
+        <div class="field">
+          <label>页面标题 Title</label>
+          <input v-model="seoForm.seoTitle" class="input" type="text" maxlength="120" placeholder="留空 = 站点名称" />
+        </div>
+        <div class="field">
+          <label>站点主域名 Canonical</label>
+          <input v-model="seoForm.canonicalUrl" class="input" type="text" maxlength="300" placeholder="https://your-domain.com" />
+        </div>
+      </div>
+      <div class="field">
+        <label>页面描述 Description</label>
+        <textarea v-model="seoForm.seoDescription" class="input" rows="2" maxlength="300" placeholder="120~160 字为宜；留空 = 站点描述" />
+      </div>
+      <div class="field">
+        <label>关键词 Keywords</label>
+        <input v-model="seoForm.seoKeywords" class="input" type="text" maxlength="300" placeholder="逗号分隔" />
+      </div>
+      <div class="seo-grid">
+        <div class="field">
+          <label>社交分享图 OG Image</label>
+          <input v-model="seoForm.ogImageUrl" class="input" type="text" maxlength="300" placeholder="留空 = 内置 /og-cover.svg" />
+        </div>
+        <div class="field">
+          <label>搜索引擎收录</label>
+          <div class="checks">
+            <label class="check">
+              <input type="checkbox" v-model="seoForm.indexable" />
+              允许收录（关闭后输出 noindex,nofollow）
+            </label>
+          </div>
+          <p class="hint">私有部署建议关闭；如需对外介绍站点再开启。robots.txt 已屏蔽全部内部路径。</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- T6.7 站点设置：Logo 与 GEO -->
+    <section v-if="section === 'site'" class="card">
+      <h2 class="card-title">Logo 与 GEO（生成式引擎优化） <span class="pill">GEO</span></h2>
+      <p class="hint">
+        面向 AI 搜索 / 大模型引用的站点说明。静态 <code>/llms.txt</code>、<code>/robots.txt</code> 与首页
+        JSON-LD（SoftwareApplication）已随构建产物发布；下方摘要会写入结构化数据。
+      </p>
+      <div class="seo-grid">
+        <div class="field">
+          <label>Logo 地址</label>
+          <input v-model="seoForm.logoUrl" class="input" type="text" maxlength="300" placeholder="https://… 或站内 /brand/logo.svg" />
+        </div>
+        <div class="field">
+          <label>Logo 替代文字</label>
+          <input v-model="seoForm.logoAlt" class="input" type="text" maxlength="80" placeholder="留空 = 站点名称" />
+        </div>
+      </div>
+      <div class="row brand-preview">
+        <div class="brand-box">
+          <img v-if="logoPreview" :src="logoPreview" :alt="seoForm.logoAlt || settings.siteName" />
+          <span v-else class="brand-mark">✦</span>
+          <b>{{ settings.siteName || '自媒体工作台' }}</b>
+        </div>
+        <span class="hint">同时用于浏览器标签页图标（favicon）；留空使用内置 SVG 品牌标。</span>
+      </div>
+      <div class="field">
+        <label>AI 站点摘要（llms.txt / JSON-LD）</label>
+        <textarea v-model="seoForm.geoSummary" class="input" rows="3" maxlength="600" placeholder="用客观陈述说明站点是什么、覆盖哪些流程、数据如何保管" />
+      </div>
+      <div class="checks">
+        <label class="check">
+          <input type="checkbox" v-model="seoForm.llmsEnabled" />
+          向 AI 搜索引擎输出站点摘要与 llms.txt 发现链接
+        </label>
+      </div>
+    </section>
+
+    <!-- T6.7 站点设置：页脚与所有者信息 -->
+    <section v-if="section === 'site'" class="card">
+      <h2 class="card-title">页脚与所有者信息 <span class="pill">合规</span></h2>
+      <p class="hint">
+        用于公开首页页脚。备案号、联系方式留空则不展示，绝不自动伪造；请按实际运营主体填写。
+        备案链接留空时默认指向工信部 / 公安备案官方查询站。
+      </p>
+      <div class="seo-grid">
+        <div class="field"><label>所有者 / 运营者</label><input v-model="seoForm.ownerName" class="input" maxlength="80" placeholder="个人或单位名称" /></div>
+        <div class="field"><label>所有者主页</label><input v-model="seoForm.ownerUrl" class="input" maxlength="300" placeholder="https://…" /></div>
+        <div class="field"><label>联系邮箱</label><input v-model="seoForm.supportEmail" class="input" maxlength="120" placeholder="support@example.com" /></div>
+        <div class="field"><label>附加版权说明</label><input v-model="seoForm.copyrightNote" class="input" maxlength="160" placeholder="可选，如：示例数据仅供演示" /></div>
+        <div class="field"><label>ICP 备案号</label><input v-model="seoForm.icpNumber" class="input" maxlength="60" placeholder="如 京ICP备00000000号" /></div>
+        <div class="field"><label>ICP 备案链接</label><input v-model="seoForm.icpUrl" class="input" maxlength="300" placeholder="留空 = https://beian.miit.gov.cn/" /></div>
+        <div class="field"><label>公安备案号</label><input v-model="seoForm.policeRecord" class="input" maxlength="60" placeholder="可选" /></div>
+        <div class="field"><label>公安备案链接</label><input v-model="seoForm.policeUrl" class="input" maxlength="300" placeholder="留空 = https://www.beian.gov.cn/" /></div>
+      </div>
+
+      <div class="row">
+        <button class="btn primary" :disabled="savingSeo" @click="saveSeo">
+          {{ savingSeo ? '保存中…' : '保存 SEO / 品牌 / 页脚设置' }}
+        </button>
+        <span class="hint">保存后公开首页与浏览器标签页立即生效。</span>
+      </div>
+      <p v-if="seoMessage" class="message" :class="seoType">{{ seoMessage }}</p>
+
+      <div class="meta-preview">
+        <div class="status-head">当前首页 head 预览</div>
+        <pre>&lt;title&gt;{{ metaPreview.title }}&lt;/title&gt;
+&lt;meta name="description" content="{{ metaPreview.desc }}"&gt;
+&lt;meta name="robots" content="{{ metaPreview.robots }}"&gt;
+&lt;link rel="canonical" href="{{ metaPreview.canonical }}"&gt;</pre>
+      </div>
+    </section>
+
     <!-- AI 与密钥：全站凭据状态总览 -->
     <section v-if="section === 'ai'" class="card">
       <h2 class="card-title">密钥与集成总览</h2>
@@ -466,6 +581,7 @@ import {
   fetchUpdateStatus, checkUpdate, applyUpdate,
   type UpdateStatus,
 } from '../api/update';
+import { DEFAULT_SEO, loadSiteInfo, safeUrl, type SiteSeoConfig } from '../api/site';
 
 // 二级菜单：/system/:section 决定本页只展示对应分类，避免所有设置挤在一屏
 const route = useRoute();
@@ -495,6 +611,7 @@ const settings = ref<SiteSettingsView>({
   appSecretConfigured: false,
   compliance: { aiDisclosureRequired: true, autoSaveEnabled: true, strictReview: false },
   allowRegistration: false,
+  seo: { ...DEFAULT_SEO },
   updatedAt: null,
 });
 
@@ -506,6 +623,22 @@ const form = reactive({
   compliance: { aiDisclosureRequired: true, autoSaveEnabled: true, strictReview: false },
   allowRegistration: false,
 });
+
+// ---- T6.7 品牌 / TDK / SEO·GEO / 页脚 ----
+const seoForm = reactive<SiteSeoConfig>({ ...DEFAULT_SEO });
+const savingSeo = ref(false);
+const seoMessage = ref('');
+const seoType = ref<'ok' | 'err'>('ok');
+const logoPreview = computed(() => safeUrl(seoForm.logoUrl));
+const metaPreview = computed(() => ({
+  title: seoForm.seoTitle.trim() || settings.value.siteName || '自媒体工作台',
+  desc:
+    seoForm.seoDescription.trim() ||
+    settings.value.siteDesc ||
+    '把选题到发布收进一条流水线：热点雷达、对标拆解、AI 起草与合规预审、发布归档、效果与成本复盘。',
+  robots: seoForm.indexable ? 'index,follow' : 'noindex,nofollow',
+  canonical: (seoForm.canonicalUrl.trim() || window.location.origin).replace(/\/+$/, '') + '/',
+}));
 
 const saving = ref(false);
 const savingCred = ref(false);
@@ -666,12 +799,15 @@ function hydrateForm(s: SiteSettingsView) {
   form.siteDesc = s.siteDesc ?? '';
   form.defaultWechatAppId = '';
   form.defaultWechatAppSecret = ''; // 出于安全，明文不回填，仅作占位
+  // 兼容旧实例 / 降级响应：compliance 缺失时用默认开关，不让整页加载失败。
   form.compliance = {
-    aiDisclosureRequired: Boolean(s.compliance.aiDisclosureRequired),
-    autoSaveEnabled: Boolean(s.compliance.autoSaveEnabled),
-    strictReview: Boolean(s.compliance.strictReview),
+    aiDisclosureRequired: Boolean(s.compliance?.aiDisclosureRequired ?? true),
+    autoSaveEnabled: Boolean(s.compliance?.autoSaveEnabled ?? true),
+    strictReview: Boolean(s.compliance?.strictReview ?? false),
   };
   form.allowRegistration = Boolean(s.allowRegistration);
+  Object.assign(seoForm, DEFAULT_SEO, s.seo ?? {});
+  if (s.seo) settings.value.seo = { ...s.seo };
 }
 
 async function loadAll() {
@@ -716,6 +852,26 @@ async function save() {
     messageType.value = 'err';
   } finally {
     saving.value = false;
+  }
+}
+
+/**
+ * T6.7 品牌 / TDK / SEO·GEO / 页脚保存：只提交 seo 字段，不触碰站点基础信息与公众号凭据。
+ * 保存成功后重新拉取公开元信息，让首页与浏览器 head 立即反映新配置。
+ */
+async function saveSeo() {
+  savingSeo.value = true;
+  seoMessage.value = '';
+  try {
+    settings.value = await saveSystemSettings({ seo: { ...seoForm } });
+    await loadSiteInfo();
+    seoMessage.value = '品牌 / TDK / SEO·GEO / 页脚设置已保存，公开首页已更新';
+    seoType.value = 'ok';
+  } catch (e) {
+    seoMessage.value = `保存失败：${(e as Error).message}`;
+    seoType.value = 'err';
+  } finally {
+    savingSeo.value = false;
   }
 }
 
@@ -1072,6 +1228,16 @@ async function sendTestAlert() {
 </script>
 
 <style scoped>
+/* 站点品牌 / TDK / SEO·GEO（T6.7）*/
+.seo-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 18px; }
+.brand-preview { align-items: center; margin: 4px 0 16px; gap: 16px; flex-wrap: wrap; }
+.brand-box { display: inline-flex; align-items: center; gap: 10px; padding: 8px 14px 8px 8px; border: 1px solid var(--border, #e2e6ec); border-radius: 10px; background: var(--panel-soft, #f5f7fa); font-size: 14px; }
+.brand-box img { width: 32px; height: 32px; object-fit: contain; border-radius: 8px; }
+.brand-box .brand-mark { width: 32px; height: 32px; border-radius: 9px; background: var(--brand, #2f6fed); color: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 17px; }
+.meta-preview { margin-top: 16px; border: 1px solid var(--border, #e2e6ec); border-radius: 8px; padding: 10px 12px; background: var(--panel-soft, #f5f7fa); }
+.meta-preview pre { margin: 6px 0 0; font-size: 12px; line-height: 1.7; white-space: pre-wrap; word-break: break-all; color: inherit; opacity: .85; }
+@media (max-width: 900px) { .seo-grid { grid-template-columns: 1fr; } }
+
 /* 在线更新（T6.5）*/
 .update-log { margin-top: 12px; border: 1px solid var(--border, #2a2c3a); border-radius: 8px; padding: 10px 12px; background: var(--panel-soft, rgba(127, 127, 127, .06)); }
 .update-log pre { margin: 6px 0 0; max-height: 220px; overflow: auto; font-size: 12px; line-height: 1.6; white-space: pre-wrap; word-break: break-all; color: inherit; opacity: .85; }

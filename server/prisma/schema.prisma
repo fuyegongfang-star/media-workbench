@@ -828,6 +828,8 @@ model SiteConfig {
   radarConfig                 Json     @default("{}") @map("radar_config")
   // T6.4 是否允许自助注册：默认关闭（安全默认），管理员在系统设置中开启。
   allowRegistration           Boolean  @default(false) @map("allow_registration")
+  // T6.7 站点品牌 / TDK / SEO·GEO / 页脚信息（Json 单例，字段白名单见 system/seo.util.ts）。
+  seoConfig                   Json     @default("{}") @map("seo_config")
   createdAt                   DateTime @default(now()) @map("created_at")
   updatedAt                   DateTime @updatedAt @map("updated_at")
 

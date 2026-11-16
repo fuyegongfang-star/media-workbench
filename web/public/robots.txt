@@ -1,0 +1,22 @@
+# 自媒体工作台 · 私有部署实例
+# 仅公开首页（/）允许收录；工作台内部页面全部需要登录，不应对外索引。
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /login
+Disallow: /register
+Disallow: /forgot-password
+Disallow: /dashboard
+Disallow: /system/
+Disallow: /radar
+Disallow: /analysis
+Disallow: /account
+Disallow: /content
+Disallow: /library
+Disallow: /calendar
+Disallow: /batch
+Disallow: /launch
+Disallow: /metrics
+
+# GEO：给生成式引擎 / AI 搜索的站点说明
+# LLMs.txt: /llms.txt

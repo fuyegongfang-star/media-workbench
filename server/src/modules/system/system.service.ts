@@ -4,6 +4,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { TaskQueueService } from '../tasks/queue/queue.service';
 import { getSecretCrypto, maskSecret } from './crypto.util';
 import { mergeCompliance } from './system.util';
+import { mergeSeo, publicSeo, type SiteSeoConfig } from './seo.util';
 import { type NotificationConfig, countEnabledChannels, defaultNotifications, mergeNotifications } from '../notification/notification.util';
 import { UpdateSystemSettingsDto } from './dto/update-system-settings.dto';
 
@@ -18,6 +19,18 @@ export interface SiteSettingsView {
   appSecretConfigured: boolean;
   compliance: Record<string, unknown>;
   allowRegistration: boolean; // T6.4 自助注册开关
+  seo: SiteSeoConfig; // T6.7 品牌 / TDK / SEO·GEO / 页脚
+  updatedAt: string | null;
+}
+
+/**
+ * 公开站点元信息（T6.7）：未登录首页渲染标题、Logo、页脚所需。
+ * 只含可公开字段，绝不含凭据、供应商、用户、状态等任何内部信息。
+ */
+export interface PublicSiteView {
+  siteName: string;
+  siteDesc: string | null;
+  seo: SiteSeoConfig;
   updatedAt: string | null;
 }
 
@@ -52,8 +65,31 @@ export class SystemService {
       appSecretConfigured: Boolean(appSecretEnc),
       compliance: (row?.compliance as Record<string, unknown>) ?? {},
       allowRegistration: Boolean(row?.allowRegistration),
+      seo: publicSeo(row?.seoConfig as Record<string, unknown> | null),
       updatedAt: row?.updatedAt ? row.updatedAt.toISOString() : null,
     };
+  }
+
+  /** 公开只读：未登录首页拉取品牌 / TDK / 页脚配置（无 Guard、无敏感字段）。 */
+  async getPublicSettings(): Promise<PublicSiteView> {
+    try {
+      const row = await this.loadRow();
+      return {
+        siteName: row?.siteName ?? '自媒体工作台',
+        siteDesc: row?.siteDesc ?? null,
+        seo: publicSeo(row?.seoConfig as Record<string, unknown> | null),
+        updatedAt: row?.updatedAt ? row.updatedAt.toISOString() : null,
+      };
+    } catch {
+      // DB 不可达 / 迁移未执行时不影响公开首页：回落到 index.html 静态基线。
+      this.logger.warn('公开站点元信息读取失败，回落到内置默认值');
+      return {
+        siteName: '自媒体工作台',
+        siteDesc: null,
+        seo: publicSeo(null),
+        updatedAt: null,
+      };
+    }
   }
 
   private decryptSafe(cipher: string): string {
@@ -72,6 +108,10 @@ export class SystemService {
     const compliance = mergeCompliance(
       existing?.compliance as Record<string, unknown> | null,
       dto.compliance,
+    );
+    const seoConfig = mergeSeo(
+      existing?.seoConfig as Record<string, unknown> | null,
+      dto.seo,
     );
 
     // AppID：传 undefined 保持原值；传空串清空；传非空明文则加密入库。
@@ -100,6 +140,7 @@ export class SystemService {
         dto.allowRegistration !== undefined
           ? dto.allowRegistration
           : Boolean(existing?.allowRegistration),
+      seoConfig: seoConfig as unknown as Prisma.InputJsonValue,
     };
 
     await this.prisma.client.siteConfig.upsert({

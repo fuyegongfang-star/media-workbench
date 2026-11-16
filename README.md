@@ -9,14 +9,14 @@
 [![NestJS 11](https://img.shields.io/badge/NestJS-11-E0234E?style=flat-square&logo=nestjs&logoColor=white)](https://nestjs.com/)
 [![Vue 3](https://img.shields.io/badge/Vue-3-42B883?style=flat-square&logo=vue.js&logoColor=white)](https://vuejs.org/)
 [![PostgreSQL 16](https://img.shields.io/badge/PostgreSQL-16-4169E1?style=flat-square&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
-[![388 unit tests](https://img.shields.io/badge/tests-388-16a34a?style=flat-square)](server/test/)
+[![396 unit tests](https://img.shields.io/badge/tests-396-16a34a?style=flat-square)](server/test/)
 
 [🚀 一键部署](#-一键部署)　·　[🗺 功能地图](#-功能地图)　·　[🛠 本地开发](#-本地开发)　·　[📚 文档](#-文档索引)
 
 </div>
 
 > [!IMPORTANT]
-> **部署状态**：已在真实云服务器（Ubuntu + Docker Compose）跑通全套服务：24 个迁移、PostgreSQL / Redis 连通、登录与用户管理端到端验证、388 个单元测试、镜像构建与健康检查均通过。仍未验证的是真实 LLM 供应商密钥调用、搜狗微信反爬与长期定时调度（需业务侧 Key 或观察周期）。健康检查在依赖不可用时如实返回 `unavailable`，不伪造通过。上线前请按 [部署指南第六节](deploy/README.md) 逐条验收。
+> **部署状态**：已在真实云服务器（Ubuntu + Docker Compose）跑通全套服务：24 个迁移、PostgreSQL / Redis 连通、登录与用户管理端到端验证、396 个单元测试、镜像构建与健康检查均通过。仍未验证的是真实 LLM 供应商密钥调用、搜狗微信反爬与长期定时调度（需业务侧 Key 或观察周期）。健康检查在依赖不可用时如实返回 `unavailable`，不伪造通过。上线前请按 [部署指南第六节](deploy/README.md) 逐条验收。
 
 ---
 
@@ -54,6 +54,18 @@
 - **系统管理二级页签**：六个分类共用统一页头与面包屑，不再是「一个长页面塞满所有设置」。
 - **密钥集中**：LLM API Key、公众号 AppID / AppSecret、通知渠道凭据统一在「系统管理 → AI 与密钥」维护与查看状态；`APP_MASTER_KEY` 为服务端只读环境变量。业务页只保留业务参数。
 - **统一浅色设计系统**：全局 CSS variables 覆盖原生控件与历史页面硬编码深色，表单、表格、卡片、语义色一致。
+- **站点品牌与 SEO / GEO**：站点设置可配 TDK、Canonical、OG 图、Logo、收录开关、AI 站点摘要，以及页脚所有者 / 邮箱 / ICP / 公安备案；未填的备案与联系方式不展示，不伪造主体信息。
+
+### 公开首页与 SEO / GEO
+
+`/` 是宽屏公开首页：1480px 内容区、通栏能力带、4×2 功能卡、隐私说明与四栏正规页脚（品牌 / 产品 / 资源 / 站点信息 + 版权栏）。SEO 走两层：
+
+| 层 | 内容 |
+| :--- | :--- |
+| 静态基线（不执行 JS 的爬虫也能读） | `web/index.html` 内置 TDK、Open Graph、Twitter Card、`SoftwareApplication` JSON-LD；`web/public/` 提供 `favicon.svg`、`og-cover.svg`、`robots.txt`、`llms.txt` |
+| 运行时覆写 | `GET /api/system/public`（公开、只读、无凭据）→ `web/src/api/site.ts` 按后台配置刷新 `title` / `description` / `keywords` / `robots` / `canonical` / `og:*` / favicon / JSON-LD；配置保存在 `SiteConfig.seoConfig`（迁移 0023），字段白名单清洗，URL 拒绝 `javascript:` / `data:` |
+
+GEO 侧提供符合 llmstxt.org 约定的 `llms.txt`，并把站点摘要写入首页结构化数据；`robots.txt` 屏蔽全部需登录路径。私有部署可在「站点设置」一键切到 `noindex,nofollow`。
 
 想看界面还原，双击仓库根的 [`preview.html`](preview.html)——零外部依赖的离线快照，非实时、按钮不可提交。
 
@@ -101,14 +113,14 @@ cd /opt/media-workbench
 | 内容项目 | 选题标题 → 创作上下文 → 版本链 → 审核状态机 → 合规预审 |
 | 起号计划 / 日历 / 素材库 / 批量操作 | 图片组拖拽、内容排期、素材沉淀、批量导入导出 |
 | 效果看板 / 成本看板 | 发布回写、指标回收、模型调用成本核算 |
-| 系统管理（设置中心） | 站点设置 / 用户与权限 / AI 与密钥（加密入库）/ 通知与告警 / 版本与运维 / 审计与回收站，六个二级页 |
+| 系统管理（设置中心） | 站点设置（含 TDK / Logo / SEO·GEO / 页脚所有者信息）/ 用户与权限 / AI 与密钥（加密入库）/ 通知与告警 / 版本与运维 / 审计与回收站，六个二级页 |
 
 ## 🧰 技术栈
 
 | 层 | 选型 |
 | :--- | :--- |
 | 后端 | NestJS 11 + TypeScript，模块化单体 |
-| 数据 | PostgreSQL 16 + Prisma 6（22 个迁移）、`pg_trgm` 检索 |
+| 数据 | PostgreSQL 16 + Prisma 6（25 个迁移目录）、`pg_trgm` 检索 |
 | 队列 | BullMQ + Redis 7，Worker **内嵌在 API 进程** |
 | 前端 | Vue 3 + Vite 6 + vue-router + Pinia + Naive UI |
 | AI | OpenAI 兼容供应商 / 检测 / 润色三个可替换 Provider |
@@ -130,7 +142,7 @@ npm run install:all           # 分别安装 server/ 与 web/ 依赖（未用 wo
 docker compose up -d          # 起 PG16 + Redis；已装本机数据库可跳过
 
 npm run prisma:generate
-npm run migrate:deploy        # 22 个迁移
+npm run migrate:deploy        # 25 个迁移目录
 npm run build                 # 构建 server + web
 npm start                     # API: http://127.0.0.1:3001/api
 npm --prefix web run dev      # 前端: http://127.0.0.1:5173（/api 已配代理）
@@ -143,7 +155,7 @@ npm run typecheck                    # 前后端类型检查
 npm run validate                     # prisma validate（同样需 DATABASE_URL）
 npm run trial                        # 纯函数端到端流水线自检
 npm run health                       # 需 API 已启动
-node --test server/test/*.test.mjs   # 388 个单测（31 个文件）
+node --test server/test/*.test.mjs   # 396 个单测（32 个文件）
 ```
 
 </details>
@@ -154,11 +166,11 @@ node --test server/test/*.test.mjs   # 388 个单测（31 个文件）
 | 项 | 结果 |
 | :--- | :--- |
 | `npm run build` / `npm run typecheck` | ✅ 通过 |
-| 单元测试 | ✅ 388 / 388（31 个文件） |
-| `prisma validate` / 迁移文件 | ✅ 24 个迁移目录均有 `migration.sql` |
+| 单元测试 | ✅ 396 / 396（32 个文件） |
+| `prisma validate` / 迁移文件 | ✅ 25 个迁移目录均有 `migration.sql`（含 `0023_site_seo_config`） |
 | `preflight`（一键脚本生成的 `.env`） | ✅ PASS 25 / WARN 3 / FAIL 0，WARN 均为未配置 AI 密钥 |
 | shell 脚本 | ✅ `sh -n` 通过、LF 换行、无 BOM |
-| 前端界面（首页 / 分组侧栏 / 设置中心 / 登录注册找回） | ✅ 真实浏览器截图逐页自查通过（`vite preview` 静态前端） |
+| 前端界面（首页 / 分组侧栏 / 设置中心 / 登录注册找回 / 品牌与 SEO 表单 / 页脚） | ✅ 1920 宽屏真实浏览器截图逐页自查通过 |
 | 真机 PostgreSQL / Redis / 登录 / 用户管理 / 在线更新 | ✅ 已在 Ubuntu + Docker Compose 生产环境端到端验证 |
 | 真实 LLM 供应商调用 / 搜狗微信反爬 / 长期定时调度 | ⚠️ 仍需业务侧 Key 或观察周期，未伪造通过 |
 | 本机 Docker | ⚠️ 开发机无 Docker（不影响生产部署，本机只跑静态自验） |
@@ -188,7 +200,7 @@ node --test server/test/*.test.mjs   # 388 个单测（31 个文件）
 <summary><b>📁 目录结构（点击展开）</b></summary>
 
 ```
-server/                  NestJS 模块、Prisma schema 与 22 个迁移、单元测试
+server/                  NestJS 模块、Prisma schema 与 25 个迁移目录、单元测试
 web/                     Vue3 SPA（views / router / api / stores）
 scripts/                 健康检查、preflight、备份、试运行、诊断脚本
 deploy/                  bootstrap.sh、backup.sh、nginx 配置、entrypoint、模板、定时备份示例

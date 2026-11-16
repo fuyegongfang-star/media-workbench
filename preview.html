@@ -277,11 +277,13 @@
     <div class="nav-item" data-view="ux"><span class="nav-icon">✦</span><span class="nav-label">问题清单与改造</span><span class="nav-phase">NEW</span></div>
     <div class="nav-item" data-view="ui"><span class="nav-icon">▣</span><span class="nav-label">浅色界面还原</span><span class="nav-phase">NEW</span></div>
     <div class="nav-item" data-view="auth"><span class="nav-icon">⌂</span><span class="nav-label">首页与认证</span><span class="nav-phase">NEW</span></div>
+    <div class="nav-group">T6.7 · 品牌与 SEO/GEO（11-16）</div>
+    <div class="nav-item" data-view="seo"><span class="nav-icon">⚑</span><span class="nav-label">站点品牌与 SEO/GEO</span><span class="nav-phase">NEW</span></div>
     <div class="side-foot">
       检查点 <b>已对齐 T5.2</b><br />
-      34 项全完成 + T6.1-T6.6 · 0 阻塞<br />
-      单测 388/388 通过<br />
-      雷达·盯号·用户管理·在线更新·UI/UX 梳理 · 已真机部署
+      34 项全完成 + T6.1-T6.7 · 0 阻塞<br />
+      单测 396/396 通过<br />
+      雷达·盯号·用户管理·在线更新·UI/UX·品牌与 SEO/GEO · 已真机部署
     </div>
   </aside>
 
@@ -289,11 +291,11 @@
     <div class="topbar">
       <h1 id="pageTitle">进展总览</h1>
       <span class="tag blue">离线快照 · 无需服务</span>
-      <span class="tag ok">388/388 单测</span>
+      <span class="tag ok">396/396 单测</span>
       <span class="tag ok">真机已部署 · PG/Redis up</span>
-      <span class="tag blue">T6.6 UI/UX 梳理</span>
+      <span class="tag blue">T6.7 品牌与 SEO/GEO</span>
       <span class="spacer"></span>
-      <span class="stamp">数据截止 2026-11-16 · 生成于 11-16 下午</span>
+      <span class="stamp">数据截止 2026-11-16 · 生成于 11-16 晚间</span>
     </div>
 
     <div class="content">
@@ -303,16 +305,16 @@
         <div class="note">
           <strong>为什么之前预览地址打不开？</strong> 原先给的是本机 dev server（<code>127.0.0.1:5173</code>），常驻后台进程会被沙箱回收，隔一阵就失效。
           本页是<strong>单文件静态快照</strong>，不连任何服务、不依赖端口，打开即看、永不失效。看板外壳仍是暗色，但 T6.6 起真实应用已切换为<strong>统一浅色设计系统</strong>；
-          新增的「问题清单与改造 / 浅色界面还原 / 首页与认证」三页内嵌浅色 mock 还原真实观感。
+          新增的「问题清单与改造 / 浅色界面还原 / 首页与认证 / 站点品牌与 SEO·GEO」等页面内嵌浅色 mock 还原真实观感。
           <strong>数据为离线快照，非实时应用</strong>，按钮不可真实提交。
         </div>
 
         <div class="section-title"><span class="bar"></span>关键指标</div>
         <div class="grid g4">
           <div class="kpi"><div class="num ok">34</div><div class="lbl">已完成功能项</div><div class="sub">T1.1–T1.10 / T2.1–T2.5 / T3.1–T3.11 / T4.1–T4.6 / T5.1–T5.2</div></div>
-          <div class="kpi"><div class="num blue">388</div><div class="lbl">单测全量通过</div><div class="sub">388 pass / 0 fail · 31 测试文件（含在线更新 15 项）</div></div>
+          <div class="kpi"><div class="num blue">396</div><div class="lbl">单测全量通过</div><div class="sub">396 pass / 0 fail · 32 测试文件（新增站点 SEO 8 项）</div></div>
           <div class="kpi"><div class="num ok">T6.1</div><div class="lbl">选题雷达新增</div><div class="sub">11-16 手工开发：免费源采集 + 打分出标题 + 一键转选题 + LLM 供应商管理</div></div>
-          <div class="kpi"><div class="num blue">T6.6</div><div class="lbl">UI/UX 全盘梳理</div><div class="sub">分组导航 · 设置中心二级菜单 · 密钥集中 · 公开首页 · 浅色设计系统</div></div>
+          <div class="kpi"><div class="num blue">T6.7</div><div class="lbl">品牌与 SEO/GEO</div><div class="sub">TDK / Logo / JSON-LD / llms.txt · 宽屏首页 · 正规四栏页脚</div></div>
         </div>
 
         <div class="section-title"><span class="bar"></span>各阶段完成度</div>
@@ -342,7 +344,7 @@
             <h3>构建与类型</h3>
             <div class="kv"><span>npm run typecheck（server + web tsc --noEmit）</span><b class="up">✓ 通过</b></div>
             <div class="kv"><span>npm run build（server tsc + web vite）</span><b class="up">✓ 通过 · 3.39s</b></div>
-            <div class="kv"><span>node --test server/test/*.test.mjs（31 文件）</span><b class="up">✓ 388/388 · 0 fail</b></div>
+            <div class="kv"><span>node --test server/test/*.test.mjs（32 文件）</span><b class="up">✓ 396/396 · 0 fail</b></div>
             <div class="kv"><span>prisma validate</span><b class="up">✓ schema valid</b></div>
             <div class="kv"><span>真实浏览器截图自查（8 张）</span><b class="up">✓ 首页/登录/设置/素材/成本等</b></div>
             <div class="kv"><span>web 产物</span><b>按路由懒加载拆分多 chunk + index</b></div>
@@ -361,7 +363,7 @@
 
         <div class="section-title"><span class="bar"></span>卡点与收尾说明</div>
         <div class="grid g3">
-          <div class="card"><h3>🟢 生产环境已就绪</h3><p class="hint">Ubuntu + Docker Compose 真机跑通：24 个迁移、PG16 / Redis up、登录与用户管理端到端、镜像构建与健康检查。开发机仍无 Docker，本机只跑静态自验，不影响生产。</p></div>
+          <div class="card"><h3>🟢 生产环境已就绪</h3><p class="hint">Ubuntu + Docker Compose 真机跑通：25 个迁移目录（含 0023 站点 SEO）、PG16 / Redis up、登录与用户管理端到端、镜像构建与健康检查。开发机仍无 Docker，本机只跑静态自验，不影响生产。</p></div>
           <div class="card"><h3>🟢 版本管理与在线更新</h3><p class="hint">GitHub 公开仓库 <code>fuyegongfang-star/media-workbench</code>，<code>main</code> + 基线 tag。后台「系统管理 → 版本与运维 → 一键更新」由独立 updater 容器拉代码、备份、重建 api/web，仅 owner 可触发。</p></div>
           <div class="card"><h3>🎨 T6.6 UI/UX 全盘梳理</h3><p class="hint">五类问题一次收敛：全局浅色设计系统、五组导航 + 系统管理二级菜单、设置中心六页分类、密钥集中到「AI 与密钥」、公开首页 + 注册 / 找回密码；清掉各业务页「开发/QA 访问令牌」面板。</p></div>
           <div class="card"><h3>🟢 检查点漂移已修正（11-10 06:02）</h3><p class="hint">夜间巡检发现 <code>.dev/state.json</code> 的 <code>completed</code> 仅 33 项、缺 <b>T4.6</b>（巡检文案却写 34 项）。核验 T4.6 代码真实性（成本看板 4 文件 + 19/19 单测 + <code>CostDashboardView.vue</code> + 路由）后按护栏补回，对齐 <b>34 项</b>，杜绝误认领重做。</p></div>
@@ -372,7 +374,7 @@
 
         <div class="section-title"><span class="bar"></span>后续触发说明（全清单已收官）</div>
         <div class="card">
-          <p class="hint" style="margin-top:0">夜间任务 <code>04c31a65</code> 仍 ACTIVE，每小时巡检，时间守卫限定 23:00–07:50。<code>开发排期.md</code> 的 34 项 T 任务已全部收官，11-10 起各次触发只做「时间守卫 → 读检查点 → 代码真实性复核 → 重跑自验 → 刷新 <code>updatedAt</code>」，不写任何源码。11-16 的 T6.1–T6.6 均为<b>白天手工开发</b>（雷达 / 盯号 / 用户注册管理 / 后台一键更新 / UI/UX 梳理），不计入 34 项、不走检查点。后续推进方向：<b>① 配置真实 LLM 供应商 Key</b> 验证 AI 打分与生成；<b>② 观察长期定时调度与搜狗微信反爬</b>；<b>③ 补 T0.2/T0.3 原型交互走查</b>（唯一未闭环的排期项）。</p>
+          <p class="hint" style="margin-top:0">夜间任务 <code>04c31a65</code> 仍 ACTIVE，每小时巡检，时间守卫限定 23:00–07:50。<code>开发排期.md</code> 的 34 项 T 任务已全部收官，11-10 起各次触发只做「时间守卫 → 读检查点 → 代码真实性复核 → 重跑自验 → 刷新 <code>updatedAt</code>」，不写任何源码。11-16 的 T6.1–T6.7 均为<b>白天手工开发</b>（雷达 / 盯号 / 用户注册管理 / 后台一键更新 / UI/UX 梳理 / 品牌与 SEO·GEO），不计入 34 项、不走检查点。后续推进方向：<b>① 配置真实 LLM 供应商 Key</b> 验证 AI 打分与生成；<b>② 观察长期定时调度与搜狗微信反爬</b>；<b>③ 补 T0.2/T0.3 原型交互走查</b>（唯一未闭环的排期项）。</p>
           <div class="badge-line"><span class="pill ok">一次一条 · 写→验→报</span><span class="pill blue">检查点幂等防并发</span><span class="pill warn">连续 3 次失败记 blocked 跳过</span><span class="pill">计划文档只读</span></div>
         </div>
 
@@ -421,7 +423,7 @@
           <div class="card"><h3>工程自验</h3>
             <div class="kv"><span>npm run typecheck</span><b class="up">✓ 前后端通过</b></div>
             <div class="kv"><span>npm run build</span><b class="up">✓ vite 3.39s</b></div>
-            <div class="kv"><span>node --test server/test/*.test.mjs</span><b class="up">✓ 388/388 · 31 文件</b></div>
+            <div class="kv"><span>node --test server/test/*.test.mjs</span><b class="up">✓ 396/396 · 32 文件</b></div>
             <div class="kv"><span>五个系统二级页标题</span><b class="up">✓ 逐一核对</b></div>
           </div>
           <div class="card"><h3>真实浏览器截图自查（8 张）</h3>
@@ -529,6 +531,104 @@
             <div class="kv"><span>401 全局拦截</span><b class="up">清 wb_token / wb_refresh_token / wb_user</b></div>
           </div>
         </div>
+      </section>
+
+      <!-- ============ T6.7：站点品牌与 SEO/GEO ============ -->
+      <section class="view" id="seo">
+        <div class="note">
+          用户基于真机截图提出三点：站点设置里 <b>TDK / Logo / SEO·GEO</b> 太简陋甚至缺失；首页<b>两侧大片留白</b>；
+          底部缺少<b>正规网站的所有者、备案与版权信息</b>。本页按 T6.7 实现做浅色静态还原，按钮不可提交。
+        </div>
+
+        <div class="section-title"><span class="bar"></span>问题 → 落地</div>
+        <div class="grid g3">
+          <div class="card"><h3>① 站点品牌可配置</h3><p class="hint">站点设置新增三张卡片：TDK 与收录、Logo 与 GEO、页脚与所有者。数据落在 <code>SiteConfig.seoConfig</code>（Json 单例，迁移 0023），字段白名单清洗，URL 只允许 http(s) 与站内路径。</p></div>
+          <div class="card"><h3>② 首页铺满宽屏</h3><p class="hint">容器由 1120 → <b>1480px</b>（1920 宽屏两侧留白 21% → 12%）；Hero 与隐私区加通栏底色，新增 4 项能力带，功能卡补到 8 张按 4×2 排布。</p></div>
+          <div class="card"><h3>③ 正规四栏页脚</h3><p class="hint">品牌 / 产品 / 资源 / 站点信息四栏 + 版权栏：所有者、联系邮箱、ICP 与公安备案、MIT 许可证、版本号、私有部署声明。未填的备案与联系方式不展示，<b>绝不伪造</b>。</p></div>
+        </div>
+
+        <div class="section-title"><span class="bar"></span>站点设置：新增三组配置（浅色还原）</div>
+        <div class="light-mock">
+          <div class="lm-bar"><b>⚙ 系统管理 / 站点设置</b><span style="margin-left:auto" class="lm-btn ghost">用户与权限</span></div>
+          <div style="padding:14px 18px">
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+              <span class="lm-btn" style="border-color:#2f6fed;color:#2f6fed">站点设置</span>
+              <span class="lm-btn ghost">AI 与密钥</span><span class="lm-btn ghost">通知与告警</span><span class="lm-btn ghost">版本与运维</span>
+            </div>
+            <div class="grid g3" style="gap:12px">
+              <div class="lm-card" style="margin:0"><b>TDK 与搜索引擎收录</b>
+                <div class="lm-field"><label>页面标题 Title</label><input class="lm-input" placeholder="留空 = 站点名称" disabled /></div>
+                <div class="lm-field"><label>站点主域名 Canonical</label><input class="lm-input" placeholder="https://your-domain.com" disabled /></div>
+                <div class="lm-field"><label>页面描述 Description</label><input class="lm-input" placeholder="120~160 字为宜" disabled /></div>
+                <div class="lm-field"><label>关键词 Keywords</label><input class="lm-input" placeholder="逗号分隔" disabled /></div>
+                <div style="font-size:11px;color:#5b6675">☐ 允许收录（关闭 → noindex,nofollow）</div>
+              </div>
+              <div class="lm-card" style="margin:0"><b>Logo 与 GEO</b>
+                <div class="lm-field"><label>Logo 地址</label><input class="lm-input" placeholder="/brand/logo.svg" disabled /></div>
+                <div class="lm-field"><label>Logo 替代文字</label><input class="lm-input" placeholder="站点名称" disabled /></div>
+                <div class="lm-field"><label>AI 站点摘要（llms.txt / JSON-LD）</label><input class="lm-input" placeholder="客观陈述站点是什么" disabled /></div>
+                <div style="font-size:11px;color:#5b6675">☑ 向 AI 搜索引擎输出摘要与发现链接</div>
+              </div>
+              <div class="lm-card" style="margin:0"><b>页脚与所有者信息</b>
+                <div class="lm-field"><label>所有者 / 运营者</label><input class="lm-input" placeholder="按实际主体填写" disabled /></div>
+                <div class="lm-field"><label>联系邮箱</label><input class="lm-input" placeholder="support@example.com" disabled /></div>
+                <div class="lm-field"><label>ICP 备案号</label><input class="lm-input" placeholder="留空则不展示" disabled /></div>
+                <div class="lm-field"><label>公安备案号</label><input class="lm-input" placeholder="可选" disabled /></div>
+              </div>
+            </div>
+            <div style="margin-top:12px;background:#f5f7fa;border:1px solid #e2e6ec;border-radius:8px;padding:10px 12px;font-size:11px;color:#1f2733">
+              <b>当前首页 head 预览</b><br />
+              <code>&lt;title&gt;自媒体工作台 · 从选题到发布的一条流水线&lt;/title&gt;</code><br />
+              <code>&lt;meta name="robots" content="index,follow"&gt;</code><br />
+              <code>&lt;link rel="canonical" href="https://…/"&gt;</code>
+            </div>
+          </div>
+        </div>
+
+        <div class="section-title"><span class="bar"></span>公开首页：宽屏版式 + 正规页脚（浅色还原）</div>
+        <div class="light-mock">
+          <div class="lm-bar"><b>✦ 自媒体工作台</b><span style="margin-left:auto">功能 · 工作流 · 隐私</span><span class="lm-btn ghost">登录</span><span class="lm-btn">注册账号</span></div>
+          <div class="lm-hero" style="padding:26px 28px"><h3>把选题到发布，收进一条流水线</h3><p>热点雷达 · 对标拆解 · AI 起草 · 合规预审 · 发布归档 · 效果复盘；私有部署，数据自持。</p><span class="lm-btn">登录工作台 →</span></div>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:12px 18px;background:#f8faff">
+            <div class="lm-step">全链路覆盖</div><div class="lm-step">零 Key 起步</div><div class="lm-step">凭据加密入库</div><div class="lm-step">数据自持</div>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:12px 18px">
+            <div class="lm-step">选题与洞察</div><div class="lm-step">内容生产</div><div class="lm-step">数据与复盘</div><div class="lm-step">密钥集中管理</div>
+            <div class="lm-step">用户与权限</div><div class="lm-step">后台一键更新</div><div class="lm-step">审计与回收站</div><div class="lm-step">备份与恢复</div>
+          </div>
+          <div style="border-top:1px solid #e2e6ec;background:#fff;padding:16px 22px;display:grid;grid-template-columns:1.6fr 1fr 1fr 1.2fr;gap:16px;font-size:11px;color:#5b6675">
+            <div><b style="color:#1f2733">✦ 自媒体工作台</b><p>把选题到发布收进一条流水线，私有部署、数据自持。<br />本站为私有部署实例，页面信息由站点所有者维护。</p></div>
+            <div><b style="color:#1f2733">产品</b><p>功能模块<br />工作流<br />隐私与数据<br />登录工作台</p></div>
+            <div><b style="color:#1f2733">资源</b><p>源码仓库<br />部署文档<br />更新记录<br />MIT 许可证</p></div>
+            <div><b style="color:#1f2733">站点信息</b><p>所有者 / 主页<br />联系邮箱<br />ICP 备案号<br />公安备案号</p></div>
+          </div>
+          <div style="border-top:1px solid #e2e6ec;padding:10px 22px;font-size:10.5px;color:#8893a4">
+            © 2026 站点所有者 · 保留所有权利 &nbsp;|&nbsp; v0.1.0 · MIT License &nbsp;|&nbsp; 本页为静态介绍，业务数据不对外公开
+          </div>
+        </div>
+
+        <div class="section-title"><span class="bar"></span>SEO / GEO 实现清单与自验</div>
+        <div class="grid g2">
+          <div class="card">
+            <h3>运行时 head 注入（web/src/api/site.ts）</h3>
+            <div class="kv"><span>静态基线</span><b>index.html 内置 TDK / OG / JSON-LD</b></div>
+            <div class="kv"><span>公开端点</span><b class="up">GET /api/system/public（无需登录）</b></div>
+            <div class="kv"><span>动态覆写</span><b>title · description · keywords · robots · canonical · og:* · twitter:* · favicon · JSON-LD</b></div>
+            <div class="kv"><span>安全</span><b class="up">setAttribute / textContent；URL 白名单拒绝 javascript: / data:</b></div>
+            <div class="kv"><span>静态资产</span><b>favicon.svg · og-cover.svg · robots.txt · llms.txt</b></div>
+          </div>
+          <div class="card">
+            <h3>本轮自验</h3>
+            <div class="kv"><span>npm run typecheck / build</span><b class="up">✓ 通过</b></div>
+            <div class="kv"><span>prisma validate + 迁移 0023</span><b class="up">✓ schema valid</b></div>
+            <div class="kv"><span>node --test（32 文件）</span><b class="up">✓ 396/396 · 0 fail</b></div>
+            <div class="kv"><span>1920 宽屏真实浏览器截图</span><b class="up">✓ 内容区 1480px，页脚四栏齐全</b></div>
+            <div class="kv"><span>动态 head 实测</span><b class="up">✓ title/desc/robots/canonical/og:image/icon/JSON-LD 全部由配置驱动</b></div>
+          </div>
+        </div>
+        <p class="hint" style="margin-top:14px">
+          说明：备案号、所有者、邮箱等全部由站点所有者在「系统管理 → 站点设置」自行填写，留空即不展示；离线预览里的示例文字仅为版式演示，不是真实主体信息。
+        </p>
       </section>
 
       <!-- ============ 选题雷达（T6.1 新增，按 RadarView.vue 还原） ============ -->
@@ -958,7 +1058,8 @@
       overview: '进展总览', radar: '选题雷达', dashboard: '工作台', content: '内容项目', project: '创作上下文',
       analysis: '对标分析', launch: '起号计划', calendar: '内容日历', library: '素材库',
       batch: '批量操作', cost: '成本看板', metrics: '效果看板', system: '系统设置', observability: '可观测性',
-      account: '账号与策略', ux: '问题清单与改造', ui: '浅色界面还原', auth: '首页与认证'
+      account: '账号与策略', ux: '问题清单与改造', ui: '浅色界面还原', auth: '首页与认证',
+      seo: '站点品牌与 SEO/GEO'
     };
     var navs = document.querySelectorAll('.nav-item');
     navs.forEach(function (n) {

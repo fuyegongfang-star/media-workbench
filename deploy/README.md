@@ -2,7 +2,7 @@
 
 > 适用：`docker-compose.prod.yml`（PG16 + Redis + API + nginx 前端）+ `deploy/bootstrap.sh` 一键部署。
 > **诚实前置声明**：本项目此前从未在真实 PostgreSQL / Redis 上跑过一次（本机无 Docker / PG / Redis），
-> 22 个迁移、登录 round-trip、BullMQ 消费、AI 调用**全部属于首次上线验证**；`Dockerfile` 镜像构建与
+> 25 个迁移目录、登录 round-trip、BullMQ 消费、AI 调用**全部属于首次上线验证**；`Dockerfile` 镜像构建与
 > compose 启动也**未在本机端到端执行过**。一键脚本本机已验证：shell 语法、`--env-only` 配置生成、
 > 生成结果通过 `preflight`（PASS 25 / WARN 3 / FAIL 0）。真机首次上线请仍按第六节逐条核验。
 
@@ -137,7 +137,7 @@ npm run migrate:deploy
 | 现象 | 原因 / 处理 |
 |---|---|
 | 执行 `bootstrap.sh` 报缺少 openssl | 安装 `openssl`；Debian/Ubuntu `apt install -y openssl`，Alpine `apk add openssl` |
-| 健康检查 4 分钟仍未就绪 | 首次要跑 22 个迁移，先看 `docker compose -f docker-compose.prod.yml logs --tail=100 api`；容器仍在后台启动，不代表失败 |
+| 健康检查 4 分钟仍未就绪 | 首次要跑 25 个迁移目录，先看 `docker compose -f docker-compose.prod.yml logs --tail=100 api`；容器仍在后台启动，不代表失败 |
 | nginx 502 / `connect() failed` | `HOST` 不是 `0.0.0.0`；或 `api` 还没 healthy（等迁移跑完，看日志） |
 | API 启动即退出，提示 `[env] 缺失或仍是占位符` | `.env` 里 `DATABASE_URL` / `APP_MASTER_KEY` / `JWT_SECRET` 还有 `<...>` 没替换（用一键脚本可避免） |
 | 起来了却登录不了 | `INITIAL_PASSWORD` 未配置时应用跳过初始用户播种；一键脚本会自动生成并打印 |
@@ -154,7 +154,7 @@ npm run migrate:deploy
 
 ## 六、首次上线核验清单（逐条打勾再正式用）
 
-1. [ ] `api` 日志出现 `迁移完成`，且 `prisma migrate deploy` 无 SQL 报错（**22 个迁移第一次在真库执行**）。
+1. [ ] `api` 日志出现 `迁移完成`，且 `prisma migrate deploy` 无 SQL 报错（**25 个迁移目录第一次在真库执行**）。
 2. [ ] `GET /api/health` 返回 200，且 `dependencies.postgres` / `redis` 从 `unavailable` 变为可用
        （此前所有「待环境」标记在这一步才真正翻绿）。
 3. [ ] 登录 round-trip：`POST /api/auth/login` 用一键脚本打印的账号口令拿到令牌，
