@@ -210,7 +210,8 @@
       <span class="brand-sub">v0.1.0 · 重构中 · 离线快照</span>
     </div>
     <div class="nav-group">进展</div>
-    <div class="nav-item active" data-view="overview"><span class="nav-icon">▦</span><span class="nav-label">进展总览</span><span class="nav-phase">11-10</span></div>
+    <div class="nav-item active" data-view="overview"><span class="nav-icon">▦</span><span class="nav-label">进展总览</span><span class="nav-phase">11-16</span></div>
+    <div class="nav-item" data-view="radar"><span class="nav-icon">⌖</span><span class="nav-label">选题雷达</span><span class="nav-phase">T6.1 新增</span></div>
     <div class="nav-group">业务界面（真实代码还原）</div>
     <div class="nav-item" data-view="dashboard"><span class="nav-icon">◧</span><span class="nav-label">工作台</span><span class="nav-phase">T1.1</span></div>
     <div class="nav-item" data-view="content"><span class="nav-icon">✎</span><span class="nav-label">内容项目</span><span class="nav-phase">T3.x</span></div>
@@ -230,8 +231,8 @@
     <div class="side-foot">
       检查点 <b>已对齐 T5.2</b><br />
       34 项全完成 · 0 阻塞<br />
-      单测 332/332 通过<br />
-      全清单收官 · 待环境联调
+      单测 344/344 通过<br />
+      全清单收官 + 选题雷达 · 待环境联调
     </div>
   </aside>
 
@@ -239,7 +240,7 @@
     <div class="topbar">
       <h1 id="pageTitle">进展总览</h1>
       <span class="tag blue">离线快照 · 无需服务</span>
-      <span class="tag ok">332/332 单测</span>
+      <span class="tag ok">344/344 单测</span>
       <span class="tag warn">DB / LLM 待环境</span>
       <span class="spacer"></span>
       <span class="stamp">数据截止 2026-11-10 07:07 · 生成于 11-10 21:05</span>
@@ -258,8 +259,8 @@
         <div class="section-title"><span class="bar"></span>关键指标</div>
         <div class="grid g4">
           <div class="kpi"><div class="num ok">34</div><div class="lbl">已完成功能项</div><div class="sub">T1.1–T1.10 / T2.1–T2.5 / T3.1–T3.11 / T4.1–T4.6 / T5.1–T5.2</div></div>
-          <div class="kpi"><div class="num blue">332</div><div class="lbl">单测全量通过</div><div class="sub">332 pass / 0 fail · 27 测试文件</div></div>
-          <div class="kpi"><div class="num ok">0</div><div class="lbl">本夜新增代码</div><div class="sub">11-09 02:24 全清单收官；11-10 四次触发均为纯状态巡检</div></div>
+          <div class="kpi"><div class="num blue">344</div><div class="lbl">单测全量通过</div><div class="sub">344 pass / 0 fail · 28 测试文件（含新增雷达 12 项）</div></div>
+          <div class="kpi"><div class="num ok">T6.1</div><div class="lbl">选题雷达新增</div><div class="sub">11-16 手工开发：免费源采集 + 打分出标题 + 一键转选题 + LLM 供应商管理</div></div>
           <div class="kpi"><div class="num warn">3</div><div class="lbl">待补外部条件</div><div class="sub">PG16 · Redis · LLM 密钥</div></div>
         </div>
 
@@ -290,7 +291,7 @@
             <h3>构建与类型</h3>
             <div class="kv"><span>npm run build（server tsc + web vite）</span><b class="up">✓ 通过 · 4.57s</b></div>
             <div class="kv"><span>web 产物</span><b>13 视图 chunk + index</b></div>
-            <div class="kv"><span>node --test server/test/*.test.mjs（27 文件）</span><b class="up">✓ 332/332</b></div>
+            <div class="kv"><span>node --test server/test/*.test.mjs（28 文件）</span><b class="up">✓ 344/344</b></div>
             <div class="kv"><span>npm run typecheck（tsc --noEmit）</span><b class="up">✓ 通过</b></div>
             <div class="kv"><span>npm run validate → prisma validate</span><b class="up">✓ schema valid</b></div>
           </div>
@@ -325,6 +326,67 @@
         <div class="footer-note">
           数据真相源：<code>进度.md</code>（每晚 23:10 刷新）· 计划文档：<code>开发排期.md</code> / <code>技术方案与任务拆分.md</code> / <code>深入设计.md</code> / <code>功能遗漏盘点.md</code>。<br />
           本页由会话生成，仅用于离线查看，不参与自动开发流程，不修改任何业务代码。
+        </div>
+      </section>
+
+      <!-- ============ 选题雷达（T6.1 新增，按 RadarView.vue 还原） ============ -->
+      <section class="view" id="radar">
+        <div class="row" style="justify-content:space-between;align-items:flex-start;flex-wrap:wrap">
+          <div>
+            <h2 style="margin:0 0 6px">选题雷达 <span class="pill ok">T6.1 新增</span></h2>
+            <p class="hint" style="margin:0">配置驱动的每日选题简报：免费源采集 → 指纹去重 → 赛道打分 → 出标题 → 一键转选题。</p>
+          </div>
+          <div class="row"><span class="pill warn">定时待 Redis 环境</span><button class="btn primary">立即采集</button></div>
+        </div>
+        <div class="tabs">
+          <button class="tab active">今日简报</button><button class="tab">历史归档</button><button class="tab">雷达配置</button>
+        </div>
+
+        <div class="card" style="margin-top:14px">
+          <div class="row" style="justify-content:space-between;flex-wrap:wrap">
+            <div class="row"><h3 style="margin:0">📅 2026-11-16 选题简报</h3><span class="pill ok">样例</span><span class="hint">共 20 条 · 主推 5 条</span></div>
+            <div class="row"><span class="pill">头条 50</span><span class="pill">B站 100</span><span class="pill">HN 20</span><span class="pill warn">公众号 反爬降级</span></div>
+          </div>
+
+          <h4 style="margin:18px 0 10px;color:var(--text)">🔥 今日主推（5）</h4>
+          <div class="card" style="background:var(--bg-soft);border-left:3px solid var(--brand)">
+            <div class="row"><span class="pill ok">#1</span><b>AI 代做小红书封面月入过万</b><span class="hint">相关度 100%</span></div>
+            <p class="hint" style="margin:8px 0">赛道：AI与效率工具 · 一句话角度：拆一个真实变现链路</p>
+            <div style="padding-left:10px;border-left:2px solid var(--border)">
+              <div style="font-size:13px">《我用 AI 批量做封面，一个月多赚了 8000》</div>
+              <div style="font-size:13px">《副业新玩法：AI 封面生意的完整拆解》</div>
+            </div>
+            <div class="row" style="margin-top:10px"><span class="pill">今日头条</span><button class="btn small">一键转选题</button></div>
+          </div>
+          <div class="card" style="background:var(--bg-soft);border-left:3px solid var(--brand)">
+            <div class="row"><span class="pill ok">#2</span><b>普通人用智能体做自动化的三个真实案例</b><span class="hint">相关度 100%</span></div>
+            <div class="row" style="margin-top:10px"><span class="pill">B站</span><button class="btn small">一键转选题</button></div>
+          </div>
+
+          <h4 style="margin:18px 0 10px;color:var(--text)">📦 备选池（15）</h4>
+          <div class="grid g3">
+            <div class="card" style="background:var(--bg-soft)"><div style="font-size:13px">AI 提示词变现的冷启动路径</div><div class="row" style="margin-top:8px"><span class="pill">Hacker News</span></div></div>
+            <div class="card" style="background:var(--bg-soft)"><div style="font-size:13px">副业接单平台对比实测</div><div class="row" style="margin-top:8px"><span class="pill">头条</span></div></div>
+            <div class="card" style="background:var(--bg-soft)"><div style="font-size:13px">用 RPA 省掉每天两小时重复活</div><div class="row" style="margin-top:8px"><span class="pill">B站</span></div></div>
+          </div>
+          <p class="hint" style="margin-top:12px">离线快照：按钮为静态展示，不提交数据。真实页面可调 <code>/api/radar/collect</code> 与 <code>/api/radar/items/:id/convert</code>。</p>
+        </div>
+
+        <div class="grid g2" style="margin-top:14px">
+          <div class="card">
+            <h3 style="margin:0 0 10px">配置驱动（存 SiteConfig.radarConfig）</h3>
+            <p class="hint">赛道词库可增删改；数据源四个免费开关；每日条数 / 主推数 / 定时时间均可配。加赛道改一段、加账号加一行，不用改代码。</p>
+            <div class="kv"><span>数据源</span><b>头条 · B站 · HN · 搜狗微信</b></div>
+            <div class="kv"><span>调度</span><b class="warn">BullMQ repeatable（待 Redis）</b></div>
+            <div class="kv"><span>LLM 打分/标题</span><b>SystemConfig 供应商，未配则模板兜底</b></div>
+          </div>
+          <div class="card">
+            <h3 style="margin:0 0 10px">复用现有骨架</h3>
+            <p class="hint">雷达不是独立系统：任务走 Task/BullMQ（jobId 幂等），标题走 LlmProvider，去重沿用 SourceMaterial 的 sha256 约定，转选题直接写 Topic(sourceType=radar)。</p>
+            <div class="kv"><span>新增表</span><b>radar_runs / radar_items</b></div>
+            <div class="kv"><span>新增迁移</span><b>0021_radar</b></div>
+            <div class="kv"><span>新增单测</span><b class="up">12/12 通过</b></div>
+          </div>
         </div>
       </section>
 
@@ -682,7 +744,7 @@
 <script>
   (function () {
     var labels = {
-      overview: '进展总览', dashboard: '工作台', content: '内容项目', project: '创作上下文',
+      overview: '进展总览', radar: '选题雷达', dashboard: '工作台', content: '内容项目', project: '创作上下文',
       analysis: '对标分析', launch: '起号计划', calendar: '内容日历', library: '素材库',
       batch: '批量操作', cost: '成本看板', metrics: '效果看板', system: '系统设置', observability: '可观测性',
       account: '账号与策略'

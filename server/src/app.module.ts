@@ -19,6 +19,7 @@ import { StorageModule } from './modules/storage/storage.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { CommonModule } from './modules/common/common.module';
 import { CalendarModule } from './modules/calendar/calendar.module';
+import { RadarModule } from './modules/radar/radar.module';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { CalendarModule } from './modules/calendar/calendar.module';
     StorageModule,
     AuthModule,
     CalendarModule,
+    RadarModule,
   ],
   controllers: [AppController],
 })

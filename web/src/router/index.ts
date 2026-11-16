@@ -11,6 +11,7 @@ export interface NavItem {
 /** PRD §4 七大导航模块（T0.1 信息结构骨架已合并进可运行前端） */
 export const navItems: NavItem[] = [
   { path: '/dashboard', label: '工作台', icon: '◧', phase: 'T1.1' },
+  { path: '/radar', label: '选题雷达', icon: '⌖', phase: 'T6.1' },
   { path: '/content', label: '内容项目', icon: '✎', phase: 'T3.x' },
   { path: '/analysis', label: '对标分析', icon: '◎', phase: 'T2.x' },
   { path: '/launch', label: '起号计划', icon: '⇧', phase: 'T4.1/T4.2' },
@@ -31,6 +32,7 @@ const routes: RouteRecordRaw[] = [
     redirect: '/dashboard',
     children: [
       { path: 'dashboard', name: 'dashboard', component: () => import('../views/DashboardView.vue') },
+      { path: 'radar', name: 'radar', component: () => import('../views/RadarView.vue') },
       { path: 'content', name: 'content', component: () => import('../views/ContentView.vue') },
       { path: 'content-projects/:id', name: 'content-project', component: () => import('../views/ContentProjectView.vue') },
       { path: 'analysis', name: 'analysis', component: () => import('../views/AnalysisView.vue') },

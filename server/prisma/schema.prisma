@@ -70,6 +70,7 @@ enum TaskType {
   ARTICLE_GEN
   TEXT_DETECT
   TEXT_POLISH
+  RADAR_COLLECT // T6.1 选题雷达：一次采集→去重→打分→出标题→入库
 }
 
 enum AnalysisKind {
@@ -665,6 +666,53 @@ model ComplianceCheck {
   @@map("compliance_checks")
 }
 
+// ============ T6 选题雷达 ============
+// 一次采集 = 一条 RadarRun（按日期唯一，天然防同日重复）；采集到的候选条目 = RadarItem。
+// 复用规则：原文可一键转 Topic（sourceType=radar）；指纹去重复用 SourceMaterial 的 sha256 约定，
+//   但索引不设唯一（与 SourceMaterial 一致，保留"同源多次出现"的可追溯性）。
+model RadarRun {
+  id            String      @id @default(uuid())
+  runDate       DateTime    @unique @map("run_date") // 采集归属日（UTC 日界，前端按 Asia/Shanghai 展示）
+  status        TaskStatus  @default(queued)
+  sourceStats   Json        @default("{}") @map("source_stats") // 各源采集/去重条数快照
+  itemCount     Int         @default(0) @map("item_count")
+  featuredCount Int         @default(0) @map("featured_count")
+  error         String?     @db.Text
+  taskId        String?     @map("task_id") // 关联异步任务（RADAR_COLLECT）
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
+
+  items RadarItem[]
+
+  @@index([status, runDate])
+  @@map("radar_runs")
+}
+
+model RadarItem {
+  id          String    @id @default(uuid())
+  runId       String    @map("run_id")
+  run         RadarRun  @relation(fields: [runId], references: [id], onDelete: Cascade)
+  fingerprint String    // sha256(规范化标题)，跨日去重用
+  title       String    @db.Text // 采集到的原始标题
+  angle       String?   @db.Text // 一句话选题角度
+  sourceUrl   String?   @map("source_url") @db.Text
+  sourceName  String    @map("source_name") // toutiao / bilibili / hnrss / sogou_wechat
+  sourceType  String    @map("source_type") // hotlist / rss / search
+  niche       String?   // 命中的赛道名
+  heat        Float?    // 来源热度分（原始）
+  relevance   Float?    // 赛道相关度（0-1）
+  score       Float?    // 综合排序分
+  tier        String    @default("candidate") // featured / candidate
+  titles      Json      @default("[]") // LLM 生成的候选标题 [{text,basis,score}]
+  rank        Int       @default(0) // 简报内序号
+  convertedTopicId String? @map("converted_topic_id") // 一键转选题后的 Topic.id
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  @@index([runId, tier, rank])
+  @@index([fingerprint])
+  @@map("radar_items")
+}
+
 // ============ 计划与审计 ============
 model LaunchPlan {
   id             String           @id @default(uuid())
@@ -767,6 +815,8 @@ model SiteConfig {
   defaultWechatAppSecretEncrypted String? @map("default_wechat_app_secret_encrypted")
   compliance                  Json     @default("{}")
   notifications               Json     @default("{}")
+  // T6.1 选题雷达配置：赛道词库 / 监控账号 / 输出条数 / 调度，单例站点配置内存放。
+  radarConfig                 Json     @default("{}") @map("radar_config")
   createdAt                   DateTime @default(now()) @map("created_at")
   updatedAt                   DateTime @updatedAt @map("updated_at")
 

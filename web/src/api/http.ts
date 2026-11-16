@@ -3330,3 +3330,177 @@ export async function getCostOverview(
     clearTimeout(timer);
   }
 }
+
+// ============ T6 选题雷达 ============
+
+export interface RadarNiche {
+  name: string;
+  enabled: boolean;
+  keywords: string[];
+}
+
+export interface RadarConfig {
+  niches: RadarNiche[];
+  sources: Record<string, boolean>;
+  output: { totalItems: number; featuredItems: number; titlesPerItem: number; saveToLibrary: boolean };
+  schedule: { enabled: boolean; time: string; timezone: string };
+  monitoredAccounts: { x: string[]; youtube: string[] };
+}
+
+export interface RadarBriefSummary {
+  id: string;
+  runDate: string;
+  status: string;
+  itemCount: number;
+  featuredCount: number;
+  error: string | null;
+  createdAt: string;
+}
+
+export interface RadarTitle {
+  text: string;
+  basis?: string;
+  score?: number;
+}
+
+export interface RadarItemView {
+  id: string;
+  title: string;
+  angle: string | null;
+  sourceUrl: string | null;
+  sourceName: string;
+  niche: string | null;
+  score: number | null;
+  relevance: number | null;
+  tier: string;
+  rank: number;
+  titles: RadarTitle[];
+  convertedTopicId: string | null;
+}
+
+export interface RadarBriefDetail extends RadarBriefSummary {
+  sourceStats: Record<string, { count?: number; error?: string } | unknown>;
+  items: RadarItemView[];
+}
+
+/** 通用的雷达 API 请求（带令牌、超时、401 提示）。 */
+async function radarFetch<T>(path: string, init?: RequestInit, timeoutMs = 8000): Promise<T> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(`/${apiPrefix()}/radar${path}`, {
+      ...init,
+      signal: controller.signal,
+      headers: { Accept: 'application/json', ...authHeader(), ...(init?.headers ?? {}) },
+    });
+    if (res.status === 401) throw new Error('需要登录令牌：请在系统设置页粘贴 Bearer 令牌后重试');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return (await res.json()) as T;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+export function fetchRadarConfig(): Promise<RadarConfig> {
+  return radarFetch<RadarConfig>('/config');
+}
+
+export function saveRadarConfig(config: RadarConfig): Promise<{ config: RadarConfig; scheduler: { available: boolean } }> {
+  return radarFetch('/config', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(config),
+  });
+}
+
+export function triggerRadarCollect(): Promise<{ taskId: string; dispatched: boolean }> {
+  return radarFetch('/collect', { method: 'POST' }, 10000);
+}
+
+export function fetchRadarBriefs(): Promise<{ briefs: RadarBriefSummary[] }> {
+  return radarFetch('/briefs');
+}
+
+export function fetchRadarBrief(id: string): Promise<RadarBriefDetail> {
+  return radarFetch(`/briefs/${encodeURIComponent(id)}`);
+}
+
+export function convertRadarItem(itemId: string): Promise<{ topicId: string }> {
+  return radarFetch(`/items/${encodeURIComponent(itemId)}/convert`, { method: 'POST' }, 10000);
+}
+
+export interface RadarStatus {
+  module: string;
+  scheduler: { available: boolean; jobId: string };
+  note: string;
+}
+
+export function fetchRadarStatus(): Promise<RadarStatus> {
+  return radarFetch('/status');
+}
+
+// ============ LLM 供应商管理（系统设置用）============
+
+export interface ProviderView {
+  id: string;
+  provider: string;
+  label: string;
+  baseUrl: string | null;
+  model: string;
+  apiKeyMasked: string;
+  apiKeyConfigured: boolean;
+  monthlyBudget: number | null;
+  enabled: boolean;
+  updatedAt: string;
+}
+
+async function providerFetch<T>(path: string, init?: RequestInit): Promise<T> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 8000);
+  try {
+    const res = await fetch(`/${apiPrefix()}/system/providers${path}`, {
+      ...init,
+      signal: controller.signal,
+      headers: { Accept: 'application/json', ...authHeader(), ...(init?.headers ?? {}) },
+    });
+    if (res.status === 401) throw new Error('需要登录令牌：请在系统设置页粘贴 Bearer 令牌后重试');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return (await res.json()) as T;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+export function fetchProviders(): Promise<{ providers: ProviderView[] }> {
+  return providerFetch('');
+}
+
+export function saveProvider(body: {
+  provider: string;
+  label: string;
+  baseUrl?: string;
+  model: string;
+  apiKey?: string;
+  monthlyBudget?: number;
+  enabled?: boolean;
+}): Promise<ProviderView> {
+  return providerFetch('', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+}
+
+export function updateProvider(id: string, body: Partial<{
+  provider: string; label: string; baseUrl: string; model: string; apiKey: string; monthlyBudget: number; enabled: boolean;
+}>): Promise<ProviderView> {
+  return providerFetch(`/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+}
+
+export function deleteProvider(id: string): Promise<{ ok: boolean }> {
+  return providerFetch(`/${encodeURIComponent(id)}`, { method: 'DELETE' });
+}

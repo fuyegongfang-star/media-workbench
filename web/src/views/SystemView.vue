@@ -124,6 +124,47 @@
       </div>
     </section>
 
+    <!-- LLM 供应商（T6.2）：SystemConfig 的 CRUD，密钥 AES 加密入库、前端仅见脱敏 -->
+    <section class="card">
+      <h2 class="card-title">AI 模型供应商（密钥加密存储）</h2>
+      <p class="hint">
+        选题雷达的赛道打分与标题生成、以及全站 AI 能力都依赖这里。支持 OpenAI 兼容协议（OpenAI / DeepSeek / Moonshot 等）。
+        密钥仅在服务端以 AES-256-GCM 加密入库，列表只显示脱敏串，绝不回显明文。留空表示保持原密钥。
+      </p>
+
+      <div v-for="p in providers" :key="p.id" class="provider-row">
+        <div class="provider-head">
+          <span class="pill" :class="p.enabled ? 'ok' : 'warn'">{{ p.enabled ? '已启用' : '已停用' }}</span>
+          <b>{{ p.label }}</b>
+          <span class="muted">{{ p.provider }} / {{ p.model }}</span>
+          <button class="btn small ghost" @click="toggleProvider(p)">{{ p.enabled ? '停用' : '启用' }}</button>
+          <button class="btn small ghost" @click="removeProvider(p)">删除</button>
+        </div>
+        <div class="provider-meta muted">
+          Base URL：{{ p.baseUrl || '默认 https://api.openai.com/v1' }} · 密钥：{{ p.apiKeyConfigured ? p.apiKeyMasked : '未配置' }}
+          · 月预算：{{ p.monthlyBudget ?? '不限' }}
+        </div>
+      </div>
+      <p v-if="!providers.length" class="hint">尚未配置任何供应商。没有供应商时雷达标题用模板兜底，AI 相关任务会如实报「待配置」。</p>
+
+      <div class="provider-form">
+        <div class="row">
+          <div class="field" style="flex:1;min-width:140px"><label>供应商标识</label><input v-model="providerForm.provider" class="input" placeholder="deepseek" /></div>
+          <div class="field" style="flex:1;min-width:140px"><label>显示名称</label><input v-model="providerForm.label" class="input" placeholder="DeepSeek" /></div>
+          <div class="field" style="flex:1;min-width:200px"><label>模型</label><input v-model="providerForm.model" class="input" placeholder="deepseek-chat" /></div>
+        </div>
+        <div class="field"><label>Base URL（可选）</label><input v-model="providerForm.baseUrl" class="input wide" placeholder="https://api.deepseek.com/v1" /></div>
+        <div class="row">
+          <div class="field" style="flex:1;min-width:220px"><label>API Key（明文仅提交一次）</label><input v-model="providerForm.apiKey" class="input wide mono" type="password" placeholder="留空则保持原密钥（新增时必填）" /></div>
+          <div class="field" style="width:140px"><label>月预算（0=不限）</label><input v-model.number="providerForm.monthlyBudget" class="input" type="number" min="0" /></div>
+        </div>
+        <div class="row">
+          <button class="btn primary" :disabled="savingProvider" @click="addProvider">{{ savingProvider ? '保存中…' : '新增 / 覆盖' }}</button>
+          <span class="hint">按「供应商标识 + 模型」唯一；同标识同模型再次提交会覆盖配置。</span>
+        </div>
+      </div>
+    </section>
+
     <!-- 通知与告警（T1.10）：企业微信/钉钉 Webhook + 邮件 SMTP；敏感字段服务端加密入库 -->
     <section class="card">
       <h2 class="card-title">通知与告警（T1.10）</h2>
@@ -205,6 +246,8 @@ import {
   type NotificationAlertKind,
   type NotificationSettings,
   type NotificationStatus,
+  fetchProviders, saveProvider, updateProvider, deleteProvider,
+  type ProviderView,
 } from '../api/http';
 
 const token = ref<string>(localStorage.getItem('wb_token') ?? '');
@@ -335,9 +378,74 @@ async function save() {
   }
 }
 
+// ---- LLM 供应商管理（T6.2）----
+const providers = ref<ProviderView[]>([]);
+const providerForm = reactive({
+  provider: '', label: '', model: '', baseUrl: '', apiKey: '', monthlyBudget: 0,
+});
+const savingProvider = ref(false);
+
+async function loadProviders() {
+  try {
+    providers.value = (await fetchProviders()).providers;
+  } catch {
+    /* 需令牌：未登录时静默 */
+  }
+}
+
+async function addProvider() {
+  if (!providerForm.provider || !providerForm.model || !providerForm.label) {
+    message.value = '请填写供应商标识、显示名称与模型';
+    messageType.value = 'err';
+    return;
+  }
+  savingProvider.value = true;
+  try {
+    await saveProvider({
+      provider: providerForm.provider.trim(),
+      label: providerForm.label.trim(),
+      model: providerForm.model.trim(),
+      baseUrl: providerForm.baseUrl.trim() || undefined,
+      apiKey: providerForm.apiKey || undefined,
+      monthlyBudget: providerForm.monthlyBudget || 0,
+      enabled: true,
+    });
+    providerForm.apiKey = '';
+    await loadProviders();
+    message.value = '供应商已保存（密钥已加密入库，列表仅显示脱敏串）';
+    messageType.value = 'ok';
+  } catch (e) {
+    message.value = `保存供应商失败：${(e as Error).message}`;
+    messageType.value = 'err';
+  } finally {
+    savingProvider.value = false;
+  }
+}
+
+async function toggleProvider(p: ProviderView) {
+  try {
+    await updateProvider(p.id, { enabled: !p.enabled });
+    await loadProviders();
+  } catch (e) {
+    message.value = `更新失败：${(e as Error).message}`;
+    messageType.value = 'err';
+  }
+}
+
+async function removeProvider(p: ProviderView) {
+  try {
+    await deleteProvider(p.id);
+    await loadProviders();
+  } catch (e) {
+    message.value = `删除失败：${(e as Error).message}`;
+    messageType.value = 'err';
+  }
+}
+
 onMounted(async () => {
   await loadAll();
   await loadNotif();
+  await loadProviders();
 });
 
 // ---- 通知与告警（T1.10）逻辑 ----
@@ -648,5 +756,28 @@ async function sendTestAlert() {
 }
 .notif-card .btn {
   align-self: flex-start;
+}
+.provider-row {
+  background: var(--input, #15161f);
+  border: 1px solid var(--border, #2a2c3a);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+}
+.provider-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 13px;
+}
+.provider-meta {
+  margin-top: 6px;
+  font-size: 11px;
+}
+.provider-form {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--border, #2a2c3a);
 }
 </style>
