@@ -28,6 +28,9 @@ export interface UpdateStatus {
   startedAt: string;
   finishedAt: string;
   updatedAt: string;
+  /** 已提交但 updater 尚未接手的请求；非空时按钮禁用并显示「排队中」。 */
+  pendingRequestId: string;
+  pendingType: string;
   check: UpdateCheckResult | null;
   log: string[];
   serverTime: string;

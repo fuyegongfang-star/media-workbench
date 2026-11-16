@@ -48,7 +48,9 @@
           <div class="status-head">执行状态</div>
           <div class="status-body">
             <span class="pill" :class="phaseClass">{{ phaseLabel }}</span>
-            <div class="hint" style="margin-top:6px">{{ updateStatus.message || '—' }}</div>
+            <div class="hint" style="margin-top:6px">
+              {{ updateStatus.pendingRequestId ? '请求已提交，等待更新服务接手…' : (updateStatus.message || '—') }}
+            </div>
           </div>
         </div>
       </div>
@@ -71,10 +73,10 @@
         <pre>{{ updateStatus.log.join('\n') }}</pre>
       </div>
 
-      <p v-if="updateStatus.phase === 'success' && updateStatus.type === 'apply'" class="message ok">
+      <p v-if="!updateStatus.pendingRequestId && updateStatus.phase === 'success' && updateStatus.type === 'apply'" class="message ok">
         更新已完成。如界面仍是旧版，请强制刷新浏览器（Ctrl+F5）。
       </p>
-      <p v-else-if="updateStatus.phase === 'failed'" class="message err">
+      <p v-else-if="!updateStatus.pendingRequestId && updateStatus.phase === 'failed'" class="message err">
         上次执行失败：{{ updateStatus.message }}。详情见上方日志；旧版本服务通常未受影响。
       </p>
     </section>
@@ -708,6 +710,8 @@ const updateStatus = ref<UpdateStatus>({
   startedAt: '',
   finishedAt: '',
   updatedAt: '',
+  pendingRequestId: '',
+  pendingType: '',
   check: null,
   log: [],
   serverTime: '',
@@ -719,16 +723,19 @@ const hasNewCommits = computed(() => (updateStatus.value.check?.behindBy ?? 0) >
 const canTriggerUpdate = computed(() =>
   updateStatus.value.available
   && updateStatus.value.phase !== 'running'
+  && !updateStatus.value.pendingRequestId
   && !checkingUpdate.value
   && !applyingUpdate.value,
 );
 const phaseLabel = computed(() => {
+  if (updateStatus.value.pendingRequestId) return '排队中';
   const labels: Record<string, string> = {
     idle: '空闲', running: '执行中', success: '成功', failed: '失败', unknown: '未知',
   };
   return labels[updateStatus.value.phase] ?? '未知';
 });
 const phaseClass = computed(() => {
+  if (updateStatus.value.pendingRequestId) return 'warn';
   const classes: Record<string, string> = {
     idle: '', running: 'warn', success: 'ok', failed: 'warn', unknown: '',
   };

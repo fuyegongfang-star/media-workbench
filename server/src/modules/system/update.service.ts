@@ -10,10 +10,12 @@ import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import {
   canTrigger,
+  hasPendingRequest,
   isHeartbeatFresh,
   normalizeCheck,
   normalizeStatus,
   parseJsonSafe,
+  str,
   tailLines,
   type RawCheckResult,
   type RawUpdateStatus,
@@ -22,6 +24,9 @@ import {
 export interface UpdateStatusView extends RawUpdateStatus {
   /** updater 容器心跳是否新鲜（决定按钮是否可点）。 */
   available: boolean;
+  /** 已投递但 updater 尚未接手的请求 id；非空时前端显示「排队中」并禁用按钮。 */
+  pendingRequestId: string;
+  pendingType: string;
   check: RawCheckResult | null;
   log: string[];
   serverTime: string;
@@ -64,13 +69,27 @@ export class UpdateService {
     }
   }
 
-  /** 系统设置页轮询：合并心跳 / 执行状态 / 检查结果 / 日志尾部。 */
+  /** 判断请求是否已投递但 updater 尚未接手（request.id 未写入 last-id）。 */
+  private async pendingRequest(): Promise<{ id: string; type: string }> {
+    const [requestRaw, lastIdRaw] = await Promise.all([
+      this.read('request.json'),
+      this.read('last-id'),
+    ]);
+    const parsed = parseJsonSafe(requestRaw);
+    const id = str(parsed?.id);
+    const lastId = (lastIdRaw ?? '').trim();
+    if (!hasPendingRequest(id, lastId)) return { id: '', type: '' };
+    return { id, type: str(parsed?.type) };
+  }
+
+  /** 系统设置页轮询：合并心跳 / 执行状态 / 排队请求 / 检查结果 / 日志尾部。 */
   async getStatus(): Promise<UpdateStatusView> {
-    const [heartbeatRaw, statusRaw, checkRaw, logRaw] = await Promise.all([
+    const [heartbeatRaw, statusRaw, checkRaw, logRaw, pending] = await Promise.all([
       this.read('heartbeat.json'),
       this.read('status.json'),
       this.read('check.json'),
       this.read('log.txt'),
+      this.pendingRequest(),
     ]);
     const heartbeat = parseJsonSafe(heartbeatRaw);
     const available = isHeartbeatFresh(heartbeat, Math.floor(Date.now() / 1000));
@@ -79,6 +98,8 @@ export class UpdateService {
     return {
       ...status,
       available,
+      pendingRequestId: pending.id,
+      pendingType: pending.type,
       check: normalizeCheck(parseJsonSafe(checkRaw)),
       log: tailLines(logRaw, 40),
       serverTime: new Date().toISOString(),
@@ -90,16 +111,17 @@ export class UpdateService {
    * 原子写（tmp + rename），避免 updater 读到半个 JSON。
    */
   async trigger(type: 'check' | 'apply', username: string): Promise<{ accepted: boolean; requestId: string }> {
-    const [heartbeatRaw, statusRaw] = await Promise.all([
+    const [heartbeatRaw, statusRaw, pending] = await Promise.all([
       this.read('heartbeat.json'),
       this.read('status.json'),
+      this.pendingRequest(),
     ]);
     const available = isHeartbeatFresh(
       parseJsonSafe(heartbeatRaw),
       Math.floor(Date.now() / 1000),
     );
     const phase = normalizeStatus(parseJsonSafe(statusRaw)).phase;
-    const gate = canTrigger(phase, available);
+    const gate = canTrigger(phase, available, Boolean(pending.id));
     if (!gate.ok) {
       if (!available) throw new ServiceUnavailableException(gate.reason);
       throw new ConflictException(gate.reason);

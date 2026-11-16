@@ -13,7 +13,8 @@ import { UpdateService } from '../dist/modules/system/update.service.js';
 
 const {
   parseJsonSafe, normalizeStatus, normalizeCheck, normalizePhase,
-  isHeartbeatFresh, tailLines, canTrigger, HEARTBEAT_MAX_AGE_SEC,
+  isHeartbeatFresh, tailLines, canTrigger, hasPendingRequest,
+  HEARTBEAT_MAX_AGE_SEC,
 } = util;
 
 const NOW = 1_700_000_000;
@@ -91,6 +92,18 @@ test('canTrigger: 无心跳 503 文案 / running 冲突 / 空闲放行', () => {
   assert.match(canTrigger('running', true).reason, /正在执行/);
   assert.equal(canTrigger('success', true).ok, true);
   assert.equal(canTrigger('unknown', true).ok, true);
+});
+
+test('hasPendingRequest + canTrigger: 请求排队时即使 phase=success 也拒绝连点', () => {
+  assert.equal(hasPendingRequest('req-1', ''), true);
+  assert.equal(hasPendingRequest('req-1', 'req-0'), true);
+  assert.equal(hasPendingRequest('req-1', 'req-1'), false);
+  assert.equal(hasPendingRequest('', ''), false);
+  // 这正是真机验证时暴露的窗口：status 还停在上一轮的 success
+  const gate = canTrigger('success', true, true);
+  assert.equal(gate.ok, false);
+  assert.match(gate.reason, /排队/);
+  assert.equal(canTrigger('success', true, false).ok, true);
 });
 
 // ---------- Service：文件协议 ----------
@@ -199,6 +212,43 @@ test('trigger: 坏状态文件不阻断请求（防御式解析）', async () =>
     await assert.rejects(
       () => svc.trigger('check', 'admin'),
       (e) => e?.getStatus?.() === 503,
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('getStatus: 未接手的 request 暴露 pendingRequestId / pendingType', async () => {
+  const { svc, root, dir } = await makeService();
+  try {
+    await mkdir(dir, { recursive: true });
+    await writeFile(join(dir, 'heartbeat.json'), JSON.stringify({ ts: Math.floor(Date.now() / 1000) }));
+    await writeFile(join(dir, 'status.json'), JSON.stringify({ phase: 'success', type: 'check' }));
+    await writeFile(join(dir, 'request.json'), JSON.stringify({ id: 'req-abc', type: 'apply' }));
+    const s = await svc.getStatus();
+    assert.equal(s.phase, 'success', 'status 仍是上一轮结果，不能只靠 phase 判断');
+    assert.equal(s.pendingRequestId, 'req-abc');
+    assert.equal(s.pendingType, 'apply');
+    await writeFile(join(dir, 'last-id'), 'req-abc');
+    const s2 = await svc.getStatus();
+    assert.equal(s2.pendingRequestId, '');
+    assert.equal(s2.pendingType, '');
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('trigger: 排队中重复提交被 409 拦截，防止连点入队两次更新', async () => {
+  const { svc, root, dir } = await makeService();
+  try {
+    await mkdir(dir, { recursive: true });
+    await writeFile(join(dir, 'heartbeat.json'), JSON.stringify({ ts: Math.floor(Date.now() / 1000) }));
+    await writeFile(join(dir, 'status.json'), JSON.stringify({ phase: 'success', type: 'check' }));
+    await writeFile(join(dir, 'request.json'), JSON.stringify({ id: 'req-old', type: 'check' }));
+    await writeFile(join(dir, 'last-id'), 'req-prev');
+    await assert.rejects(
+      () => svc.trigger('apply', 'admin'),
+      (e) => e?.getStatus?.() === 409,
     );
   } finally {
     await rm(root, { recursive: true, force: true });

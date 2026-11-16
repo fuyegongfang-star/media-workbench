@@ -132,19 +132,32 @@ export function tailLines(text: string | null, max: number): string[] {
 }
 
 /**
- * 触发前置条件：更新服务必须存活，且不能有任务正在跑。
+ * 请求是否已投递但 updater 尚未接手：request.json 的 id 还没写进 last-id。
+ * 这段窗口期内 status.json 仍是上一次的结果（例如 success），只看 phase 会误判为「已完成」，
+ * 导致按钮提前恢复可点、连点入队两次更新。因此必须单独判一次。
+ */
+export function hasPendingRequest(requestId: string, lastId: string): boolean {
+  return Boolean(requestId) && requestId !== lastId;
+}
+
+/**
+ * 触发前置条件：更新服务必须存活、不能有请求排队、不能有任务正在跑。
  * 注意 apply/check 共用 status.json 的 phase，运行中的 check 也会覆盖 apply 的进度，
  * 所以两种请求都受同一把锁约束。
  */
 export function canTrigger(
   phase: UpdatePhase,
   alive: boolean,
+  pending = false,
 ): { ok: boolean; reason: string } {
   if (!alive) {
     return {
       ok: false,
       reason: '更新服务未运行（未检测到 updater 心跳），请先在服务器执行 ./deploy/bootstrap.sh 或检查容器状态',
     };
+  }
+  if (pending) {
+    return { ok: false, reason: '已有更新请求排队等待执行，请稍候' };
   }
   if (phase === 'running') {
     return { ok: false, reason: '已有更新任务正在执行，请等待完成' };
