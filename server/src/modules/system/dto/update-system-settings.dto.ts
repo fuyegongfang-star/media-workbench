@@ -1,4 +1,4 @@
-import { IsObject, IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsBoolean, IsObject, IsOptional, IsString, MaxLength } from 'class-validator';
 
 /**
  * 站点设置更新 DTO（T1.8）：所有字段可选，未传字段保持原值。
@@ -33,4 +33,9 @@ export class UpdateSystemSettingsDto {
   @IsOptional()
   @IsObject()
   compliance?: Record<string, unknown>;
+
+  /** T6.4 是否允许自助注册（默认关闭，管理员显式开启后才开放）。 */
+  @IsOptional()
+  @IsBoolean()
+  allowRegistration?: boolean;
 }

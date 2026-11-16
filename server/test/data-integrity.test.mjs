@@ -14,12 +14,12 @@ const {
   buildAuditEventData,
 } = di;
 
-test('isSoftDeletable: 带 deletedAt 的实体为真，User/AuditEvent 为假', () => {
+test('isSoftDeletable: 带 deletedAt 的实体为真，AuditEvent 为假（T6.4 起 User 加入软删）', () => {
   assert.equal(isSoftDeletable('OwnedAccount'), true);
   assert.equal(isSoftDeletable('SourceMaterial'), true);
   assert.equal(isSoftDeletable('ContentProject'), true);
   assert.equal(isSoftDeletable('LaunchPlan'), true);
-  assert.equal(isSoftDeletable('User'), false);
+  assert.equal(isSoftDeletable('User'), true);
   assert.equal(isSoftDeletable('AuditEvent'), false);
   assert.equal(isSoftDeletable(undefined), false);
 });
@@ -37,8 +37,11 @@ test('withSoftDeleteFilter: 已显式 deletedAt 时尊重原意，不覆盖', ()
 test('withSoftDeleteFilter: 非读取操作或非软删模型不改动', () => {
   const a = withSoftDeleteFilter('SourceMaterial', 'delete', { where: { id: 'x' } });
   assert.equal(a.where?.deletedAt, undefined);
-  const b = withSoftDeleteFilter('User', 'findMany', {});
+  const b = withSoftDeleteFilter('AuditEvent', 'findMany', {});
   assert.equal(b.where, undefined);
+  // T6.4：User 现为软删模型，读取查询应注入 deletedAt:null
+  const c = withSoftDeleteFilter('User', 'findMany', {});
+  assert.deepEqual(c.where, { deletedAt: null });
 });
 
 test('buildSoftDeleteMutation: delete → update + 置 deletedAt', () => {
@@ -57,7 +60,9 @@ test('buildSoftDeleteMutation: deleteMany → updateMany + 空 where 兜底', ()
 
 test('buildSoftDeleteMutation: 非删除/非软删实体返回 null', () => {
   assert.equal(buildSoftDeleteMutation('Topic', 'update', {}), null);
-  assert.equal(buildSoftDeleteMutation('User', 'delete', {}), null);
+  assert.equal(buildSoftDeleteMutation('AuditEvent', 'delete', {}), null);
+  // T6.4：User 现为软删模型，delete 改写为 update + deletedAt
+  assert.equal(buildSoftDeleteMutation('User', 'delete', { where: { id: 'u1' } }).operation, 'update');
 });
 
 test('extractObjectId: create 取 result.id，update 取 where.id，批量记 many', () => {

@@ -5,6 +5,7 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { AccessTokenGuard } from './guards/access-token.guard';
 import { RefreshTokenGuard } from './guards/refresh-token.guard';
+import { RolesGuard } from './guards/roles.guard';
 
 /**
  * 认证模块（T1.2）：JWT(access+refresh) + argon2 + users 表。
@@ -21,7 +22,7 @@ import { RefreshTokenGuard } from './guards/refresh-token.guard';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, AccessTokenGuard, RefreshTokenGuard],
-  exports: [JwtModule, AccessTokenGuard, RefreshTokenGuard, AuthService],
+  providers: [AuthService, AccessTokenGuard, RefreshTokenGuard, RolesGuard],
+  exports: [JwtModule, AccessTokenGuard, RefreshTokenGuard, RolesGuard, AuthService],
 })
 export class AuthModule {}

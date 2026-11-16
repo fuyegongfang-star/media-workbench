@@ -17,6 +17,7 @@ export interface SiteSettingsView {
   appIdConfigured: boolean;
   appSecretConfigured: boolean;
   compliance: Record<string, unknown>;
+  allowRegistration: boolean; // T6.4 自助注册开关
   updatedAt: string | null;
 }
 
@@ -50,6 +51,7 @@ export class SystemService {
       appIdConfigured: Boolean(appIdEnc),
       appSecretConfigured: Boolean(appSecretEnc),
       compliance: (row?.compliance as Record<string, unknown>) ?? {},
+      allowRegistration: Boolean(row?.allowRegistration),
       updatedAt: row?.updatedAt ? row.updatedAt.toISOString() : null,
     };
   }
@@ -94,6 +96,10 @@ export class SystemService {
       defaultWechatAppIdEncrypted: appIdEnc,
       defaultWechatAppSecretEncrypted: appSecretEnc,
       compliance: compliance as Prisma.InputJsonValue,
+      allowRegistration:
+        dto.allowRegistration !== undefined
+          ? dto.allowRegistration
+          : Boolean(existing?.allowRegistration),
     };
 
     await this.prisma.client.siteConfig.upsert({
@@ -124,8 +130,12 @@ export class SystemService {
           'POST /api/auth/login',
           'POST /api/auth/refresh',
           'GET /api/auth/me',
+          'POST /api/auth/register',
+          'GET /api/auth/registration-status',
+          'POST /api/auth/change-password',
+          'GET/POST/PATCH/DELETE /api/users (仅 owner/admin)',
         ],
-        note: 'JWT(access+refresh) + argon2 单用户认证；登录查库与首期播种待 PG 环境联调。',
+        note: 'JWT(access+refresh) + argon2；自助注册可开关，用户管理含角色/禁用/改密/软删。',
       },
       tasks: {
         implemented: [

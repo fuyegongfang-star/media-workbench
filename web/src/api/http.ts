@@ -40,6 +40,7 @@ export interface SiteSettingsView {
   appIdConfigured: boolean;
   appSecretConfigured: boolean;
   compliance: Record<string, boolean>;
+  allowRegistration?: boolean;
   updatedAt: string | null;
 }
 
@@ -100,6 +101,7 @@ export async function saveSystemSettings(
     defaultWechatAppId?: string;
     defaultWechatAppSecret?: string;
     compliance?: Record<string, boolean>;
+    allowRegistration?: boolean;
   },
   timeoutMs = 5000,
 ): Promise<SiteSettingsView> {

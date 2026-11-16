@@ -1,19 +1,23 @@
 <template>
   <div class="sys">
-    <!-- 开发期令牌：系统设置写入接口需鉴权；生产由登录流程下发，此处仅用于本地联调 -->
+    <!-- 当前账号：登录态由登录页统一维护，令牌自动注入，无需手动粘贴 -->
     <section class="card">
-      <h2 class="card-title">访问令牌（开发/QA）</h2>
+      <h2 class="card-title">当前账号</h2>
       <div class="row">
-        <input
-          v-model="token"
-          class="input wide"
-          type="text"
-          placeholder="粘贴 Bearer 令牌（本地联调用，存于浏览器 localStorage）"
-        />
-        <button class="btn" @click="saveToken">保存令牌</button>
-        <button class="btn ghost" @click="clearToken">清除</button>
+        <span class="pill ok">{{ currentUser?.username ?? '未登录' }}</span>
+        <span class="pill">{{ roleLabel }}</span>
+        <span class="hint">登录态已自动管理；令牌过期会跳转登录页。</span>
       </div>
-      <p class="hint">提示：登录后从 /api/auth/login 响应中取 accessToken 填入；未填则设置读写接口返回 401。</p>
+      <div class="row" style="margin-top:10px">
+        <div class="field" style="flex:1;min-width:200px">
+          <label>修改本人口令</label>
+          <div class="row">
+            <input v-model="pwdForm.oldPassword" class="input" type="password" placeholder="原密码" />
+            <input v-model="pwdForm.newPassword" class="input" type="password" placeholder="新密码（至少 8 位）" />
+            <button class="btn" :disabled="changingPwd" @click="onChangePassword">{{ changingPwd ? '提交中…' : '修改' }}</button>
+          </div>
+        </div>
+      </div>
     </section>
 
     <!-- 状态总览：把已完成的认证/任务中心/备份/健康接入系统设置页（此前前端空白的根因） -->
@@ -116,6 +120,17 @@
           <label class="check"><input type="checkbox" v-model="form.compliance.autoSaveEnabled" /> 编辑器自动保存</label>
           <label class="check"><input type="checkbox" v-model="form.compliance.strictReview" /> 严格审核（发布前强制复核）</label>
         </div>
+      </div>
+
+      <div class="field">
+        <label>账号注册</label>
+        <div class="checks">
+          <label class="check">
+            <input type="checkbox" v-model="form.allowRegistration" />
+            允许自助注册（开启后登录页显示注册入口，新账号默认为「编辑」角色）
+          </label>
+        </div>
+        <p class="hint">默认关闭。开启前请确认已设置好初始管理员账号；注册用户无法自行提升角色。</p>
       </div>
 
       <div class="row">
@@ -224,12 +239,68 @@
       </div>
     </section>
 
+    <!-- 用户管理（T6.4）：仅 owner/admin 可用；角色/禁用/改密/软删 -->
+    <section class="card" v-if="canManageUsers">
+      <h2 class="card-title">用户管理</h2>
+      <p class="hint">管理可登录本工作台的账号。角色：所有者(owner) 拥有全部权限，管理员(admin) 可管理用户，编辑(editor) 仅使用业务功能。不能删除或禁用自己，也不能降级最后一个所有者。</p>
+
+      <div class="user-list">
+        <div v-for="u in users" :key="u.id" class="user-row">
+          <div class="user-main">
+            <span class="pill" :class="u.status === 'active' ? 'ok' : 'warn'">{{ u.status === 'active' ? '正常' : '已禁用' }}</span>
+            <b>{{ u.username }}</b>
+            <span class="pill">{{ roleLabelOf(u.role) }}</span>
+            <span class="muted">{{ u.id === currentUser?.id ? '（我）' : '' }}</span>
+          </div>
+          <div class="user-meta muted">
+            最近登录：{{ u.lastLoginAt ? formatDate(u.lastLoginAt) : '从未' }} · 创建：{{ formatDate(u.createdAt) }}
+          </div>
+          <div class="user-actions" v-if="u.id !== currentUser?.id">
+            <select class="input small-select" :value="u.role" @change="onRoleChange(u, ($event.target as HTMLSelectElement).value)">
+              <option value="owner">所有者</option>
+              <option value="admin">管理员</option>
+              <option value="editor">编辑</option>
+            </select>
+            <button class="btn small ghost" @click="onToggleStatus(u)">{{ u.status === 'active' ? '禁用' : '启用' }}</button>
+            <button class="btn small ghost" @click="openReset(u)">重置密码</button>
+            <button class="btn small danger" @click="onDeleteUser(u)">删除</button>
+          </div>
+        </div>
+        <p v-if="!users.length" class="hint">尚未加载到用户列表。</p>
+      </div>
+
+      <div class="create-user">
+        <h3 class="sub-title">新建账号</h3>
+        <div class="row">
+          <div class="field" style="flex:1;min-width:140px"><label>用户名</label><input v-model="newUser.username" class="input" placeholder="2-32 位字母数字" /></div>
+          <div class="field" style="flex:1;min-width:140px"><label>初始密码</label><input v-model="newUser.password" class="input" type="password" placeholder="至少 8 位" /></div>
+          <div class="field" style="width:130px"><label>角色</label>
+            <select v-model="newUser.role" class="input">
+              <option value="editor">编辑</option>
+              <option value="admin">管理员</option>
+              <option value="owner">所有者</option>
+            </select>
+          </div>
+          <button class="btn primary" :disabled="creatingUser" @click="onCreateUser">{{ creatingUser ? '创建中…' : '创建' }}</button>
+        </div>
+      </div>
+
+      <div v-if="resetTarget" class="reset-box">
+        <div class="row">
+          <span>为 <b>{{ resetTarget.username }}</b> 设置新密码：</span>
+          <input v-model="resetPassword" class="input" type="password" placeholder="至少 8 位" />
+          <button class="btn primary" :disabled="resetting" @click="onResetPassword">{{ resetting ? '提交中…' : '确认重置' }}</button>
+          <button class="btn ghost" @click="resetTarget = null">取消</button>
+        </div>
+      </div>
+    </section>
+
     <p v-if="message" class="message" :class="messageType">{{ message }}</p>
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, reactive, ref } from 'vue';
 import {
   fetchSystemStatus,
   fetchSystemSettings,
@@ -249,8 +320,19 @@ import {
   fetchProviders, saveProvider, updateProvider, deleteProvider,
   type ProviderView,
 } from '../api/http';
+import {
+  getUser, changePassword,
+  listUsers, createUser, updateUserRole, updateUserStatus,
+  resetUserPassword, deleteUser,
+  type UserView,
+} from '../api/auth';
 
-const token = ref<string>(localStorage.getItem('wb_token') ?? '');
+const currentUser = computed(() => getUser());
+const roleLabel = computed(() => {
+  const r = currentUser.value?.role;
+  return r === 'owner' ? '所有者' : r === 'admin' ? '管理员' : r === 'editor' ? '编辑' : '';
+});
+const canManageUsers = computed(() => ['owner', 'admin'].includes(currentUser.value?.role ?? ''));
 const status = ref<SystemStatus>({
   auth: { implemented: [], note: '' },
   tasks: { implemented: [], queueAvailable: false, note: '' },
@@ -265,6 +347,7 @@ const settings = ref<SiteSettingsView>({
   appIdConfigured: false,
   appSecretConfigured: false,
   compliance: { aiDisclosureRequired: true, autoSaveEnabled: true, strictReview: false },
+  allowRegistration: false,
   updatedAt: null,
 });
 
@@ -274,6 +357,7 @@ const form = reactive({
   defaultWechatAppId: '',
   defaultWechatAppSecret: '',
   compliance: { aiDisclosureRequired: true, autoSaveEnabled: true, strictReview: false },
+  allowRegistration: false,
 });
 
 const saving = ref(false);
@@ -307,16 +391,120 @@ const forwardKinds = reactive<Record<string, boolean>>({
 const savingNotif = ref(false);
 const busy = ref('');
 
-function saveToken() {
-  localStorage.setItem('wb_token', token.value.trim());
-  message.value = '令牌已保存到本地（仅本浏览器）';
+// ---- 用户管理（T6.4）----
+const users = ref<UserView[]>([]);
+const creatingUser = ref(false);
+const newUser = reactive({ username: '', password: '', role: 'editor' as UserView['role'] });
+const resetTarget = ref<UserView | null>(null);
+const resetPassword = ref('');
+const resetting = ref(false);
+const pwdForm = reactive({ oldPassword: '', newPassword: '' });
+const changingPwd = ref(false);
+
+function roleLabelOf(role: UserView['role']): string {
+  return role === 'owner' ? '所有者' : role === 'admin' ? '管理员' : '编辑';
+}
+function formatDate(iso: string): string {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? iso : d.toLocaleString('zh-CN', { hour12: false });
+}
+function notifyOk(text: string) {
+  message.value = text;
   messageType.value = 'ok';
 }
-function clearToken() {
-  localStorage.removeItem('wb_token');
-  token.value = '';
-  message.value = '令牌已清除';
-  messageType.value = 'ok';
+function notifyErr(e: unknown, prefix: string) {
+  message.value = `${prefix}：${e instanceof Error ? e.message : String(e)}`;
+  messageType.value = 'err';
+}
+
+async function loadUsers() {
+  if (!canManageUsers.value) return;
+  try {
+    users.value = (await listUsers()).items;
+  } catch (e) {
+    notifyErr(e, '用户列表加载失败');
+  }
+}
+
+async function onCreateUser() {
+  creatingUser.value = true;
+  try {
+    await createUser({ username: newUser.username.trim(), password: newUser.password, role: newUser.role });
+    newUser.username = '';
+    newUser.password = '';
+    notifyOk('账号已创建');
+    await loadUsers();
+  } catch (e) {
+    notifyErr(e, '创建失败');
+  } finally {
+    creatingUser.value = false;
+  }
+}
+
+async function onRoleChange(u: UserView, role: string) {
+  try {
+    await updateUserRole(u.id, role as UserView['role']);
+    notifyOk(`${u.username} 角色已更新`);
+    await loadUsers();
+  } catch (e) {
+    notifyErr(e, '改角色失败');
+    await loadUsers();
+  }
+}
+
+async function onToggleStatus(u: UserView) {
+  try {
+    await updateUserStatus(u.id, u.status === 'active' ? 'disabled' : 'active');
+    notifyOk(`${u.username} 状态已更新`);
+    await loadUsers();
+  } catch (e) {
+    notifyErr(e, '状态更新失败');
+  }
+}
+
+function openReset(u: UserView) {
+  resetTarget.value = u;
+  resetPassword.value = '';
+}
+
+async function onResetPassword() {
+  if (!resetTarget.value) return;
+  resetting.value = true;
+  try {
+    await resetUserPassword(resetTarget.value.id, resetPassword.value);
+    notifyOk(`${resetTarget.value.username} 密码已重置`);
+    resetTarget.value = null;
+    resetPassword.value = '';
+  } catch (e) {
+    notifyErr(e, '重置失败');
+  } finally {
+    resetting.value = false;
+  }
+}
+
+async function onDeleteUser(u: UserView) {
+  if (!window.confirm(`确认删除用户「${u.username}」？该操作不可自行恢复（管理员可重建同名账号）。`)) return;
+  try {
+    await deleteUser(u.id);
+    notifyOk(`${u.username} 已删除`);
+    await loadUsers();
+  } catch (e) {
+    notifyErr(e, '删除失败');
+  }
+}
+
+async function onChangePassword() {
+  changingPwd.value = true;
+  try {
+    await changePassword(pwdForm.oldPassword, pwdForm.newPassword);
+    pwdForm.oldPassword = '';
+    pwdForm.newPassword = '';
+    notifyOk('密码已修改');
+  } catch (e) {
+    notifyErr(e, '修改失败');
+  } finally {
+    changingPwd.value = false;
+  }
 }
 
 function healthUp(v: string): string {
@@ -333,6 +521,7 @@ function hydrateForm(s: SiteSettingsView) {
     autoSaveEnabled: Boolean(s.compliance.autoSaveEnabled),
     strictReview: Boolean(s.compliance.strictReview),
   };
+  form.allowRegistration = Boolean(s.allowRegistration);
 }
 
 async function loadAll() {
@@ -351,6 +540,7 @@ async function loadAll() {
     message.value = `设置加载失败：${(e as Error).message}`;
     messageType.value = 'err';
   }
+  await loadUsers();
 }
 
 async function save() {
@@ -362,6 +552,7 @@ async function save() {
     defaultWechatAppId: form.defaultWechatAppId,
     defaultWechatAppSecret: form.defaultWechatAppSecret,
     compliance: { ...form.compliance },
+    allowRegistration: form.allowRegistration,
   };
   try {
     const s = await saveSystemSettings(payload);
@@ -572,6 +763,19 @@ async function sendTestAlert() {
 </script>
 
 <style scoped>
+/* 用户管理（T6.4）*/
+.user-list { display: flex; flex-direction: column; gap: 8px; margin: 10px 0 16px; }
+.user-row { border: 1px solid var(--border, #2a2c3a); border-radius: 8px; padding: 10px 12px; }
+.user-main { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.user-meta { font-size: 12px; margin-top: 6px; }
+.user-actions { display: flex; align-items: center; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+.small-select { padding: 5px 8px; font-size: 12px; width: auto; }
+.create-user { border-top: 1px solid var(--border, #2a2c3a); padding-top: 12px; }
+.sub-title { font-size: 13px; font-weight: 600; margin: 0 0 10px; }
+.reset-box { margin-top: 12px; padding: 10px; border: 1px dashed var(--brand, #4f8cff); border-radius: 8px; font-size: 13px; }
+.btn.danger { color: #c0392b; border-color: #e6b0aa; }
+.btn.danger:hover { background: #fdecea; }
+
 .sys {
   display: flex;
   flex-direction: column;

@@ -20,6 +20,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { CommonModule } from './modules/common/common.module';
 import { CalendarModule } from './modules/calendar/calendar.module';
 import { RadarModule } from './modules/radar/radar.module';
+import { UsersModule } from './modules/users/users.module';
 
 @Module({
   imports: [
@@ -42,6 +43,7 @@ import { RadarModule } from './modules/radar/radar.module';
     AuthModule,
     CalendarModule,
     RadarModule,
+    UsersModule,
   ],
   controllers: [AppController],
 })

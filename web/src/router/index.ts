@@ -1,5 +1,8 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router';
 import BasicLayout from '../layouts/BasicLayout.vue';
+import { isLoggedIn } from '../api/auth';
+import LoginView from '../views/LoginView.vue';
+import RegisterView from '../views/RegisterView.vue';
 
 export interface NavItem {
   path: string;
@@ -26,6 +29,8 @@ export const navItems: NavItem[] = [
 ];
 
 const routes: RouteRecordRaw[] = [
+  { path: '/login', name: 'login', component: LoginView },
+  { path: '/register', name: 'register', component: RegisterView },
   {
     path: '/',
     component: BasicLayout,
@@ -53,4 +58,18 @@ const routes: RouteRecordRaw[] = [
 export const router = createRouter({
   history: createWebHistory(),
   routes,
+});
+
+// T6.4 路由守卫：未登录访问受保护页面 → 跳登录页并带回跳地址；
+// 已登录访问登录/注册页 → 直接回工作台。白名单仅 login/register。
+const PUBLIC_ROUTES = new Set(['/login', '/register']);
+router.beforeEach((to) => {
+  const loggedIn = isLoggedIn();
+  if (PUBLIC_ROUTES.has(to.path)) {
+    return loggedIn ? { path: '/dashboard' } : true;
+  }
+  if (!loggedIn) {
+    return { path: '/login', query: { redirect: to.fullPath } };
+  }
+  return true;
 });

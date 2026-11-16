@@ -22,7 +22,12 @@
     <main class="main">
       <header class="header">
         <h1 class="title">{{ currentLabel }}</h1>
-        <span class="badge">T1.1 工程骨架</span>
+        <span class="badge">v0.1.0</span>
+        <div class="user-area">
+          <span class="user-name">{{ currentUser?.username ?? '未登录' }}</span>
+          <span class="user-role">{{ roleLabel }}</span>
+          <button class="logout" type="button" @click="onLogout">退出</button>
+        </div>
       </header>
       <section class="content">
         <router-view />
@@ -33,14 +38,27 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { navItems } from '../router';
+import { getUser, clearTokens, type AuthUser } from '../api/auth';
 
 const route = useRoute();
+const router = useRouter();
 const currentLabel = computed(() => {
   const hit = navItems.find((item) => item.path === route.path);
   return hit ? hit.label : '工作台';
 });
+
+const currentUser = computed<AuthUser | null>(() => getUser());
+const roleLabel = computed(() => {
+  const r = currentUser.value?.role;
+  return r === 'owner' ? '所有者' : r === 'admin' ? '管理员' : r === 'editor' ? '编辑' : '';
+});
+
+function onLogout() {
+  clearTokens();
+  router.replace('/login');
+}
 </script>
 
 <style scoped>
@@ -130,6 +148,38 @@ const currentLabel = computed(() => {
   font-size: 16px;
   font-weight: 600;
   margin: 0;
+}
+
+.user-area {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.user-name {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.user-role {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.logout {
+  border: 1px solid var(--border);
+  background: #fff;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 12px;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.logout:hover {
+  color: var(--brand);
+  border-color: var(--brand);
 }
 
 .content {

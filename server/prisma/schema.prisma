@@ -27,6 +27,12 @@ enum UserRole {
   editor
 }
 
+// T6.4 用户管理：active 可登录，disabled 禁止登录（已删用户走 deletedAt 软删）。
+enum UserStatus {
+  active
+  disabled
+}
+
 enum OwnedAccountStatus {
   active
   paused
@@ -170,12 +176,15 @@ enum LaunchTaskStatus {
 
 // ============ 用户与账号 ============
 model User {
-  id           String   @id @default(uuid())
-  username     String   @unique
-  passwordHash String   @map("password_hash") // argon2 哈希，绝不存明文（T1.2）
-  role         UserRole @default(owner)
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  id           String     @id @default(uuid())
+  username     String     @unique
+  passwordHash String     @map("password_hash") // argon2 哈希，绝不存明文（T1.2）
+  role         UserRole   @default(editor) // T6.4：自助注册默认 editor，初始 owner 由播种显式指定
+  status       UserStatus @default(active) // T6.4：disabled 禁止登录
+  deletedAt    DateTime?  @map("deleted_at") // T6.4：软删（加入软删白名单）
+  lastLoginAt  DateTime?  @map("last_login_at") // T6.4：最近登录时间
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
 
   ownedAccounts        OwnedAccount[]    @relation("OwnedAccountUser")
   createdSourceMaterials SourceMaterial[] @relation("SourceMaterialCreatedBy")
@@ -817,6 +826,8 @@ model SiteConfig {
   notifications               Json     @default("{}")
   // T6.1 选题雷达配置：赛道词库 / 监控账号 / 输出条数 / 调度，单例站点配置内存放。
   radarConfig                 Json     @default("{}") @map("radar_config")
+  // T6.4 是否允许自助注册：默认关闭（安全默认），管理员在系统设置中开启。
+  allowRegistration           Boolean  @default(false) @map("allow_registration")
   createdAt                   DateTime @default(now()) @map("created_at")
   updatedAt                   DateTime @updatedAt @map("updated_at")
 

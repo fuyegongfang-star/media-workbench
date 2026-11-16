@@ -19,8 +19,10 @@ import { requestContext } from '../common/request-context';
  *    不依赖数据库即可单测。
  */
 
-// 带 deletedAt 字段的实体（与 schema.prisma 保持一致；User 无 deletedAt）。
+// 带 deletedAt 字段的实体（与 schema.prisma 保持一致）。
+// T6.4 起 User 加入软删白名单：删除用户=置 deletedAt，认证查询自动排除已删用户。
 export const SOFT_DELETE_MODELS = new Set<string>([
+  'User',
   'OwnedAccount',
   'ReferenceAccount',
   'SourceMaterial',
