@@ -10,7 +10,9 @@ import { decodeEntities, fetchText } from './collector-support';
  *    社区实例随时可能失效 → 实例列表集中配置、任一可用即成功、全部失败返回空（不阻断整轮）。
  *
  * YouTube：官方 feeds/videos.xml?channel_id= 为免费公开端点，无需 Key；
- *    本机对该端点返回 404（待环境/网络差异），故加 Jina Reader 读频道页兜底。
+ *    实测 2026-11-16 本机该端点返回 404，但频道页 /@handle/videos 返回 200 且内含
+ *    richItemRenderer 结构（videoId + 标题）。故三路降级：官方 feed → 频道页 HTML 直采 → Jina Reader。
+ *    频道页直采为零 Key 主路径，真机网络若官方 feed 可用则优先（带精确发布时间）。
  *
  * 账号条目不做关键词硬过滤（用户是主动指定盯这些号），但保留 matchesAny 供调用方选择；
  * 这里返回全部，由 RadarService 的赛道打分统一排序——盯号内容相关度可能低，仍会入池。
@@ -65,6 +67,31 @@ export function parseRssItems(xml: string, source: CollectorId, limit: number): 
   });
 }
 
+/** 解析 YouTube 频道页 HTML（richItemRenderer 块）：抽 videoId + 标题，零 Key 直采。 */
+export function parseYoutubeChannelHtml(html: string, channel: string, limit: number): RawCandidate[] {
+  const blocks = html.split('"richItemRenderer":').slice(1);
+  const seen = new Set<string>();
+  const out: RawCandidate[] = [];
+  for (const block of blocks) {
+    const id = block.match(/"videoId":"([\w-]{11})"/)?.[1];
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    const rawTitle =
+      block.match(/"lockupMetadataViewModel":\{"title":\{"content":"((?:[^"\\]|\\.)*)"/)?.[1] ??
+      block.match(/"title":\{"content":"((?:[^"\\]|\\.){2,200})"/)?.[1] ??
+      '';
+    const title = rawTitle ? decodeEntities(rawTitle) : `YouTube ${channel} 视频 ${id}`;
+    out.push({
+      title: title.slice(0, 2000),
+      url: `https://www.youtube.com/watch?v=${id}`,
+      sourceName: 'youtube_account' as const,
+      sourceType: 'rss' as const,
+    });
+    if (out.length >= limit) break;
+  }
+  return out;
+}
+
 /** 解析 Jina Reader 的 Markdown：抽取 x.com/<user>/status/<id> 链接作为候选。 */
 export function parseJinaTweets(markdown: string, handle: string, limit: number): RawCandidate[] {
   const ids = [...new Set([...markdown.matchAll(/x\.com\/[\w]+\/status\/(\d{15,25})/g)].map((m) => m[1]!))].slice(0, limit);
@@ -108,7 +135,7 @@ async function collectXAccounts(handles: string[], limit: number): Promise<RawCa
   return out;
 }
 
-/** YouTube 频道采集：官方 feed 优先，失败则 Jina 读频道页。 */
+/** YouTube 频道采集：官方 feed → 频道页 HTML 直采（零 Key 主路径）→ Jina 兜底。 */
 async function collectYoutubeChannels(channels: string[], limit: number): Promise<RawCandidate[]> {
   const out: RawCandidate[] = [];
   for (const raw of channels) {
@@ -117,6 +144,11 @@ async function collectYoutubeChannels(channels: string[], limit: number): Promis
     const feedUrl = ch.startsWith('UC')
       ? `https://www.youtube.com/feeds/videos.xml?channel_id=${ch}`
       : `https://www.youtube.com/${ch}/videos`;
+    const pageUrl = ch.startsWith('UC')
+      ? `https://www.youtube.com/channel/${ch}/videos`
+      : `https://www.youtube.com/${ch}/videos`;
+    let got = false;
+    // ① 官方 feed（带精确发布时间；本机 404 时降级）
     try {
       const xml = await fetchText(feedUrl);
       const entries = [...xml.matchAll(/<entry>([\s\S]*?)<\/entry>/g)].slice(0, limit);
@@ -132,17 +164,33 @@ async function collectYoutubeChannels(channels: string[], limit: number): Promis
       });
       if (items.length) {
         out.push(...items);
-        continue;
+        got = true;
       }
     } catch {
-      // 官方 feed 失败（本机 404），走 Jina 兜底
+      // 官方 feed 失败（本机 404），走频道页直采
     }
-    try {
-      const md = await fetchText(`https://r.jina.ai/https://www.youtube.com/${ch}/videos`);
-      const ids = [...new Set([...md.matchAll(/youtube\.com\/watch\?v=([\w-]{11})/g)].map((m) => m[1]!))].slice(0, limit);
-      out.push(...ids.map((id) => ({ title: `YouTube ${ch} 视频 ${id}`, url: `https://www.youtube.com/watch?v=${id}`, sourceName: 'youtube_account' as const, sourceType: 'rss' as const })));
-    } catch {
-      // 兜底失败：该频道本轮无条目
+    // ② 频道页 HTML 直采（实测本机可通、零 Key、带真实标题）
+    if (!got) {
+      try {
+        const html = await fetchText(pageUrl);
+        const items = parseYoutubeChannelHtml(html, ch, limit);
+        if (items.length) {
+          out.push(...items);
+          got = true;
+        }
+      } catch {
+        // 频道页不可达，走 Jina 兜底
+      }
+    }
+    // ③ Jina Reader 兜底
+    if (!got) {
+      try {
+        const md = await fetchText(`https://r.jina.ai/https://www.youtube.com/${ch}/videos`);
+        const ids = [...new Set([...md.matchAll(/youtube\.com\/watch\?v=([\w-]{11})/g)].map((m) => m[1]!))].slice(0, limit);
+        out.push(...ids.map((id) => ({ title: `YouTube ${ch} 视频 ${id}`, url: `https://www.youtube.com/watch?v=${id}`, sourceName: 'youtube_account' as const, sourceType: 'rss' as const })));
+      } catch {
+        // 兜底失败：该频道本轮无条目，不阻断其它频道
+      }
     }
   }
   return out;

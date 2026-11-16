@@ -116,7 +116,7 @@ test('fallbackTitles: 无 LLM 时仍产出指定数量的标题', () => {
 
 // ---------------- T6.3 盯号采集器（零 Key，纯函数部分）----------------
 import acct from '../dist/modules/radar/collectors/account.collector.js';
-const { cleanHandle, cleanChannel, parseRssItems, parseJinaTweets, toOriginalXUrl, XAccountCollector, YoutubeAccountCollector } = acct;
+const { cleanHandle, cleanChannel, parseRssItems, parseJinaTweets, parseYoutubeChannelHtml, toOriginalXUrl, XAccountCollector, YoutubeAccountCollector } = acct;
 
 test('cleanHandle: @handle / x.com URL / 纯串 归一化，去非法字符', () => {
   assert.equal(cleanHandle('@elonmusk'), 'elonmusk');
@@ -161,6 +161,26 @@ test('parseJinaTweets: 从 Markdown 抽 status id，去重并限条数', () => {
   assert.equal(out.length, 2);
   assert.equal(out[0].url, 'https://x.com/u/status/1234567890123456789');
   assert.equal(out[0].sourceName, 'x_account');
+});
+
+test('parseYoutubeChannelHtml: 频道页 richItemRenderer 抽真实标题/链接/去重/限条', () => {
+  const html = `<html>
+    <div>"richItemRenderer":{"content":{"lockupViewModel":{"contentId":"q6fgVVmdpgY",
+      "metadata":{"lockupMetadataViewModel":{"title":{"content":"我在现实中重现饥饿游戏"}}}}}},"videoId":"q6fgVVmdpgY"</div>
+    <div>"richItemRenderer":{"content":"...","videoId":"_c2e1NcI3Sc",
+      "lockupMetadataViewModel":{"title":{"content":"击败哈兰德 赢取 10 万美元"}}}</div>
+    <div>"richItemRenderer":{"content":"...","videoId":"q6fgVVmdpgY","title":{"content":"重复视频"}}</div>
+    <div>"richItemRenderer":{"content":"...","videoId":"RE3_PGwDwhw"}</div>
+  </html>`;
+  const out = parseYoutubeChannelHtml(html, '@MrBeast', 10);
+  assert.equal(out.length, 3); // 去重 q6fgVVmdpgY
+  assert.equal(out[0].title, '我在现实中重现饥饿游戏');
+  assert.equal(out[0].url, 'https://www.youtube.com/watch?v=q6fgVVmdpgY');
+  assert.equal(out[0].sourceName, 'youtube_account');
+  assert.equal(out[1].title, '击败哈兰德 赢取 10 万美元');
+  assert.equal(out[2].title, 'YouTube @MrBeast 视频 RE3_PGwDwhw'); // 无标题时兜底
+  const limited = parseYoutubeChannelHtml(html, '@MrBeast', 2);
+  assert.equal(limited.length, 2);
 });
 
 test('账号采集器：未配置账号时返回空，不触网', async () => {
