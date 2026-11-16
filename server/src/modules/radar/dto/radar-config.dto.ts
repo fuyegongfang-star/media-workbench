@@ -1,4 +1,4 @@
-import { IsArray, IsObject, IsOptional, IsString } from 'class-validator';
+import { IsArray, IsInt, IsObject, IsOptional, IsString, Max, Min } from 'class-validator';
 
 /** 前端提交的雷达配置；宽泛 DTO + 服务层 sanitizeConfig 双重清洗，防异常输入。 */
 export class RadarConfigDto {
@@ -30,6 +30,12 @@ export class RadarConfigDto {
   @IsOptional()
   @IsObject()
   monitoredAccounts?: { x?: string[]; youtube?: string[] };
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(90)
+  accountDedupeDays?: number;
 }
 
 export class ConvertRadarItemDto {

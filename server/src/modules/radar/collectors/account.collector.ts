@@ -27,28 +27,54 @@ const NITTER_INSTANCES = [
   'https://nitter.pp.ua',
 ];
 
-/** 用户名清洗：允许 @handle、x.com/handle、纯 handle，去掉空串与非法字符。 */
+/** 用户名清洗：接受 @handle / x.com(或twitter.com)/handle / 完整推文URL / 纯 handle（含无协议头域名）。 */
 export function cleanHandle(raw: string): string {
-  return String(raw ?? '')
+  const s = String(raw ?? '')
     .trim()
-    .replace(/^https?:\/\/(?:www\.)?(?:x\.com|twitter\.com)\//i, '')
-    .replace(/^@/, '')
-    .replace(/[/?#].*$/, '')
-    .replace(/[^A-Za-z0-9_]/g, '')
-    .slice(0, 30);
+    .replace(/^https?:\/\//i, '')
+    .replace(/^www\./i, '')
+    .replace(/^(?:x|twitter)\.com\//i, '');
+  return s.replace(/^@/, '').replace(/[/?#].*$/, '').replace(/[^A-Za-z0-9_]/g, '').slice(0, 30);
 }
 
-/** 频道标识清洗：支持完整 channel_id(UC...) 或 @handle；只保留安全字符。 */
+/** 频道标识清洗：接受 @handle / UC 频道 ID / 完整频道链接（含 /videos、无协议头），统一为 @handle 或 UC...。 */
 export function cleanChannel(raw: string): string {
-  const s = String(raw ?? '').trim().replace(/^https?:\/\/(?:www\.)?youtube\.com\//i, '');
-  if (s.startsWith('UC')) return s.replace(/[^A-Za-z0-9_-]/g, '').slice(0, 40);
-  return '@' + s.replace(/^@/, '').replace(/[^A-Za-z0-9_.-]/g, '').slice(0, 40);
+  const s = String(raw ?? '')
+    .trim()
+    .replace(/^https?:\/\//i, '')
+    .replace(/^www\./i, '');
+  // 完整频道链接：youtube.com/channel/UCxxx[/videos] → UCxxx
+  const byId = s.match(/^youtube\.com\/channel\/(UC[A-Za-z0-9_-]{10,})/i);
+  if (byId) return byId[1]!.slice(0, 40);
+  // 完整 handle 链接或裸 @handle：youtube.com/@xxx[/videos] / @xxx → @xxx
+  const byHandle = s.match(/(?:^youtube\.com\/)?@([A-Za-z0-9_.-]{1,40})/i);
+  if (byHandle) return '@' + byHandle[1];
+  // 裸频道 ID
+  if (/^UC[A-Za-z0-9_-]{10,}$/.test(s)) return s.slice(0, 40);
+  // 兜底：过滤非法字符
+  return '@' + s.replace(/[^A-Za-z0-9_.-]/g, '').slice(0, 40);
+}
+
+/** 解码 YouTube JSON 里的字符串转义（\u0026 / \n / \" 等）；rawTitle 是合法 JSON 字符串体，包引号后交给 JSON.parse。 */
+function decodeJsonString(raw: string): string {
+  try {
+    return JSON.parse(`"${raw}"`) as string;
+  } catch {
+    return raw; // 解析失败原样返回，不阻断采集
+  }
 }
 
 /** Nitter 镜像链接 → X 原帖链接（用户点开直达原平台；解析不出则原样保留）。 */
 export function toOriginalXUrl(nitterUrl: string): string {
   const m = nitterUrl.match(/\/([A-Za-z0-9_]+)\/status\/(\d{15,25})/);
   return m ? `https://x.com/${m[1]}/status/${m[2]}` : nitterUrl;
+}
+
+/** 安全日期转换：非法时间串返回 undefined，不抛 RangeError（坏数据只影响单条，不毁掉整源）。 */
+function toIsoDate(raw: string): string | undefined {
+  if (!raw) return undefined;
+  const ms = Date.parse(raw);
+  return Number.isFinite(ms) ? new Date(ms).toISOString() : undefined;
 }
 
 /** 解析 RSS <item>：Nitter 推文条目。X 来源的链接归一到 x.com 原帖。 */
@@ -60,7 +86,7 @@ export function parseRssItems(xml: string, source: CollectorId, limit: number): 
     let url = decodeEntities(block.match(/<link>([\s\S]*?)<\/link>/)?.[1] ?? '');
     if (url && source === 'x_account') url = toOriginalXUrl(url);
     const pub = block.match(/<pubDate>([\s\S]*?)<\/pubDate>/)?.[1] ?? '';
-    const pubDate = pub ? new Date(pub).toISOString() : undefined;
+    const pubDate = toIsoDate(pub);
     const content = decodeEntities(block.match(/<description>([\s\S]*?)<\/description>/)?.[1] ?? '');
     const text = title || content.slice(0, 140);
     return text ? [{ title: text.slice(0, 2000), url: url || undefined, sourceName: source, sourceType: 'rss' as const, ...(pubDate ? { publishedAt: pubDate } : {}) }] : [];
@@ -80,7 +106,7 @@ export function parseYoutubeChannelHtml(html: string, channel: string, limit: nu
       block.match(/"lockupMetadataViewModel":\{"title":\{"content":"((?:[^"\\]|\\.)*)"/)?.[1] ??
       block.match(/"title":\{"content":"((?:[^"\\]|\\.){2,200})"/)?.[1] ??
       '';
-    const title = rawTitle ? decodeEntities(rawTitle) : `YouTube ${channel} 视频 ${id}`;
+    const title = rawTitle ? decodeEntities(decodeJsonString(rawTitle)) : `YouTube ${channel} 视频 ${id}`;
     out.push({
       title: title.slice(0, 2000),
       url: `https://www.youtube.com/watch?v=${id}`,
@@ -141,33 +167,34 @@ async function collectYoutubeChannels(channels: string[], limit: number): Promis
   for (const raw of channels) {
     const ch = cleanChannel(raw);
     if (!ch) continue;
-    const feedUrl = ch.startsWith('UC')
-      ? `https://www.youtube.com/feeds/videos.xml?channel_id=${ch}`
-      : `https://www.youtube.com/${ch}/videos`;
-    const pageUrl = ch.startsWith('UC')
+    const isChannelId = ch.startsWith('UC');
+    const pageUrl = isChannelId
       ? `https://www.youtube.com/channel/${ch}/videos`
       : `https://www.youtube.com/${ch}/videos`;
     let got = false;
-    // ① 官方 feed（带精确发布时间；本机 404 时降级）
-    try {
-      const xml = await fetchText(feedUrl);
-      const entries = [...xml.matchAll(/<entry>([\s\S]*?)<\/entry>/g)].slice(0, limit);
-      const items = entries.flatMap((m) => {
-        const block = m[1] ?? '';
-        const title = decodeEntities(block.match(/<title>([\s\S]*?)<\/title>/)?.[1] ?? '');
-        const videoId = block.match(/<yt:videoId>([\s\S]*?)<\/yt:videoId>/)?.[1] ?? '';
-        const pub = block.match(/<published>([\s\S]*?)<\/published>/)?.[1] ?? '';
-        const publishedAt = pub ? new Date(pub).toISOString() : undefined;
-        return title
-          ? [{ title: title.slice(0, 2000), url: videoId ? `https://www.youtube.com/watch?v=${videoId}` : undefined, sourceName: 'youtube_account' as const, sourceType: 'rss' as const, ...(publishedAt ? { publishedAt } : {}) }]
-          : [];
-      });
-      if (items.length) {
-        out.push(...items);
-        got = true;
+    // ① 官方 feed（仅 UC 频道 ID 有此端点；带精确发布时间，本机 404 时降级）
+    //    @handle 没有对应 feed 端点，跳过以免与频道页直采重复请求同一 URL
+    if (isChannelId) {
+      try {
+        const xml = await fetchText(`https://www.youtube.com/feeds/videos.xml?channel_id=${ch}`);
+        const entries = [...xml.matchAll(/<entry>([\s\S]*?)<\/entry>/g)].slice(0, limit);
+        const items = entries.flatMap((m) => {
+          const block = m[1] ?? '';
+          const title = decodeEntities(block.match(/<title>([\s\S]*?)<\/title>/)?.[1] ?? '');
+          const videoId = block.match(/<yt:videoId>([\s\S]*?)<\/yt:videoId>/)?.[1] ?? '';
+          const pub = block.match(/<published>([\s\S]*?)<\/published>/)?.[1] ?? '';
+          const publishedAt = toIsoDate(pub);
+          return title
+            ? [{ title: title.slice(0, 2000), url: videoId ? `https://www.youtube.com/watch?v=${videoId}` : undefined, sourceName: 'youtube_account' as const, sourceType: 'rss' as const, ...(publishedAt ? { publishedAt } : {}) }]
+            : [];
+        });
+        if (items.length) {
+          out.push(...items);
+          got = true;
+        }
+      } catch {
+        // 官方 feed 失败（本机 404），走频道页直采
       }
-    } catch {
-      // 官方 feed 失败（本机 404），走频道页直采
     }
     // ② 频道页 HTML 直采（实测本机可通、零 Key、带真实标题）
     if (!got) {

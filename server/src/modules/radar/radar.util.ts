@@ -80,8 +80,11 @@ export function sanitizeConfig(input: unknown): RadarConfig {
     youtube: strArray(acc.youtube, 50),
   };
 
-  // 去重窗口：0=关闭，1-90 天；非法值回落默认 7
-  const dedupeRaw = Number(raw.accountDedupeDays);
+  // 去重窗口：0=关闭，1-90 天；仅明确的数字/非空数字串才解析，null/''/缺失一律回落默认 7
+  const dedupeVal = raw.accountDedupeDays;
+  const dedupeRaw = typeof dedupeVal === 'number' || (typeof dedupeVal === 'string' && dedupeVal.trim() !== '')
+    ? Number(dedupeVal)
+    : NaN;
   const accountDedupeDays = Number.isFinite(dedupeRaw)
     ? Math.max(0, Math.min(90, Math.floor(dedupeRaw)))
     : 7;

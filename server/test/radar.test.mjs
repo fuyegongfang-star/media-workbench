@@ -133,6 +133,19 @@ test('cleanChannel: UC 频道 ID 与 @handle 均可，去掉不安全字符', ()
   assert.equal(cleanChannel('https://www.youtube.com/@NeoLab'), '@NeoLab');
 });
 
+test('cleanChannel: 完整频道链接（含 /videos、channel/UC、无协议头）不把路径拼进账号名', () => {
+  assert.equal(cleanChannel('https://www.youtube.com/@MrBeast/videos'), '@MrBeast');
+  assert.equal(cleanChannel('https://www.youtube.com/channel/UCX6OQ3DkcsbYNE6H8uQQuVA'), 'UCX6OQ3DkcsbYNE6H8uQQuVA');
+  assert.equal(cleanChannel('https://www.youtube.com/channel/UCX6OQ3DkcsbYNE6H8uQQuVA/videos'), 'UCX6OQ3DkcsbYNE6H8uQQuVA');
+  assert.equal(cleanChannel('youtube.com/@MrBeast'), '@MrBeast');
+});
+
+test('cleanHandle: 无协议头域名与完整推文链接归一到 handle', () => {
+  assert.equal(cleanHandle('x.com/OpenAI'), 'OpenAI');
+  assert.equal(cleanHandle('twitter.com/foo'), 'foo');
+  assert.equal(cleanHandle('https://x.com/elonmusk/status/1234567890123'), 'elonmusk');
+});
+
 test('parseRssItems: Nitter RSS 解析出标题/链接/时间，限条数', () => {
   const xml = `<?xml version="1.0"?><rss><channel>
     <item><title>第一条推文</title><link>https://x.com/u/status/111</link><pubDate>Mon, 16 Nov 2026 06:53:33 GMT</pubDate><description>d1</description></item>
@@ -150,6 +163,17 @@ test('parseRssItems: Nitter RSS 解析出标题/链接/时间，限条数', () =
   assert.equal(all[2].publishedAt, undefined); // 无 pubDate 的条目不加时间字段
 });
 
+test('parseRssItems: 非法 pubDate 只影响单条时间，不抛错拖垮整个来源', () => {
+  const xml = `<rss><channel>
+    <item><title>坏时间推文</title><link>https://x.com/u/status/111</link><pubDate>not-a-real-date</pubDate></item>
+    <item><title>正常推文</title><link>https://x.com/u/status/222</link><pubDate>Mon, 16 Nov 2026 06:53:33 GMT</pubDate></item>
+  </channel></rss>`;
+  const out = parseRssItems(xml, 'x_account', 10);
+  assert.equal(out.length, 2, '坏时间条目仍应保留，只是无 publishedAt');
+  assert.equal(out[0].publishedAt, undefined);
+  assert.match(out[1].publishedAt, /^2026-11-16T06:53:33/);
+});
+
 test('toOriginalXUrl: Nitter 镜像链接转 x.com 原帖', () => {
   assert.equal(toOriginalXUrl('http://nitter.mie.foundation/elonmusk/status/2122221516867895726#m'), 'https://x.com/elonmusk/status/2122221516867895726');
   assert.equal(toOriginalXUrl('https://x.com/u/status/1234567890123456789'), 'https://x.com/u/status/1234567890123456789');
@@ -162,6 +186,15 @@ test('parseJinaTweets: 从 Markdown 抽 status id，去重并限条数', () => {
   assert.equal(out.length, 2);
   assert.equal(out[0].url, 'https://x.com/u/status/1234567890123456789');
   assert.equal(out[0].sourceName, 'x_account');
+});
+
+test('parseYoutubeChannelHtml: JSON 转义标题解码（\\u0026/\\n/\\"）不残留字面量', () => {
+  const html = '<div>"richItemRenderer":{"lockupMetadataViewModel":{"title":{"content":"A &amp; B \\u0026 C \\nnewline \\"quoted\\""}}},"videoId":"abc12345678"</div>';
+  const out = parseYoutubeChannelHtml(html, '@test', 5);
+  assert.equal(out.length, 1);
+  assert.ok(!out[0].title.includes('\\u0026'), '不应残留 \\u0026 字面量');
+  assert.ok(!out[0].title.includes('\\n'), '不应残留 \\n 字面量');
+  assert.ok(out[0].title.includes('&') && out[0].title.includes('"'), '应解出 & 与引号');
 });
 
 test('parseYoutubeChannelHtml: 频道页 richItemRenderer 抽真实标题/链接/去重/限条', () => {
@@ -186,6 +219,9 @@ test('parseYoutubeChannelHtml: 频道页 richItemRenderer 抽真实标题/链接
 
 test('sanitizeConfig: accountDedupeDays 夹逼 0-90、非法回落 7、0 关闭', () => {
   assert.equal(sanitizeConfig({}).accountDedupeDays, 7);
+  // 空值/null 不得误当 0 关闭去重（回归：曾把 null/'' 解析为 0）
+  assert.equal(sanitizeConfig({ accountDedupeDays: null }).accountDedupeDays, 7);
+  assert.equal(sanitizeConfig({ accountDedupeDays: '' }).accountDedupeDays, 7);
   assert.equal(sanitizeConfig({ accountDedupeDays: 0 }).accountDedupeDays, 0);
   assert.equal(sanitizeConfig({ accountDedupeDays: 999 }).accountDedupeDays, 90);
   assert.equal(sanitizeConfig({ accountDedupeDays: -5 }).accountDedupeDays, 0);

@@ -115,21 +115,39 @@ export class RadarService {
     const cfg = await this.getConfig();
     const keywords = cfg.niches.filter((n) => n.enabled).flatMap((n) => n.keywords);
 
-    // runDate 唯一：同日重复触发直接复用已有运行，避免任务堆积把简报刷掉（幂等）。
-    const existing = await this.prisma.client.radarRun.findUnique({ where: { runDate } });
-    if (existing && existing.status === 'success') {
-      this.logger.log(`radar ${dayKey} 已有成功简报，跳过重复采集`);
-      return;
-    }
-
-    const run =
-      existing ??
-      (await this.prisma.client.radarRun.create({
+    // runDate 唯一 + 原子抢占：同日只允许一个执行实例（业务 worker 并发度 4，调度改时间也可能双触发）。
+    // create 抢首次（并发下仅一个成功）；P2002 说明别人已建行 → success/running 都跳过，
+    // 只有 failed 允许重跑，且用条件 updateMany(status:'failed') 二次抢占，count=0 表示别人已抢。
+    let runId: string;
+    try {
+      const created = await this.prisma.client.radarRun.create({
         data: { runDate, status: 'running', taskId: typeof p.taskId === 'string' ? p.taskId : null },
-      }));
-    if (existing) {
-      await this.prisma.client.radarRun.update({ where: { id: existing.id }, data: { status: 'running', error: null } });
+      });
+      runId = created.id;
+    } catch (error: unknown) {
+      const isUnique = typeof error === 'object' && error !== null && (error as { code?: string }).code === 'P2002';
+      if (!isUnique) throw error;
+      const existing = await this.prisma.client.radarRun.findUnique({ where: { runDate } });
+      if (!existing || existing.status === 'success') {
+        this.logger.log(`radar ${dayKey} 已有成功简报或行已消失，跳过重复采集`);
+        return;
+      }
+      if (existing.status === 'running') {
+        this.logger.log(`radar ${dayKey} 正在被另一实例采集，本实例跳过`);
+        return;
+      }
+      // 仅 failed 可重跑；原子条件更新，两个重跑实例只有一个能拿到 count=1
+      const claimed = await this.prisma.client.radarRun.updateMany({
+        where: { id: existing.id, status: 'failed' },
+        data: { status: 'running', error: null },
+      });
+      if (claimed.count === 0) {
+        this.logger.log(`radar ${dayKey} 重跑已被其它实例抢占，本实例跳过`);
+        return;
+      }
+      runId = existing.id;
     }
+    const run = { id: runId };
 
     try {
       // 1) 采集：逐源降级（账号类采集器收到监控账号清单）
@@ -185,9 +203,17 @@ export class RadarService {
       });
       const ranked = dedupeAndRank(scored, cfg.output.totalItems);
       if (!ranked.length) {
+        // 重跑场景：先清空本 run 可能残留的旧条目并重置计数，避免 failed 状态却展示旧简报（数据不一致）
+        await this.prisma.client.radarItem.deleteMany({ where: { runId: run.id } });
         await this.prisma.client.radarRun.update({
           where: { id: run.id },
-          data: { status: 'failed', error: '所有数据源均未返回条目（待环境/反爬）', sourceStats: sourceStats as Prisma.InputJsonValue },
+          data: {
+            status: 'failed',
+            error: '所有数据源均未返回条目（待环境/反爬）',
+            sourceStats: sourceStats as Prisma.InputJsonValue,
+            itemCount: 0,
+            featuredCount: 0,
+          },
         });
         return;
       }
@@ -258,7 +284,8 @@ export class RadarService {
       where: isDate
         ? { runDate: new Date(`${idOrDate}T00:00:00.000Z`) }
         : { OR: [{ id: idOrDate }, { taskId: idOrDate }] },
-      include: { items: { orderBy: [{ tier: 'asc' }, { rank: 'asc' }] } },
+      // rank 全局递增且 featured 在前；只按 rank 排序即可，避免 tier 字符串序（candidate<featured）把主推排到后面
+      include: { items: { orderBy: [{ rank: 'asc' }] } },
     });
     if (!run) throw new NotFoundException(`雷达简报不存在：${idOrDate}`);
     return {
@@ -288,35 +315,50 @@ export class RadarService {
     if (item.convertedTopicId) return { topicId: item.convertedTopicId };
 
     const titles = (item.titles as unknown as RadarTitle[]) ?? [];
-    const topic = await this.prisma.client.topic.create({
-      data: {
-        title: item.title.slice(0, 2000),
-        angle: item.angle,
-        tags: [item.niche ?? '选题雷达', item.sourceName] as unknown as Prisma.InputJsonValue,
-        sourceType: 'radar',
-        status: 'draft',
-      },
-    });
-    for (const t of titles.slice(0, 5)) {
-      if (!t.text) continue;
-      await this.prisma.client.titleCandidate.create({
+    // 事务保证原子性：中途 titleCandidate 建失败不留孤儿 Topic；
+    // 回写用条件 update（convertedTopicId:null）做乐观抢占，抢不到则回滚，避免并发重复转出。
+    const topicId = await this.prisma.client.$transaction(async (tx) => {
+      const claimed = await tx.radarItem.updateMany({
+        where: { id: itemId, convertedTopicId: null },
+        data: { convertedTopicId: '__pending__' },
+      });
+      if (claimed.count === 0) {
+        // 已被其它请求转出：返回已存在的 id（如果可见），否则视为重复请求
+        const latest = await tx.radarItem.findUnique({ where: { id: itemId } });
+        if (latest?.convertedTopicId && latest.convertedTopicId !== '__pending__') return latest.convertedTopicId;
+        throw new Error('该条目正在被转换为选题，请稍后重试');
+      }
+      const topic = await tx.topic.create({
         data: {
-          topicId: topic.id,
-          text: t.text,
-          basis: t.basis ?? null,
-          score: t.score ?? null,
-          tags: [] as unknown as Prisma.InputJsonValue,
-          selected: false,
+          title: item.title.slice(0, 2000),
+          angle: item.angle,
+          tags: [item.niche ?? '选题雷达', item.sourceName] as unknown as Prisma.InputJsonValue,
+          sourceType: 'radar',
           status: 'draft',
         },
       });
-    }
-    await this.prisma.client.radarItem.update({
-      where: { id: itemId },
-      data: { convertedTopicId: topic.id },
+      for (const t of titles.slice(0, 5)) {
+        if (!t.text) continue;
+        await tx.titleCandidate.create({
+          data: {
+            topicId: topic.id,
+            text: t.text,
+            basis: t.basis ?? null,
+            score: t.score ?? null,
+            tags: [] as unknown as Prisma.InputJsonValue,
+            selected: false,
+            status: 'draft',
+          },
+        });
+      }
+      await tx.radarItem.update({
+        where: { id: itemId },
+        data: { convertedTopicId: topic.id },
+      });
+      return topic.id;
     });
-    this.logger.log(`雷达条目 ${itemId} 已转选题 ${topic.id}（用户 ${userId ?? 'system'}）`);
-    return { topicId: topic.id };
+    this.logger.log(`雷达条目 ${itemId} 已转选题 ${topicId}（用户 ${userId ?? 'system'}）`);
+    return { topicId };
   }
 
   // ---------- 内部 ----------
@@ -379,11 +421,15 @@ export class RadarService {
             { model: resolved.model, temperature: 0.8, maxTokens: 2000 },
           );
           const parsed = parseRadarTitles(result.text, '', batch.length * count);
+          // prompt 要求按输入顺序、每项 count 个连续输出 → 按 count 连续分块；
+          // 数量不足/不均时逐项补模板，绝不用取模分组（会把标题错配到别的选题）
           if (parsed.length >= batch.length) {
-            // 按输入顺序均分：解析结果数量可能不等于 batch*count，用索引取模兜底
-            batch.forEach((_, i) => {
-              const picked = parsed.filter((__, j) => j % batch.length === i).slice(0, count);
-              out.push(picked.length ? picked : fallbackTitles(batch[i]?.title ?? '', batch[i]?.niche, count));
+            batch.forEach((item, i) => {
+              const picked = parsed.slice(i * count, (i + 1) * count);
+              const filled = picked.length >= count
+                ? picked
+                : [...picked, ...fallbackTitles(item.title, item.niche, count - picked.length)];
+              out.push(filled.slice(0, count));
             });
             continue;
           }

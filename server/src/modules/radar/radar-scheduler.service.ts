@@ -77,19 +77,21 @@ export class RadarSchedulerService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  /** 配置更新后调用：按新的 time 重建 repeatable job（先删后加，jobId 固定防堆积）。 */
+  /**
+   * 配置更新后调用：用 BullMQ v5 原生 job scheduler 按 id 覆盖（upsert）。
+   * 关键：创建与删除必须用同一个 schedulerId，否则改时间会残留旧 scheduler 导致双触发；
+   * 旧的 queue.add(name,data,{jobId,repeat}) 写法生成的 scheduler id 与裸 jobId 不匹配，已废弃。
+   */
   async upsertSchedule(time: string): Promise<{ enabled: boolean; cron: string; available: boolean }> {
     const cron = this.toUtcCron(time);
     if (!this.queue || !this.available) return { enabled: false, cron, available: false };
-    await this.removeSchedule();
-    await this.queue.add(
-      SCHEDULER_JOB_NAME,
-      { runDate: 'auto' } satisfies RadarSchedulePayload,
+    await this.queue.upsertJobScheduler(
+      SCHEDULER_JOB_ID,
+      { pattern: cron, tz: 'UTC' },
       {
-        jobId: SCHEDULER_JOB_ID,
-        repeat: { pattern: cron, tz: 'UTC' },
-        removeOnComplete: 30,
-        removeOnFail: 30,
+        name: SCHEDULER_JOB_NAME,
+        data: { runDate: 'auto' } satisfies RadarSchedulePayload,
+        opts: { removeOnComplete: 30, removeOnFail: 30 },
       },
     );
     this.logger.log(`雷达定时任务已设置：本地 ${time}（UTC cron=${cron}）`);
@@ -101,13 +103,7 @@ export class RadarSchedulerService implements OnModuleInit, OnModuleDestroy {
     try {
       await this.queue.removeJobScheduler(SCHEDULER_JOB_ID);
     } catch {
-      /* 老版本 BullMQ 无 removeJobScheduler 时忽略，依赖 jobId 覆盖 */
-    }
-    try {
-      const job = await this.queue.getJob(SCHEDULER_JOB_ID);
-      if (job) await job.remove();
-    } catch {
-      /* no-op */
+      /* scheduler 不存在时忽略 */
     }
   }
 
