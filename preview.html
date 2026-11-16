@@ -230,9 +230,9 @@
     <div class="nav-item" data-view="account"><span class="nav-icon">☰</span><span class="nav-label">账号与策略</span><span class="nav-phase">真实 UI</span></div>
     <div class="side-foot">
       检查点 <b>已对齐 T5.2</b><br />
-      34 项全完成 + T6.1-T6.4 · 0 阻塞<br />
-      单测 373/373 通过<br />
-      选题雷达·盯号·用户管理 · 已真机部署
+      34 项全完成 + T6.1-T6.5 · 0 阻塞<br />
+      单测 385/385 通过<br />
+      选题雷达·盯号·用户管理·在线更新 · 已真机部署
     </div>
   </aside>
 
@@ -240,7 +240,7 @@
     <div class="topbar">
       <h1 id="pageTitle">进展总览</h1>
       <span class="tag blue">离线快照 · 无需服务</span>
-      <span class="tag ok">373/373 单测</span>
+      <span class="tag ok">385/385 单测</span>
       <span class="tag ok">真机已部署 · PG/Redis up</span>
       <span class="spacer"></span>
       <span class="stamp">数据截止 2026-11-10 07:07 · 生成于 11-10 21:05</span>
@@ -259,7 +259,7 @@
         <div class="section-title"><span class="bar"></span>关键指标</div>
         <div class="grid g4">
           <div class="kpi"><div class="num ok">34</div><div class="lbl">已完成功能项</div><div class="sub">T1.1–T1.10 / T2.1–T2.5 / T3.1–T3.11 / T4.1–T4.6 / T5.1–T5.2</div></div>
-          <div class="kpi"><div class="num blue">373</div><div class="lbl">单测全量通过</div><div class="sub">373 pass / 0 fail · 30 测试文件（含用户管理 12 项）</div></div>
+          <div class="kpi"><div class="num blue">385</div><div class="lbl">单测全量通过</div><div class="sub">385 pass / 0 fail · 31 测试文件（含在线更新 12 项）</div></div>
           <div class="kpi"><div class="num ok">T6.1</div><div class="lbl">选题雷达新增</div><div class="sub">11-16 手工开发：免费源采集 + 打分出标题 + 一键转选题 + LLM 供应商管理</div></div>
           <div class="kpi"><div class="num warn">3</div><div class="lbl">待补外部条件</div><div class="sub">PG16 · Redis · LLM 密钥</div></div>
         </div>
@@ -542,13 +542,19 @@
           <p class="hint">仅 owner/admin 可访问：用户列表 / 建号 / 改角色 / 禁用启用 / 重置密码 / 软删；不能删自己或降级最后一个 owner。"允许自助注册"开关默认关闭，开启后登录页显示注册入口，新账号固定 editor。账号密码经 argon2 哈希，列表绝不含哈希。真机端到端 15/15 通过，禁用后登录返回 401。</p>
           <div class="kv"><span>注册 / 用户管理端点</span><b class="up">POST /auth/register · GET /users · PATCH /users/:id/role|status · 改密 · 软删</b></div>
         </div>
+        <div class="card" style="margin-bottom:16px"><h3>版本与在线更新 <span class="pill ok">T6.5 新增 · 真机已验</span></h3>
+          <p class="hint">代码来自 GitHub <code>main</code> 分支。api 只往共享卷写请求文件，独立 <code>updater</code> 容器执行 git pull → 自动备份 → 只重建 api/web（不重建自身）→ 健康检查。仅 owner 可触发，页面 3s 轮询进度并显示实时日志；服务短暂中断 1-3 分钟。</p>
+          <div class="kv"><span>更新服务</span><b class="up">在线 · 心跳正常 · 状态/日志经共享卷回传</b></div>
+          <div class="kv"><span>端点</span><b class="up">GET /system/update/status · POST /system/update/check · POST /system/update/apply（仅 owner）</b></div>
+          <div class="kv"><span>安全边界</span><b class="up">docker.sock 只挂 updater，api/web 零额外权限；防并发 409 · 离线 503 · ff-only 不覆盖本地改动</b></div>
+        </div>
         <div class="card" style="margin-bottom:16px"><h3>状态总览 <span class="pill ok">此前空白已修复</span></h3>
           <div class="grid g4" style="gap:12px">
             <div class="card" style="background:var(--panel-2)"><span class="pill ok">JWT + argon2</span><ul class="tiny"><li>双令牌</li><li>users 表</li><li>登录守卫</li></ul></div>
             <div class="card" style="background:var(--panel-2)"><span class="pill warn">队列待环境</span><ul class="tiny"><li>BullMQ 队列</li><li>状态机</li><li>SSE 推送</li></ul></div>
             <div class="card" style="background:var(--panel-2)"><span class="pill ok">脚本就绪</span><ul class="tiny"><li>pg_dump</li><li>rsync</li><li>restore.md</li></ul></div>
-            <div class="card" style="background:var(--panel-2)"><span class="pill err">依赖未就绪</span>
-              <div class="kv"><span>PostgreSQL</span><b class="down">待环境</b></div><div class="kv"><span>Redis</span><b class="down">待环境</b></div>
+            <div class="card" style="background:var(--panel-2)"><span class="pill ok">真机依赖已就绪</span>
+              <div class="kv"><span>PostgreSQL</span><b class="up">up</b></div><div class="kv"><span>Redis</span><b class="up">up</b></div>
             </div>
           </div>
         </div>

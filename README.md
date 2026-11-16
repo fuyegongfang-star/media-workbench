@@ -16,7 +16,7 @@
 </div>
 
 > [!IMPORTANT]
-> **诚实前置声明**：项目在开发环境通过构建、类型检查与 332 个单元测试，但**从未在真实 PostgreSQL / Redis / LLM 上跑通完整链路**。22 个迁移、登录 round-trip、BullMQ 消费、真实模型调用、Docker 镜像构建都属于首次上线验证项。健康检查在依赖不可用时如实返回 `unavailable`，不伪造通过。上线前请按 [部署指南第六节](deploy/README.md) 逐条验收。
+> **部署状态**：已在真实云服务器（Ubuntu + Docker Compose）跑通全套服务：24 个迁移、PostgreSQL / Redis 连通、登录与用户管理端到端验证、385 个单元测试、镜像构建与健康检查均通过。仍未验证的是真实 LLM 供应商密钥调用、搜狗微信反爬与长期定时调度（需业务侧 Key 或观察周期）。健康检查在依赖不可用时如实返回 `unavailable`，不伪造通过。上线前请按 [部署指南第六节](deploy/README.md) 逐条验收。
 
 ---
 
@@ -64,11 +64,14 @@ cd /opt/media-workbench
 | 改对外端口 | `./deploy/bootstrap.sh --port 9000` |
 | 只生成配置自检，不启动 | `./deploy/bootstrap.sh --env-only` |
 | 已有镜像，快速重启 | `./deploy/bootstrap.sh --no-build` |
-| 更新版本（自动增量迁移） | `git pull && ./deploy/bootstrap.sh` |
+| 更新版本（自动增量迁移） | 后台「系统设置 → 版本与更新 → 一键更新」；或命令行 `git pull && ./deploy/bootstrap.sh` |
 | 完整备份（库 + 附件） | `./deploy/backup.sh` |
 
 > [!WARNING]
 > 默认绑 `0.0.0.0` 且是 **HTTP 明文**。公网部署请在前面挂反代并启用 HTTPS，防火墙 + 云安全组只开 80/443，勿暴露 8080 / 5432 / 6379。首次登录后**立即修改初始口令**，并离线备份 `.env`（`APP_MASTER_KEY` 丢失则已加密数据不可解密）。
+
+> [!TIP]
+> **后台一键在线更新**：部署完成后不必再登录服务器。用所有者账号进入「系统设置 → 版本与更新」，即可对比 GitHub 上的最新提交、一键拉取并重建 api / web，全程显示实时日志，更新前自动备份数据库与附件。实现原理、权限边界与关闭方式见 **[部署指南第八节](deploy/README.md)**。
 
 完整步骤、宝塔面板逐步操作、首次上线 10 项核验清单、故障对照表与回滚见 **[`deploy/README.md`](deploy/README.md)**。
 

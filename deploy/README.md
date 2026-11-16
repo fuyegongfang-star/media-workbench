@@ -23,7 +23,8 @@ cd /opt/media-workbench
 ./deploy/bootstrap.sh --port 9000                               # 改对外端口
 ./deploy/bootstrap.sh --env-only                                # 只生成 .env 供自检
 ./deploy/bootstrap.sh --no-build                                # 已有镜像，快速重启
-git pull && ./deploy/bootstrap.sh                               # 更新版本（自动增量迁移）
+git pull && ./deploy/bootstrap.sh                               # 更新版本（命令行，自动增量迁移）
+# 后台一键更新：系统设置 → 版本与更新 → 一键更新（无需登录服务器，见第八节）
 ```
 
 脚本自动完成：生成 64 位 `APP_MASTER_KEY`、96 位 `JWT_SECRET`、48 位数据库口令与 16 位初始口令
@@ -127,7 +128,7 @@ npm run migrate:deploy
 ./deploy/backup.sh
 ```
 
-更新版本：`git pull && ./deploy/bootstrap.sh`（沿用已有 `.env`，不轮换密钥；容器启动时自动跑增量迁移）。
+更新版本：优先用后台「系统设置 → 版本与更新 → 一键更新」（见第八节），命令行等价写法是 `git pull && ./deploy/bootstrap.sh`。两种方式都沿用已有 `.env`、不轮换密钥，容器启动时自动跑增量迁移。
 
 ---
 
@@ -176,3 +177,66 @@ npm run migrate:deploy
 - 恢复流程见仓库根 `restore.md`；数据库用 `pg_dump` 逻辑备份，附件用 `storage-latest` 镜像。
 - 密钥：`.env` 与 `APP_MASTER_KEY` 一旦丢失，已加密入库的供应商密钥无法解密 —— 请离线妥善备份 `.env`，
   且 **绝不入库 / 不写日志 / 不贴到工单**。更换 `APP_MASTER_KEY` 前需重新录入所有供应商密钥。
+
+---
+
+## 八、后台一键在线更新（T6.5）
+
+部署完成后，用**所有者（owner）**账号进入「系统设置 → 版本与更新」，无需再登录服务器：
+
+1. **检查更新**：对比服务器当前 commit 与 GitHub `main` 分支最新 commit，显示落后几个提交。
+2. **一键更新**：拉取代码 → 自动备份数据库与附件 → 重建 `api` / `web` → 等健康检查通过 → 显示结果。
+   页面每 3 秒轮询进度并展示最近 40 行执行日志；服务会短暂中断 1-3 分钟，完成后刷新浏览器即可看到新版。
+3. **重新部署**：已是最新时按钮变为「重新部署」，用于改过 `.env` 或需要强制重建的场景。
+
+### 为什么要有独立的 updater 容器
+
+api 容器里既没有 `docker` CLI 也没有 `git`，而且**不应该**给它挂 `/var/run/docker.sock`（等于把宿主机 root 交给 Web 应用）。
+所以 api 只往共享 `storage` 卷写请求文件，由专职的 `updater` 容器执行真正的拉取与重建：
+
+```
+后台按钮 → POST /api/system/update/apply（仅 owner）
+   → api 写 /app/storage/update/request.json
+   → updater 容器轮询到请求 → git pull → 备份 → docker compose up -d --build api web
+   → updater 写 status.json / check.json / log.txt / heartbeat.json
+   → 前端每 3s 轮询 GET /api/system/update/status
+```
+
+**关键设计**：重建时只指定 `api web` 两个服务，**绝不重建 updater 自己**，否则更新进程会在替换自身容器时被打断。
+`COMPOSE_PROJECT_NAME` 由 `bootstrap.sh` 写入 `.env`，保证宿主机与容器内的项目名一致 —— 不一致会创建第二套容器和卷（这是自更新最容易踩的坑）。
+
+### 权限与安全边界
+
+| 项 | 说明 |
+| :--- | :--- |
+| 谁能更新 | 仅 `owner`；`admin` / `editor` 看不到按钮，直接调 API 返回 403 |
+| 谁能检查 | 任何已登录用户可点「检查更新」 |
+| docker.sock | **只挂在 updater 容器**；api / web 零额外权限 |
+| 防并发 | `status.phase === running` 时拒绝新请求（409）；updater 用 `last-id` 防重启后重复执行 |
+| 代码保护 | `git pull --ff-only`，服务器代码有本地改动时直接中止，绝不覆盖 |
+| 备份 | 更新前自动跑 `backup` profile；备份失败只告警、不阻断 |
+| 回滚 | 更新失败时旧版本代码与镜像通常未受破坏；按第七节手动恢复 |
+
+> [!WARNING]
+> `updater` 容器持有 `docker.sock`，等同于拥有宿主机 root 权限。它是无网络端口、只跑一个专用脚本的容器，
+> 攻击面远小于把 sock 交给 Web 应用，但仍请保持系统与镜像更新、只给可信人员 owner 账号。
+> 不需要这个功能时执行 `docker compose -f docker-compose.prod.yml stop updater`（或注释掉 compose 里的 `updater` service），
+> 系统设置页会如实显示「更新服务未启用」。
+
+### 配置项（`.env`）
+
+| 变量 | 默认 | 说明 |
+| :--- | :--- | :--- |
+| `COMPOSE_PROJECT_NAME` | 仓库目录名 | 必须与宿主机一致，bootstrap 自动写入 |
+| `UPDATER_BRANCH` | `main` | 跟踪的分支 |
+| `UPDATER_BACKUP_BEFORE_APPLY` | `1` | 设 `0` 关闭更新前自动备份 |
+
+### 排错
+
+| 现象 | 排查 |
+| :--- | :--- |
+| 页面显示「更新服务未启用」 | `docker compose -f docker-compose.prod.yml ps updater`；`logs --tail=50 updater` |
+| 检查更新一直失败 | 服务器能否 `git ls-remote https://github.com/fuyegongfang-star/media-workbench.git HEAD` |
+| 更新卡在「执行中」 | 看设置页日志；`docker compose logs --tail=100 api`；健康轮询最长 240s |
+| 提示「代码有本地修改」 | 在服务器 `git -C /opt/media-workbench status`，处理掉手工改动后再更新 |
+| 状态文件位置 | 共享卷 `/app/storage/update/`：`request.json` / `status.json` / `check.json` / `log.txt` / `heartbeat.json` / `last-id` |
