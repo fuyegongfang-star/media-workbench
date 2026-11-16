@@ -3345,6 +3345,7 @@ export interface RadarConfig {
   output: { totalItems: number; featuredItems: number; titlesPerItem: number; saveToLibrary: boolean };
   schedule: { enabled: boolean; time: string; timezone: string };
   monitoredAccounts: { x: string[]; youtube: string[] };
+  accountDedupeDays: number;
 }
 
 export interface RadarBriefSummary {

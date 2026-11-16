@@ -60,6 +60,8 @@ export interface RadarConfig {
     timezone: string;
   };
   monitoredAccounts: { x: string[]; youtube: string[] }; // 预留位：T6.3 接入
+  /** 盯号内容跨轮增量去重的回溯窗口（天）：0=关闭（每次全量），默认 7，最大 90。 */
+  accountDedupeDays: number;
 }
 
 /** 默认配置：与分享方案对齐，零 Key 可跑。 */
@@ -71,7 +73,8 @@ export const DEFAULT_RADAR_CONFIG: RadarConfig = {
   sources: { toutiao: true, bilibili: true, hnrss: true, sogou_wechat: true, x_account: true, youtube_account: true },
   output: { totalItems: 20, featuredItems: 5, titlesPerItem: 3, saveToLibrary: true },
   schedule: { enabled: false, time: '08:00', timezone: 'Asia/Shanghai' },
-  monitoredAccounts: { x: [], youtube: [] }, // 零 Key：X 走 Nitter RSS failover，YouTube 走官方 feed/Jina 兜底
+  monitoredAccounts: { x: [], youtube: [] }, // 零 Key：X 走 Nitter RSS failover，YouTube 走频道页直采/Jina 兜底
+  accountDedupeDays: 7, // 盯号内容 7 天内只推一次，避免每日简报重复刷同一条
 };
 
 /** 候选条目打分后的中间产物。 */

@@ -7,6 +7,7 @@ import util from '../dist/modules/radar/radar.util.js';
 const {
   normalizeTitle, fingerprintOf, sanitizeConfig, relevanceOf, normalizeHeat,
   scoreOf, dedupeAndRank, parseRadarTitles, fallbackTitles,
+  accountDedupeKey, filterSeenAccounts,
 } = util;
 
 import contract from '../dist/modules/radar/radar.contract.js';
@@ -181,6 +182,42 @@ test('parseYoutubeChannelHtml: 频道页 richItemRenderer 抽真实标题/链接
   assert.equal(out[2].title, 'YouTube @MrBeast 视频 RE3_PGwDwhw'); // 无标题时兜底
   const limited = parseYoutubeChannelHtml(html, '@MrBeast', 2);
   assert.equal(limited.length, 2);
+});
+
+test('sanitizeConfig: accountDedupeDays 夹逼 0-90、非法回落 7、0 关闭', () => {
+  assert.equal(sanitizeConfig({}).accountDedupeDays, 7);
+  assert.equal(sanitizeConfig({ accountDedupeDays: 0 }).accountDedupeDays, 0);
+  assert.equal(sanitizeConfig({ accountDedupeDays: 999 }).accountDedupeDays, 90);
+  assert.equal(sanitizeConfig({ accountDedupeDays: -5 }).accountDedupeDays, 0);
+  assert.equal(sanitizeConfig({ accountDedupeDays: '12' }).accountDedupeDays, 12);
+  assert.equal(sanitizeConfig({ accountDedupeDays: 'abc' }).accountDedupeDays, 7);
+  assert.equal(DEFAULT_RADAR_CONFIG.accountDedupeDays, 7);
+});
+
+test('accountDedupeKey: URL 优先、无 URL 用标题指纹、与历史落库键一致', () => {
+  assert.equal(accountDedupeKey('https://www.youtube.com/watch?v=q6fgVVmdpgY', '任意标题'), 'url:https://www.youtube.com/watch?v=q6fgVVmdpgY');
+  assert.equal(accountDedupeKey('  https://x.com/u/status/123  ', 't'), 'url:https://x.com/u/status/123');
+  const fpKey = accountDedupeKey(undefined, '我在现实中重现饥饿游戏');
+  assert.equal(fpKey, `fp:${fingerprintOf('我在现实中重现饥饿游戏')}`);
+  // 同一标题不同空白得同一键（与落库侧 fingerprint 规范化一致）
+  assert.equal(accountDedupeKey('', '  AI  工具  '), accountDedupeKey(undefined, 'ai 工具'));
+});
+
+test('filterSeenAccounts: 只过滤命中 seen 的盯号内容，热榜与其它盯号保留', () => {
+  const items = [
+    { sourceName: 'youtube_account', url: 'https://www.youtube.com/watch?v=AAA', title: '视频A' },
+    { sourceName: 'youtube_account', url: 'https://www.youtube.com/watch?v=BBB', title: '视频B' },
+    { sourceName: 'x_account', url: 'https://x.com/u/status/111', title: '推文1' },
+    { sourceName: 'toutiao', url: 'https://hot/article/1', title: '热点' },
+  ];
+  const seen = new Set([accountDedupeKey('https://www.youtube.com/watch?v=AAA', '视频A')]);
+  const out = filterSeenAccounts(items, seen, 7);
+  assert.equal(out.length, 3);
+  assert.deepEqual(out.map((i) => i.sourceName), ['youtube_account', 'x_account', 'toutiao']);
+  assert.equal(out[0].title, '视频B'); // 命中的视频A 被剔除
+  // 窗口关闭 / seen 为空时原样返回
+  assert.equal(filterSeenAccounts(items, seen, 0), items);
+  assert.equal(filterSeenAccounts(items, new Set(), 7), items);
 });
 
 test('账号采集器：未配置账号时返回空，不触网', async () => {

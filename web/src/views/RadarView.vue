@@ -153,7 +153,11 @@
             <input :value="config.monitoredAccounts.youtube.join(', ')" class="input wide" placeholder="UC..., @handle"
               @input="config.monitoredAccounts.youtube = splitList(($event.target as HTMLInputElement).value)" />
           </div>
-          <p class="hint">填好账号并保存，下次采集自动盯这些号：X 走社区镜像 RSS（多实例容错，无需 Felo/付费 Key），YouTube 走公开订阅源。留空则该源跳过；上方「数据源」里可单独关掉。</p>
+          <p class="hint">填好账号并保存，下次采集自动盯这些号：X 走社区镜像 RSS（多实例容错，无需 Felo/付费 Key），YouTube 走频道页直采。留空则该源跳过；上方「数据源」里可单独关掉。</p>
+          <div class="field" style="margin-top:12px"><label>盯号去重窗口（天）</label>
+            <input v-model.number="config.accountDedupeDays" class="input" type="number" min="0" max="90" />
+          </div>
+          <p class="hint">监控账号发布的同一条内容在该窗口内只推一次，避免每日简报重复刷旧内容；填 <b>0</b> 则关闭去重（每轮全量）。默认 7 天，仅对 X / YouTube 盯号生效，不影响热榜。</p>
         </div>
       </div>
       <div class="row" style="margin-top:14px">
@@ -203,6 +207,7 @@ const config = reactive<RadarConfig>({
   output: { totalItems: 20, featuredItems: 5, titlesPerItem: 3, saveToLibrary: true },
   schedule: { enabled: false, time: '08:00', timezone: 'Asia/Shanghai' },
   monitoredAccounts: { x: [], youtube: [] },
+  accountDedupeDays: 7,
 });
 
 function splitList(s: string): string[] {

@@ -29,6 +29,7 @@ export function sanitizeConfig(input: unknown): RadarConfig {
     output: { totalItems: 20, featuredItems: 5, titlesPerItem: 3, saveToLibrary: true },
     schedule: { enabled: false, time: '08:00', timezone: 'Asia/Shanghai' },
     monitoredAccounts: { x: [], youtube: [] },
+    accountDedupeDays: 7,
   } as RadarConfig;
 
   const strArray = (v: unknown, max: number): string[] =>
@@ -79,7 +80,30 @@ export function sanitizeConfig(input: unknown): RadarConfig {
     youtube: strArray(acc.youtube, 50),
   };
 
-  return { niches: niches.length ? niches : fallback.niches, sources, output, schedule, monitoredAccounts };
+  // 去重窗口：0=关闭，1-90 天；非法值回落默认 7
+  const dedupeRaw = Number(raw.accountDedupeDays);
+  const accountDedupeDays = Number.isFinite(dedupeRaw)
+    ? Math.max(0, Math.min(90, Math.floor(dedupeRaw)))
+    : 7;
+
+  return { niches: niches.length ? niches : fallback.niches, sources, output, schedule, monitoredAccounts, accountDedupeDays };
+}
+
+/** 盯号内容去重键：优先稳定 URL（视频 ID / 推文 ID），无 URL 时回退标题指纹。 */
+export function accountDedupeKey(url: string | undefined, title: string): string {
+  const u = String(url ?? '').trim();
+  return u ? `url:${u}` : `fp:${fingerprintOf(title)}`;
+}
+
+/** 跨轮增量过滤：只针对盯号来源，命中历史 seen 集合的剔除，其余（含全部热榜源）原样保留。 */
+export function filterSeenAccounts<T extends { sourceName: string; url?: string; title: string }>(
+  items: T[],
+  seen: Set<string>,
+  windowDays: number,
+): T[] {
+  if (windowDays <= 0 || !seen.size) return items;
+  const accountSources = new Set(['x_account', 'youtube_account']);
+  return items.filter((it) => !accountSources.has(it.sourceName) || !seen.has(accountDedupeKey(it.url, it.title)));
 }
 
 /** 赛道相关度：标题命中任一关键词即为相关，命中越多分越高（0-1）。 */

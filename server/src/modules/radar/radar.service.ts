@@ -12,8 +12,10 @@ import {
   type ScoredCandidate,
 } from './radar.contract';
 import {
+  accountDedupeKey,
   dedupeAndRank,
   fallbackTitles,
+  filterSeenAccounts,
   fingerprintOf,
   normalizeHeat,
   parseRadarTitles,
@@ -133,11 +135,35 @@ export class RadarService {
       // 1) 采集：逐源降级（账号类采集器收到监控账号清单）
       const perSource = Math.max(20, Math.ceil(cfg.output.totalItems / Math.max(1, COLLECTOR_IDS.length)));
       const outcomes = await collectAll(cfg.sources, keywords, perSource, cfg.monitoredAccounts);
-      const sourceStats: Record<string, { count: number; error?: string }> = {};
-      const raw = outcomes.flatMap((o) => {
-        sourceStats[o.source] = { count: o.items.length, ...(o.error ? { error: o.error } : {}) };
-        return o.items;
-      });
+      const sourceStats: Record<string, { count: number; error?: string; deduped?: number }> = {};
+      const collected = outcomes.flatMap((o) => o.items);
+
+      // 1.5) 盯号跨轮增量去重：查窗口内历史条目的去重键，只保留未推送过的盯号内容。
+      //      热榜源不参与（热点本就每日刷新）；统计写入各账号源的 sourceStats.deduped。
+      const dedupedCount = { x_account: 0, youtube_account: 0 } as Record<string, number>;
+      let raw: typeof collected = collected;
+      if (cfg.accountDedupeDays > 0) {
+        const seen = await this.loadSeenAccountKeys(cfg.accountDedupeDays);
+        const before = raw.length;
+        raw = filterSeenAccounts(raw, seen, cfg.accountDedupeDays);
+        // 按来源统计被过滤的盯号条数（由去重前后差 + 逐源重算得到，避免误伤热榜）
+        const afterBySource = new Map<string, number>();
+        for (const it of raw) afterBySource.set(it.sourceName, (afterBySource.get(it.sourceName) ?? 0) + 1);
+        for (const o of outcomes) {
+          if (o.source === 'x_account' || o.source === 'youtube_account') {
+            dedupedCount[o.source] = o.items.length - (afterBySource.get(o.source) ?? 0);
+          }
+        }
+        this.logger.log(`盯号增量去重：窗口 ${cfg.accountDedupeDays} 天，历史键 ${seen.size} 个，过滤 ${before - raw.length} 条`);
+      }
+      for (const o of outcomes) {
+        const afterCount = raw.filter((it) => it.sourceName === o.source).length;
+        sourceStats[o.source] = {
+          count: afterCount,
+          ...(o.error ? { error: o.error } : {}),
+          ...(dedupedCount[o.source] ? { deduped: dedupedCount[o.source] } : {}),
+        };
+      }
 
       // 2) 打分 + 去重（相关度为主，热度为辅）
       const maxHeat = Math.max(1, ...raw.map((r) => Number(r.heat) || 0));
@@ -294,6 +320,35 @@ export class RadarService {
   }
 
   // ---------- 内部 ----------
+
+  /**
+   * 查窗口内已落库的盯号条目，构建去重键集合。
+   * 用 RadarItem.sourceUrl（视频/推文永久链接）优先、fingerprint 回退；
+   * 待 PG 环境时如实返回空集合（不去重、不伪造）。
+   */
+  private async loadSeenAccountKeys(windowDays: number): Promise<Set<string>> {
+    const seen = new Set<string>();
+    if (!this.prisma.isConnected || windowDays <= 0) return seen;
+    const since = new Date(Date.now() - windowDays * 24 * 60 * 60 * 1000);
+    try {
+      const rows = await this.prisma.client.radarItem.findMany({
+        where: {
+          sourceName: { in: ['x_account', 'youtube_account'] },
+          createdAt: { gte: since },
+        },
+        select: { sourceUrl: true, title: true },
+      });
+      for (const r of rows) {
+        // 与采集侧用同一函数、同一入参（原始标题），保证无 URL 时的指纹回退键一致
+        seen.add(accountDedupeKey(r.sourceUrl ?? undefined, r.title));
+      }
+    } catch (error: unknown) {
+      // 历史查询失败不阻断本轮采集：退化为不去重，如实告警
+      this.logger.warn(`盯号去重历史读取失败，本轮跳过增量去重：${(error as Error).message.split('\n')[0]}`);
+      return new Set();
+    }
+    return seen;
+  }
 
   private async generateTitles(items: ScoredCandidate[], cfg: RadarConfig, count: number): Promise<RadarTitle[][]> {
     if (!items.length) return [];
