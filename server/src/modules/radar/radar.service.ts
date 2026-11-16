@@ -4,7 +4,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { SITE_CONFIG_ID } from '../system/system.service';
 import { TasksService } from '../tasks/tasks.service';
 import { LlmProviderService } from '../generation/llm-provider.service';
-import { collectAll } from './collectors';
+import { COLLECTOR_IDS, collectAll } from './collectors';
 import {
   DEFAULT_RADAR_CONFIG,
   type RadarConfig,
@@ -130,9 +130,9 @@ export class RadarService {
     }
 
     try {
-      // 1) 采集：逐源降级
-      const perSource = Math.max(20, Math.ceil(cfg.output.totalItems / Math.max(1, COLLECTOR_COUNT)));
-      const outcomes = await collectAll(cfg.sources, keywords, perSource);
+      // 1) 采集：逐源降级（账号类采集器收到监控账号清单）
+      const perSource = Math.max(20, Math.ceil(cfg.output.totalItems / Math.max(1, COLLECTOR_IDS.length)));
+      const outcomes = await collectAll(cfg.sources, keywords, perSource, cfg.monitoredAccounts);
       const sourceStats: Record<string, { count: number; error?: string }> = {};
       const raw = outcomes.flatMap((o) => {
         sourceStats[o.source] = { count: o.items.length, ...(o.error ? { error: o.error } : {}) };
@@ -144,7 +144,10 @@ export class RadarService {
       const nicheNames = cfg.niches.filter((n) => n.enabled);
       const scored: ScoredCandidate[] = raw.map((r) => {
         const niche = nicheNames.find((n) => n.keywords.some((k) => r.title.toLowerCase().includes(k.toLowerCase())));
-        const relevance = relevanceOf(r.title, niche?.keywords ?? keywords);
+        // 盯号内容是用户主动指定的账号，给 0.5 基础相关度，避免全部沉底；命中赛道关键词仍按原逻辑加分。
+        const isAccountSource = r.sourceName === 'x_account' || r.sourceName === 'youtube_account';
+        const rawRelevance = relevanceOf(r.title, niche?.keywords ?? keywords);
+        const relevance = isAccountSource ? Math.max(0.5, rawRelevance) : rawRelevance;
         const heat01 = normalizeHeat(r.heat, maxHeat) / 100;
         return {
           ...r,
@@ -177,7 +180,7 @@ export class RadarService {
             runId: run.id,
             fingerprint: item.fingerprint,
             title: item.title.slice(0, 2000),
-            angle: `赛道：${item.niche ?? '综合'}；相关度 ${(item.relevance * 100).toFixed(0)}%`,
+            angle: `${item.sourceName === 'x_account' || item.sourceName === 'youtube_account' ? '监控账号' : '赛道'}：${item.niche ?? '综合'}；相关度 ${(item.relevance * 100).toFixed(0)}%`,
             sourceUrl: item.url ?? null,
             sourceName: item.sourceName,
             sourceType: item.sourceType,
@@ -362,6 +365,3 @@ export class RadarService {
     return d.toISOString().slice(0, 10);
   }
 }
-
-/** 采集源数量（用于估算每源采集上限，常量避免硬编码漂移）。 */
-const COLLECTOR_COUNT = 4;

@@ -25,7 +25,7 @@ export function sanitizeConfig(input: unknown): RadarConfig {
       { name: '副业与网赚', enabled: true, keywords: ['副业', '网赚', '变现', '被动收入', '项目拆解', '私域', '引流'] },
       { name: 'AI与效率工具', enabled: true, keywords: ['AI', 'AI工具', 'ChatGPT', '智能体', 'Agent', '自动化', 'AIGC', '提示词'] },
     ],
-    sources: { toutiao: true, bilibili: true, hnrss: true, sogou_wechat: true },
+    sources: { toutiao: true, bilibili: true, hnrss: true, sogou_wechat: true, x_account: true, youtube_account: true },
     output: { totalItems: 20, featuredItems: 5, titlesPerItem: 3, saveToLibrary: true },
     schedule: { enabled: false, time: '08:00', timezone: 'Asia/Shanghai' },
     monitoredAccounts: { x: [], youtube: [] },
@@ -52,6 +52,8 @@ export function sanitizeConfig(input: unknown): RadarConfig {
     bilibili: sourcesRaw.bilibili !== false,
     hnrss: sourcesRaw.hnrss !== false,
     sogou_wechat: sourcesRaw.sogou_wechat !== false,
+    x_account: sourcesRaw.x_account !== false,
+    youtube_account: sourcesRaw.youtube_account !== false,
   };
 
   const out = (raw.output && typeof raw.output === 'object' ? raw.output : {}) as Record<string, unknown>;

@@ -144,7 +144,7 @@
           <div class="field" style="margin-top:10px"><label>时间（Asia/Shanghai）</label><input v-model="config.schedule.time" class="input" type="time" /></div>
           <p class="hint">{{ scheduler?.available ? 'Redis 在线，保存后定时任务即时生效。' : 'Redis 待环境：保存配置可成功，但定时不生效，需手动采集。' }}</p>
 
-          <h3 class="config-title" style="margin-top:18px">监控账号（预留）</h3>
+          <h3 class="config-title" style="margin-top:18px">监控账号（已启用 · 零 Key）</h3>
           <div class="field"><label>X 用户名（逗号分隔）</label>
             <input :value="config.monitoredAccounts.x.join(', ')" class="input wide" placeholder="elonmusk, OpenAI"
               @input="config.monitoredAccounts.x = splitList(($event.target as HTMLInputElement).value)" />
@@ -153,7 +153,7 @@
             <input :value="config.monitoredAccounts.youtube.join(', ')" class="input wide" placeholder="UC..., @handle"
               @input="config.monitoredAccounts.youtube = splitList(($event.target as HTMLInputElement).value)" />
           </div>
-          <p class="hint">X / YouTube 盯号将在第三刀接入（需 API Key）；此处先存配置，不影响当前免费源。</p>
+          <p class="hint">填好账号并保存，下次采集自动盯这些号：X 走社区镜像 RSS（多实例容错，无需 Felo/付费 Key），YouTube 走公开订阅源。留空则该源跳过；上方「数据源」里可单独关掉。</p>
         </div>
       </div>
       <div class="row" style="margin-top:14px">
@@ -174,6 +174,7 @@ import {
 
 const SOURCE_LABEL: Record<string, string> = {
   toutiao: '今日头条', bilibili: 'B站', hnrss: 'Hacker News', sogou_wechat: '公众号(搜狗)',
+  x_account: 'X 监控账号', youtube_account: 'YouTube 监控频道',
 };
 
 const tabs = [
