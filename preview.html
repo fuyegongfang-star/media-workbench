@@ -230,9 +230,9 @@
     <div class="nav-item" data-view="account"><span class="nav-icon">☰</span><span class="nav-label">账号与策略</span><span class="nav-phase">真实 UI</span></div>
     <div class="side-foot">
       检查点 <b>已对齐 T5.2</b><br />
-      34 项全完成 · 0 阻塞<br />
-      单测 361/361 通过<br />
-      全清单收官 + 选题雷达·盯号 · 待环境联调
+      34 项全完成 + T6.1-T6.4 · 0 阻塞<br />
+      单测 373/373 通过<br />
+      选题雷达·盯号·用户管理 · 已真机部署
     </div>
   </aside>
 
@@ -240,8 +240,8 @@
     <div class="topbar">
       <h1 id="pageTitle">进展总览</h1>
       <span class="tag blue">离线快照 · 无需服务</span>
-      <span class="tag ok">361/361 单测</span>
-      <span class="tag warn">DB / LLM 待环境</span>
+      <span class="tag ok">373/373 单测</span>
+      <span class="tag ok">真机已部署 · PG/Redis up</span>
       <span class="spacer"></span>
       <span class="stamp">数据截止 2026-11-10 07:07 · 生成于 11-10 21:05</span>
     </div>
@@ -259,7 +259,7 @@
         <div class="section-title"><span class="bar"></span>关键指标</div>
         <div class="grid g4">
           <div class="kpi"><div class="num ok">34</div><div class="lbl">已完成功能项</div><div class="sub">T1.1–T1.10 / T2.1–T2.5 / T3.1–T3.11 / T4.1–T4.6 / T5.1–T5.2</div></div>
-          <div class="kpi"><div class="num blue">344</div><div class="lbl">单测全量通过</div><div class="sub">344 pass / 0 fail · 28 测试文件（含新增雷达 12 项）</div></div>
+          <div class="kpi"><div class="num blue">373</div><div class="lbl">单测全量通过</div><div class="sub">373 pass / 0 fail · 30 测试文件（含用户管理 12 项）</div></div>
           <div class="kpi"><div class="num ok">T6.1</div><div class="lbl">选题雷达新增</div><div class="sub">11-16 手工开发：免费源采集 + 打分出标题 + 一键转选题 + LLM 供应商管理</div></div>
           <div class="kpi"><div class="num warn">3</div><div class="lbl">待补外部条件</div><div class="sub">PG16 · Redis · LLM 密钥</div></div>
         </div>
@@ -425,9 +425,9 @@
       <section class="view" id="content">
         <div class="note">按 <code>ContentView.vue</code> 还原（T3.1）。三个页签：选题管理 / 标题管理 / 内容项目。写接口需 Bearer 令牌，未填返回 401。</div>
         <div class="card">
-          <h3>访问令牌（开发/QA）</h3>
-          <div class="row"><input class="input wide" style="max-width:420px" placeholder="粘贴 Bearer 令牌（本地联调用，存于浏览器 localStorage）" /><button class="btn">保存令牌</button><button class="btn ghost">清除</button></div>
-          <p class="hint">提示：登录后从 <code>/api/auth/login</code> 响应取 accessToken 填入。</p>
+          <h3>访问令牌（T6.4 起已升级为登录页）</h3>
+          <p class="hint">现在通过 <code>/login</code> 登录页输入账号密码，令牌由前端自动注入请求头、过期自动跳转登录；不再需要手动粘贴。下方为历史快照占位。</p>
+          <div class="row"><input class="input wide" style="max-width:420px" placeholder="（历史占位）Bearer 令牌" disabled /><button class="btn" disabled>保存令牌</button><button class="btn ghost" disabled>清除</button></div>
         </div>
         <div class="tabs" style="margin-top:18px">
           <button class="tab active" data-tab="c-topics">选题管理</button>
@@ -537,7 +537,11 @@
 
       <!-- ============ 系统设置 ============ -->
       <section class="view" id="system">
-        <div class="note">按 <code>SystemView.vue</code> 还原（T1.8 站点设置 + 此前空白根因修复）。敏感字段 AppID 提交后由服务端 AES-256-GCM 加密入库。</div>
+        <div class="note">按 <code>SystemView.vue</code> 还原（T1.8 站点设置 + T6.4 用户管理）。敏感字段 AppID 提交后由服务端 AES-256-GCM 加密入库。</div>
+        <div class="card" style="margin-bottom:16px"><h3>用户管理 <span class="pill ok">T6.4 新增 · 真机已验</span></h3>
+          <p class="hint">仅 owner/admin 可访问：用户列表 / 建号 / 改角色 / 禁用启用 / 重置密码 / 软删；不能删自己或降级最后一个 owner。"允许自助注册"开关默认关闭，开启后登录页显示注册入口，新账号固定 editor。账号密码经 argon2 哈希，列表绝不含哈希。真机端到端 15/15 通过，禁用后登录返回 401。</p>
+          <div class="kv"><span>注册 / 用户管理端点</span><b class="up">POST /auth/register · GET /users · PATCH /users/:id/role|status · 改密 · 软删</b></div>
+        </div>
         <div class="card" style="margin-bottom:16px"><h3>状态总览 <span class="pill ok">此前空白已修复</span></h3>
           <div class="grid g4" style="gap:12px">
             <div class="card" style="background:var(--panel-2)"><span class="pill ok">JWT + argon2</span><ul class="tiny"><li>双令牌</li><li>users 表</li><li>登录守卫</li></ul></div>
