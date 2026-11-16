@@ -3,8 +3,7 @@
     <div class="block">
       <div class="head">
         <h2>成本与配额看板</h2>
-        <span class="badge">T4.6</span>
-      </div>
+        </div>
       <p class="desc">
         基于生成运行（GenerationRun）的花费 / 耗时 / 模型 / 阶段做汇总，并按各供应商模型配置的月度预算做配额预警。
         预算请在「系统管理 → AI 与密钥 → AI 模型供应商」为每个供应商模型填写 <code>月度预算</code>。

@@ -18,7 +18,7 @@
     <div class="layout">
       <!-- 主区：编辑器 + 版本历史 -->
       <div class="main">
-        <!-- 编辑器（T3.4） -->
+        <!-- 编辑器 -->
         <section class="card">
           <div class="editor-head">
             <h3 class="sub-title" style="margin: 0">正文编辑器（Markdown）</h3>
@@ -58,7 +58,7 @@
           </div>
         </section>
 
-        <!-- 版本历史（T3.4） -->
+        <!-- 版本历史 -->
         <section class="card">
           <h3 class="sub-title">版本历史（恢复 = 设当前版本 + 还原缓冲）</h3>
           <p v-if="versions.length === 0" class="hint">暂无版本。编辑后点「保存版本」即可生成第一条版本。</p>
@@ -107,7 +107,7 @@
           <h3 class="sub-title">生成运行记录（ARTICLE_GEN）</h3>
           <p class="hint">
             每次触发生成/续写/改写/压缩/扩写都会落一条 GenerationRun（含状态、模型、耗时、关联 staging 版本）。
-            在「设置中心 → AI 与密钥」配置 LLM 供应商，并确保 PostgreSQL/Redis 在线后，由 T3.5 处理器真实生成并写出 staging 版本；无环境时任务保留 queued。
+            在「设置中心 → AI 与密钥」配置 LLM 供应商，并确保 PostgreSQL/Redis 在线后，由后台任务真实生成并写出待采纳版本；队列未就绪时任务会保留在排队状态。
           </p>
           <p v-if="genRuns.length === 0" class="hint">
             暂无生成记录。点击右侧「AI 操作入口」即可发起生成任务。
@@ -129,9 +129,9 @@
           </ul>
         </section>
 
-        <!-- 朱雀检测 / 第三方润色（T3.7） -->
+        <!-- 朱雀检测 / 第三方润色 -->
         <section class="card">
-          <h3 class="sub-title">朱雀检测 / 第三方润色（T3.7）</h3>
+          <h3 class="sub-title">朱雀检测 / 第三方润色</h3>
           <p class="hint">
             朱雀检测绑定当前版本、<b>不改文</b>，结果写检测记录（文章修改后旧结果自动标「旧版本结果」）；
             第三方润色生成一条 <b>polish 待采纳版本</b>，可在上方「版本历史」中采纳或放弃。
@@ -181,10 +181,10 @@
         </section>
 
         <section class="card">
-          <h3 class="sub-title">审核状态机（T3.6）</h3>
+          <h3 class="sub-title">审核状态机</h3>
           <p class="hint">
             审核流程：创建中 CREATING → 待审核 PENDING_REVIEW → 已审核 APPROVED（或退回 NEEDS_REVISION）。
-            合规预审（T3.11）命中阻断级风险词时将在送审处提示。
+            合规预审命中阻断级风险词时将在送审处提示。
           </p>
           <div v-if="reviewMsg" class="message">{{ reviewMsg }}</div>
 
@@ -222,7 +222,7 @@
               标记待审核
             </button>
 
-            <!-- T3.11 合规硬卡点：存在阻断级风险词且未覆盖时，提供「覆盖提交」入口 -->
+            <!-- 合规硬卡点：存在阻断级风险词且未覆盖时，提供「覆盖提交」入口 -->
             <button
               v-if="(detail?.status === 'CREATING' || detail?.status === 'NEEDS_REVISION') && hasBlockingRisk"
               class="btn danger"
@@ -252,16 +252,16 @@
             </div>
 
             <p v-if="detail?.status === 'APPROVED' || detail?.status === 'PUBLISHED' || detail?.status === 'ARCHIVED'" class="review-ok">
-              ✓ 已审核通过；可由 T3.8 录入发布信息并回写。
+              ✓ 已审核通过；现在可以录入发布信息并回写。
             </p>
           </div>
         </section>
 
         
 
-        <!-- T3.9 公众号发布执行：草稿箱同步 / 发布 / 群发（可定时） -->
+        <!-- 公众号发布执行：草稿箱同步 / 发布 / 群发（可定时） -->
         <section class="card">
-          <h3 class="sub-title">公众号发布执行（T3.9）</h3>
+          <h3 class="sub-title">公众号发布执行</h3>
           <p class="hint">
             审核通过后可执行：① 同步草稿箱（<span class="mono">add_draft</span>，回写 media_id）② 正式发布（<span class="mono">freepublish</span>，回写文章链接）③ 群发（可定时）。
             公众号 AppID / AppSecret（AES 加密入库）统一在「设置中心 → AI 与密钥」配置。
@@ -288,7 +288,7 @@
         </section>
       </div>
 
-      <!-- 侧栏：创作上下文面板（T3.3 核心） -->
+      <!-- 侧栏：创作上下文面板 -->
       <aside class="sidebar">
         <section class="card ctx">
           <div class="ctx-head">
@@ -336,7 +336,7 @@
             <div v-if="ctx?.promptTemplate" class="ctx-v">
               v{{ ctx.promptTemplate.version }}
             </div>
-            <div v-else class="ctx-v">—（T3.2 创建时未启用 article_draft 模板）</div>
+            <div v-else class="ctx-v">—（创建时未启用草稿模板）</div>
           </div>
 
           <div class="ctx-item">
@@ -346,10 +346,10 @@
           </div>
         </section>
 
-        <!-- AI 操作入口（T3.3） -->
+        <!-- AI 操作入口 -->
         <section class="card">
           <h3 class="sub-title">AI 操作入口</h3>
-          <p class="hint">触发 ARTICLE_GEN 异步任务；实际 LLM 调用与版本写出由 T3.5 注册的处理器完成。</p>
+          <p class="hint">触发内容生成异步任务；实际模型调用与版本写出由后台任务处理器完成。</p>
           <div class="ai-grid">
             <button class="btn" :disabled="busy" @click="gen('draft')">生成初稿</button>
             <button class="btn" :disabled="busy" @click="gen('continue')">续写</button>
@@ -357,7 +357,7 @@
             <button class="btn" :disabled="busy" @click="gen('compress')">压缩</button>
             <button class="btn" :disabled="busy" @click="gen('expand')">扩写</button>
           </div>
-          <!-- T3.7 第三方润色：触发 TEXT_POLISH，原稿不变，结果写 polish 待采纳版本 -->
+          <!-- 第三方润色：触发 TEXT_POLISH，原稿不变，结果写 polish 待采纳版本 -->
           <div class="polish-row">
             <input
               v-model="polishTone"
@@ -372,7 +372,7 @@
           <p v-if="lastTask" class="hint">
             已提交任务 <span class="mono">{{ lastTask.taskId.slice(0, 8) }}</span>
             （stage={{ lastTask.stage }}，dispatched={{ lastTask.dispatched }}）。
-            <span v-if="!lastTask.dispatched">本机无 Redis/Worker → 任务保留 queued（待环境）；T3.5 处理器就绪后才会真正生成。</span>
+            <span v-if="!lastTask.dispatched">任务队列未就绪时任务会保留在排队状态，队列恢复后自动执行。</span>
             <span v-else>已入队，等待 Worker 处理。</span>
           </p>
         </section>
@@ -876,7 +876,7 @@ async function doDetect() {
   try {
     const r = await detectVersion(projectId, versionId);
     detectMsg.value = `已提交检测任务 ${r.taskId.slice(0, 8)}（dispatched=${r.dispatched}）。${
-      r.dispatched ? '等待 Worker 处理。' : '本机无 Redis/Worker → 任务保留 queued（待环境）。'
+      r.dispatched ? '等待 Worker 处理。' : '任务队列未就绪，任务保留在排队状态。'
     }`;
     textReviews.value = await listTextReviews(projectId);
   } catch (e) {
@@ -908,7 +908,7 @@ async function doPolish() {
   try {
     const r = await polishProject(projectId, { tone: polishTone.value.trim() || undefined });
     polishMsg.value = `已提交润色任务 ${r.taskId.slice(0, 8)}（dispatched=${r.dispatched}）。${
-      r.dispatched ? '等待 Worker 处理，完成后将在「版本历史」生成一条 polish 待采纳版本。' : '本机无 Redis/Worker → 任务保留 queued（待环境）。'
+      r.dispatched ? '等待 Worker 处理，完成后将在「版本历史」生成一条 polish 待采纳版本。' : '任务队列未就绪，任务保留在排队状态。'
     }`;
   } catch (e) {
     error.value = (e as Error).message;

@@ -26,6 +26,7 @@ const props = defineProps<{ active: string }>();
 
 const tabs = [
   ...systemSections,
+  { key: 'guide', label: '使用教程', desc: '从首次配置到日常出稿与复盘的完整操作指引' },
   { key: 'audit', label: '审计与回收站', desc: '审计日志与软删记录恢复' },
 ];
 

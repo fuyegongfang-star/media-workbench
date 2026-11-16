@@ -140,7 +140,7 @@ export class MediaService {
   /** 按 id 取元数据（DB 必填项）。 */
   async getById(id: string): Promise<MediaPublic> {
     if (!this.prisma.isConnected) {
-      throw new ServiceUnavailableException('数据库未就绪（待环境），无法查询媒体元数据');
+      throw new ServiceUnavailableException('数据库未就绪，暂时无法查询媒体元数据，请稍后重试');
     }
     const row = await this.prisma.client.mediaAsset.findUnique({ where: { id } });
     if (!row) throw new NotFoundException('媒体记录不存在');
@@ -150,7 +150,7 @@ export class MediaService {
   /** 按 id 取磁盘绝对路径（供流式响应；软删记录不可见）。 */
   async resolvePathById(id: string): Promise<string> {
     if (!this.prisma.isConnected) {
-      throw new ServiceUnavailableException('数据库未就绪（待环境），无法定位媒体文件');
+      throw new ServiceUnavailableException('数据库未就绪，暂时无法定位媒体文件，请稍后重试');
     }
     const row = await this.prisma.client.mediaAsset.findUnique({ where: { id } });
     if (!row) throw new NotFoundException('媒体记录不存在');
@@ -160,7 +160,7 @@ export class MediaService {
   /** 按 id 软删（深入设计 §2.2：经 Prisma 扩展转软删，绝不物理删除）。 */
   async remove(id: string): Promise<{ id: string; deleted: boolean }> {
     if (!this.prisma.isConnected) {
-      throw new ServiceUnavailableException('数据库未就绪（待环境），无法删除媒体记录');
+      throw new ServiceUnavailableException('数据库未就绪，暂时无法删除媒体记录，请稍后重试');
     }
     try {
       await this.prisma.client.mediaAsset.delete({ where: { id } });

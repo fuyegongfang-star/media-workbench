@@ -14,7 +14,13 @@ const {
   maskChannel,
   formatWecomPayload,
   formatDingtalkPayload,
+  formatFeishuPayload,
+  formatTelegramPayload,
   dingtalkSign,
+  feishuSign,
+  telegramApiUrl,
+  mergeSensitiveChannels,
+  MASKED_SECRET,
   buildTaskNotifyText,
   buildAlertText,
   countEnabledChannels,
@@ -122,6 +128,55 @@ test('countEnabledChannels: 仅统计启用', () => {
 });
 
 test('CHANNEL_TYPES / ALERT_KINDS 枚举完整', () => {
-  assert.deepEqual(CHANNEL_TYPES, ['wecom', 'dingtalk', 'email']);
+  assert.deepEqual(CHANNEL_TYPES, ['wecom', 'dingtalk', 'email', 'feishu', 'telegram']);
   assert.ok(ALERT_KINDS.includes('liveness') && ALERT_KINDS.includes('quota'));
+});
+
+test('飞书 / Telegram payload 与签名结构正确', () => {
+  assert.deepEqual(formatFeishuPayload('hi'), { msg_type: 'text', content: { text: 'hi' } });
+  const signed = formatFeishuPayload('hi', { timestampSec: 1700000000, sign: 'SIGN' });
+  assert.equal(signed.timestamp, '1700000000');
+  assert.equal(signed.sign, 'SIGN');
+  assert.deepEqual(formatTelegramPayload('hi', '-100123'), {
+    chat_id: '-100123',
+    text: 'hi',
+    disable_web_page_preview: true,
+  });
+  assert.ok(telegramApiUrl('123456:ABC-DEF').includes('/bot123456:ABC-DEF/sendMessage'));
+
+  const s1 = feishuSign('sec', 1700000000);
+  assert.equal(s1, feishuSign('sec', 1700000000));
+  assert.notEqual(s1, feishuSign('sec', 1700000001));
+  assert.match(s1, /^[A-Za-z0-9+/=]+$/);
+});
+
+test('mergeSensitiveChannels: 脱敏占位 / 留空保持原密文，显式空串清空，新明文覆盖', () => {
+  const existing = [
+    { type: 'feishu', enabled: true, webhookUrl: 'enc:AAA', secret: 'enc:BBB' },
+    { type: 'telegram', enabled: true, botToken: 'enc:CCC', chatId: '-1001' },
+  ];
+  const kept = mergeSensitiveChannels(existing, [
+    { type: 'feishu', enabled: true, webhookUrl: MASKED_SECRET, secret: undefined },
+    { type: 'telegram', enabled: true, chatId: '-1002' },
+  ]);
+  assert.equal(kept[0].webhookUrl, 'enc:AAA');
+  assert.equal(kept[0].secret, 'enc:BBB');
+  assert.equal(kept[1].botToken, 'enc:CCC');
+  assert.equal(kept[1].chatId, '-1002');
+
+  const replaced = mergeSensitiveChannels(existing, [
+    { type: 'feishu', enabled: true, webhookUrl: 'https://open.feishu.cn/hook/new', secret: '' },
+  ]);
+  assert.equal(replaced[0].webhookUrl, 'https://open.feishu.cn/hook/new');
+  assert.equal(replaced[0].secret, '');
+});
+
+test('encryptChannels 幂等：已加密字段不会二次加密，botToken 往返一致', () => {
+  const c = new SecretCrypto(TEST_KEY);
+  const one = encryptChannels([{ type: 'telegram', enabled: true, botToken: '123:ABC' }], c);
+  assert.ok(one[0].botToken.startsWith('enc:'));
+  const twice = encryptChannels(one, c);
+  assert.equal(twice[0].botToken, one[0].botToken);
+  assert.equal(decryptChannels(twice, c)[0].botToken, '123:ABC');
+  assert.equal(maskChannel(one[0]).botToken, MASKED_SECRET);
 });

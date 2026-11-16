@@ -36,19 +36,29 @@ export interface SiteSeoConfig {
   policeRecord: string;
   policeUrl: string;
   copyrightNote: string;
+  /** 公开首页文案：正式投运站点可自行改写，不再出现「演示 / 静态介绍 / 私有部署实例」等固定措辞。 */
+  homeEyebrow: string;
+  homeMetaLine: string;
+  privacyTitle: string;
+  privacyLead: string;
+  footerNote: string;
+  /** 留空则不展示；由站点所有者按实际部署形态填写。 */
+  deploymentLabel: string;
+  /** 版权栏补充声明，留空则不展示。 */
+  footerDisclaimer: string;
 }
 
 export const DEFAULT_SEO: SiteSeoConfig = {
   seoTitle: '',
   seoDescription: '',
-  seoKeywords: '自媒体工作台,选题雷达,内容生产流水线,私有部署',
+  seoKeywords: '自媒体工作台,选题雷达,内容生产流水线,内容运营',
   canonicalUrl: '',
   ogImageUrl: '',
   indexable: true,
   logoUrl: '',
   logoAlt: '',
   geoSummary:
-    '自媒体工作台是一套可私有部署的内容生产系统，覆盖选题雷达采集赛道热点、对标拆解沉淀策略、AI 起草与合规预审、发布归档与效果成本复盘。全部数据存放在自有数据库，凭据加密入库。',
+    '自媒体工作台是一套面向内容团队的工作台系统，覆盖选题雷达采集赛道热点、对标拆解沉淀策略、AI 起草与合规预审、发布归档与效果成本复盘。全部数据存放在自有数据库，凭据加密入库。',
   llmsEnabled: true,
   ownerName: '',
   ownerUrl: '',
@@ -58,6 +68,13 @@ export const DEFAULT_SEO: SiteSeoConfig = {
   policeRecord: '',
   policeUrl: '',
   copyrightNote: '',
+  homeEyebrow: '内容生产中枢 · 全流程留痕',
+  homeMetaLine: '选题 · 拆解 · 起草 · 审核 · 发布 · 复盘，一站完成',
+  privacyTitle: '隐私与数据',
+  privacyLead: '我们重视数据安全与合规。业务数据仅在授权账号登录后可见，公开页面不承载任何业务数据。',
+  footerNote: '页面信息由站点所有者维护，保留所有权利。',
+  deploymentLabel: '',
+  footerDisclaimer: '',
 };
 
 type FieldKind = 'text' | 'url' | 'email' | 'bool';
@@ -86,6 +103,13 @@ export const SEO_FIELDS: Record<keyof SiteSeoConfig, FieldSpec> = {
   policeRecord: { kind: 'text', max: 60 },
   policeUrl: { kind: 'url', max: 300 },
   copyrightNote: { kind: 'text', max: 160 },
+  homeEyebrow: { kind: 'text', max: 80 },
+  homeMetaLine: { kind: 'text', max: 160 },
+  privacyTitle: { kind: 'text', max: 60 },
+  privacyLead: { kind: 'text', max: 300 },
+  footerNote: { kind: 'text', max: 300 },
+  deploymentLabel: { kind: 'text', max: 120 },
+  footerDisclaimer: { kind: 'text', max: 160 },
 };
 
 function cleanText(value: unknown, max: number): string {

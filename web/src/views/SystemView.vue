@@ -101,7 +101,7 @@
           <div class="status-head">任务中心</div>
           <div class="status-body">
             <span class="pill" :class="status.tasks.queueAvailable ? 'ok' : 'warn'">
-              {{ status.tasks.queueAvailable ? '队列在线' : '队列待环境' }}
+              {{ status.tasks.queueAvailable ? '队列在线' : '队列未就绪' }}
             </span>
             <ul class="tiny">
               <li v-for="e in status.tasks.implemented" :key="e">{{ e }}</li>
@@ -175,7 +175,7 @@
       </div>
     </section>
 
-    <!-- T6.7 站点设置：TDK 与搜索引擎收录 -->
+    <!-- 站点设置：TDK 与搜索引擎收录 -->
     <section v-if="section === 'site'" class="card">
       <h2 class="card-title">TDK 与搜索引擎收录 <span class="pill">SEO</span></h2>
       <p class="hint">
@@ -213,12 +213,12 @@
               允许收录（关闭后输出 noindex,nofollow）
             </label>
           </div>
-          <p class="hint">私有部署建议关闭；如需对外介绍站点再开启。robots.txt 已屏蔽全部内部路径。</p>
+          <p class="hint">若不希望被搜索引擎收录请关闭此项；robots.txt 已屏蔽全部内部路径。</p>
         </div>
       </div>
     </section>
 
-    <!-- T6.7 站点设置：Logo 与 GEO -->
+    <!-- 站点设置：Logo 与 GEO -->
     <section v-if="section === 'site'" class="card">
       <h2 class="card-title">Logo 与 GEO（生成式引擎优化） <span class="pill">GEO</span></h2>
       <p class="hint">
@@ -255,7 +255,32 @@
       </div>
     </section>
 
-    <!-- T6.7 站点设置：页脚与所有者信息 -->
+    <!-- 站点设置：公开首页文案（正式投运站点的对外措辞） -->
+    <section v-if="section === 'site'" class="card">
+      <h2 class="card-title">公开首页文案 <span class="pill">对外展示</span></h2>
+      <p class="hint">
+        以下文字会展示给所有未登录访客。请按真实运营主体填写正式用语，不要使用演示或测试口吻。
+        「服务说明」「版权栏补充声明」留空则不展示，系统不会自动填充任何占位内容。
+      </p>
+      <div class="seo-grid">
+        <div class="field"><label>首页眉标</label><input v-model="seoForm.homeEyebrow" class="input" maxlength="80" placeholder="如：内容生产中枢 · 全流程留痕" /></div>
+        <div class="field"><label>首页补充信息</label><input v-model="seoForm.homeMetaLine" class="input" maxlength="160" placeholder="如：选题 · 拆解 · 起草 · 审核 · 发布 · 复盘" /></div>
+        <div class="field"><label>隐私区标题</label><input v-model="seoForm.privacyTitle" class="input" maxlength="60" placeholder="如：隐私与数据" /></div>
+        <div class="field"><label>服务说明（页脚，可选）</label><input v-model="seoForm.deploymentLabel" class="input" maxlength="120" placeholder="留空则不展示" /></div>
+      </div>
+      <div class="field"><label>隐私区说明</label><textarea v-model="seoForm.privacyLead" class="input" rows="2" maxlength="300" placeholder="用正式表述说明数据可见范围与合规立场" /></div>
+      <div class="field"><label>页脚品牌说明</label><textarea v-model="seoForm.footerNote" class="input" rows="2" maxlength="300" placeholder="如：页面信息由站点所有者维护，保留所有权利。" /></div>
+      <div class="field"><label>版权栏补充声明（可选）</label><input v-model="seoForm.footerDisclaimer" class="input" maxlength="160" placeholder="留空则不展示" /></div>
+      <div class="row">
+        <button class="btn primary" :disabled="savingSeo" @click="saveSeo">
+          {{ savingSeo ? '保存中…' : '保存首页文案' }}
+        </button>
+        <span class="hint">与 TDK、Logo、页脚设置共用同一份配置，保存后公开首页立即生效。</span>
+      </div>
+      <p v-if="seoMessage" class="message" :class="seoType">{{ seoMessage }}</p>
+    </section>
+
+    <!-- 站点设置：页脚与所有者信息 -->
     <section v-if="section === 'site'" class="card">
       <h2 class="card-title">页脚与所有者信息 <span class="pill">合规</span></h2>
       <p class="hint">
@@ -266,7 +291,7 @@
         <div class="field"><label>所有者 / 运营者</label><input v-model="seoForm.ownerName" class="input" maxlength="80" placeholder="个人或单位名称" /></div>
         <div class="field"><label>所有者主页</label><input v-model="seoForm.ownerUrl" class="input" maxlength="300" placeholder="https://…" /></div>
         <div class="field"><label>联系邮箱</label><input v-model="seoForm.supportEmail" class="input" maxlength="120" placeholder="support@example.com" /></div>
-        <div class="field"><label>附加版权说明</label><input v-model="seoForm.copyrightNote" class="input" maxlength="160" placeholder="可选，如：示例数据仅供演示" /></div>
+        <div class="field"><label>附加版权说明</label><input v-model="seoForm.copyrightNote" class="input" maxlength="160" placeholder="如：内容版权归本站所有" /></div>
         <div class="field"><label>ICP 备案号</label><input v-model="seoForm.icpNumber" class="input" maxlength="60" placeholder="如 京ICP备00000000号" /></div>
         <div class="field"><label>ICP 备案链接</label><input v-model="seoForm.icpUrl" class="input" maxlength="300" placeholder="留空 = https://beian.miit.gov.cn/" /></div>
         <div class="field"><label>公安备案号</label><input v-model="seoForm.policeRecord" class="input" maxlength="60" placeholder="可选" /></div>
@@ -382,7 +407,7 @@
       <p v-if="credMessage" class="message" :class="credType">{{ credMessage }}</p>
     </section>
 
-    <!-- LLM 供应商（T6.2）：SystemConfig 的 CRUD，密钥 AES 加密入库、前端仅见脱敏 -->
+    <!-- LLM 供应商：SystemConfig 的 CRUD，密钥 AES 加密入库、前端仅见脱敏 -->
     <section v-if="section === 'ai'" id="llm-form" class="card">
       <h2 class="card-title">AI 模型供应商（密钥加密存储）</h2>
       <p class="hint">
@@ -395,6 +420,9 @@
           <span class="pill" :class="p.enabled ? 'ok' : 'warn'">{{ p.enabled ? '已启用' : '已停用' }}</span>
           <b>{{ p.label }}</b>
           <span class="muted">{{ p.provider }} / {{ p.model }}</span>
+          <button class="btn small ghost" :disabled="testingProvider === p.id" @click="testSavedProvider(p)">
+            {{ testingProvider === p.id ? '测试中…' : '测试连接' }}
+          </button>
           <button class="btn small ghost" @click="toggleProvider(p)">{{ p.enabled ? '停用' : '启用' }}</button>
           <button class="btn small ghost" @click="removeProvider(p)">删除</button>
         </div>
@@ -418,7 +446,19 @@
         </div>
         <div class="row">
           <button class="btn primary" :disabled="savingProvider" @click="addProvider">{{ savingProvider ? '保存中…' : '新增 / 覆盖' }}</button>
+          <button class="btn" :disabled="testingProvider === 'form'" @click="testFormProvider">
+            {{ testingProvider === 'form' ? '测试中…' : '测试连接（不保存）' }}
+          </button>
           <span class="hint">按「供应商标识 + 模型」唯一；同标识同模型再次提交会覆盖配置。</span>
+        </div>
+        <div v-if="providerTest" class="provider-test" :class="providerTest.ok ? 'ok' : 'err'">
+          <b>{{ providerTest.ok ? '连接成功' : '连接失败' }}</b>
+          <span class="muted">模型 {{ providerTest.model || '—' }} · 耗时 {{ providerTest.latencyMs }}ms</span>
+          <span v-if="providerTest.ok" class="muted">模型回复：{{ providerTest.replySnippet || '（无文本）' }}</span>
+          <span v-else class="muted">
+            {{ providerTest.httpStatus ? `HTTP ${providerTest.httpStatus} · ` : '' }}{{ providerTest.error || '未知错误' }}
+          </span>
+          <span class="hint">测试只发起一次最小对话请求，不会保存配置、不会回显密钥。</span>
         </div>
       </div>
     </section>
@@ -426,7 +466,7 @@
     <!-- 通知与告警 -->
     <section v-if="section === 'notifications'" class="card">
       <h2 class="card-title">通知与告警</h2>
-      <p class="hint">企业微信/钉钉 Webhook 与邮件 SMTP 凭据仅存于服务端（AES-256-GCM 加密入库），前端仅见脱敏。任务成功/失败与备份失败/配额/存活告警将推送至启用的渠道。</p>
+      <p class="hint">企业微信 / 钉钉 / 飞书 Webhook、Telegram Bot Token 与邮件 SMTP 凭据仅存于服务端（AES-256-GCM 加密入库），前端仅见脱敏。已保存的凭据不会回显，输入框留空即保持原值。任务成功/失败与备份失败/配额/存活告警将推送至启用的渠道。</p>
 
       <div class="notif-grid">
         <div class="notif-card">
@@ -446,6 +486,30 @@
             <input v-model="notifForm.dingtalk.secret" class="input wide mono" type="text" placeholder="SEC..." />
           </div>
           <button class="btn" :disabled="busy==='dingtalk'" @click="test('dingtalk')">测试</button>
+        </div>
+
+        <div class="notif-card">
+          <div class="notif-head"><label class="check"><input type="checkbox" v-model="notifForm.feishu.enabled" /> 飞书机器人 Webhook</label></div>
+          <div class="field"><label>Webhook 地址</label>
+            <input v-model="notifForm.feishu.webhookUrl" class="input wide mono" type="text" placeholder="https://open.feishu.cn/open-apis/bot/v2/hook/..." />
+          </div>
+          <div class="field"><label>签名校验密钥（可选）</label>
+            <input v-model="notifForm.feishu.secret" class="input wide mono" type="text" placeholder="机器人在安全设置中启用签名校验后填写" />
+          </div>
+          <p class="hint">{{ notifConfigured.feishu ? '已配置（凭据留空将保持原值）' : '尚未配置' }}</p>
+          <button class="btn" :disabled="busy==='feishu'" @click="test('feishu')">测试</button>
+        </div>
+
+        <div class="notif-card">
+          <div class="notif-head"><label class="check"><input type="checkbox" v-model="notifForm.telegram.enabled" /> Telegram 机器人</label></div>
+          <div class="field"><label>Bot Token</label>
+            <input v-model="notifForm.telegram.botToken" class="input wide mono" type="password" placeholder="由 @BotFather 签发，如 123456:ABC-DEF" />
+          </div>
+          <div class="field"><label>Chat ID</label>
+            <input v-model="notifForm.telegram.chatId" class="input wide mono" type="text" placeholder="频道 / 群组 / 个人会话 ID" />
+          </div>
+          <p class="hint">{{ notifConfigured.telegram ? '已配置（Token 留空将保持原值）' : '尚未配置' }} · 机器人需先加入目标会话并具备发送权限</p>
+          <button class="btn" :disabled="busy==='telegram'" @click="test('telegram')">测试</button>
         </div>
 
         <div class="notif-card">
@@ -478,6 +542,7 @@
       <div class="row" style="margin-top:12px">
         <button class="btn primary" :disabled="savingNotif" @click="saveNotif">{{ savingNotif ? '保存中…' : '保存通知配置' }}</button>
         <button class="btn" :disabled="busy==='alert'" @click="sendTestAlert">发送测试告警</button>
+        <span class="hint">「测试」按钮使用已保存并启用的配置，请先保存后再测试。</span>
         <span v-if="notifStatus" class="hint">已启用渠道：{{ notifStatus.enabledChannels }} / 共 {{ notifStatus.totalChannels }}</span>
       </div>
     </section>
@@ -569,7 +634,8 @@ import {
   type NotificationSettings,
   type NotificationStatus,
   fetchProviders, saveProvider, updateProvider, deleteProvider,
-  type ProviderView,
+  testProviderConnection,
+  type ProviderView, type ProviderTestResult,
 } from '../api/http';
 import {
   getUser, changePassword,
@@ -652,6 +718,8 @@ const notifStatus = ref<NotificationStatus | null>(null);
 const notifForm = reactive({
   wecom: { enabled: false, webhookUrl: '' },
   dingtalk: { enabled: false, webhookUrl: '', secret: '' },
+  feishu: { enabled: false, webhookUrl: '', secret: '' },
+  telegram: { enabled: false, botToken: '', chatId: '' },
   email: {
     enabled: false,
     smtpHost: '',
@@ -663,6 +731,16 @@ const notifForm = reactive({
     toText: '',
   },
 });
+/** 服务端只回脱敏串；这里记录「是否已配置」，用于给用户明确的留空保持原值提示。 */
+const notifConfigured = reactive<Record<string, boolean>>({
+  wecom: false, dingtalk: false, feishu: false, telegram: false, email: false,
+});
+/** 脱敏占位 / 密文前缀一律不回填到输入框。 */
+function maskedOrEmpty(v: string | undefined): string {
+  if (!v || v.startsWith('***') || v.startsWith('enc:')) return '';
+  return v;
+}
+
 const forwardKinds = reactive<Record<string, boolean>>({
   task_failed: true,
   backup_failed: true,
@@ -932,6 +1010,62 @@ const providerForm = reactive({
   provider: '', label: '', model: '', baseUrl: '', apiKey: '', monthlyBudget: 0,
 });
 const savingProvider = ref(false);
+const testingProvider = ref(''); // 'form' 或已保存供应商 id
+const providerTest = ref<ProviderTestResult | null>(null);
+
+/** 测试已保存供应商：服务端解密库里的密钥，前端始终看不到明文。 */
+async function testSavedProvider(p: ProviderView) {
+  testingProvider.value = p.id;
+  providerTest.value = null;
+  try {
+    providerTest.value = await testProviderConnection({ providerId: p.id });
+  } catch (e) {
+    providerTest.value = {
+      ok: false,
+      latencyMs: 0,
+      model: p.model,
+      error: e instanceof Error ? e.message : String(e),
+    };
+  } finally {
+    testingProvider.value = '';
+  }
+}
+
+/** 测试表单中尚未保存的配置：明文 key 只随本次请求发送，不写入本地存储。 */
+async function testFormProvider() {
+  if (!providerForm.model.trim()) {
+    providerTest.value = { ok: false, latencyMs: 0, model: '', error: '请先填写模型名称' };
+    return;
+  }
+  if (!providerForm.apiKey.trim() && !providerForm.provider.trim()) {
+    providerTest.value = {
+      ok: false,
+      latencyMs: 0,
+      model: providerForm.model,
+      error: '请填写 API Key；若要测试已保存的配置，请改用列表中该行的「测试连接」。',
+    };
+    return;
+  }
+  testingProvider.value = 'form';
+  providerTest.value = null;
+  try {
+    providerTest.value = await testProviderConnection({
+      provider: providerForm.provider.trim() || undefined,
+      baseUrl: providerForm.baseUrl.trim() || undefined,
+      model: providerForm.model.trim(),
+      apiKey: providerForm.apiKey.trim() || undefined,
+    });
+  } catch (e) {
+    providerTest.value = {
+      ok: false,
+      latencyMs: 0,
+      model: providerForm.model,
+      error: e instanceof Error ? e.message : String(e),
+    };
+  } finally {
+    testingProvider.value = '';
+  }
+}
 
 async function loadProviders() {
   try {
@@ -1118,6 +1252,22 @@ function buildNotifPayload(): NotificationSettings {
       secret: notifForm.dingtalk.secret || undefined,
     });
   }
+  if (notifForm.feishu.webhookUrl || notifForm.feishu.enabled) {
+    channels.push({
+      type: 'feishu',
+      enabled: notifForm.feishu.enabled,
+      webhookUrl: notifForm.feishu.webhookUrl || undefined,
+      secret: notifForm.feishu.secret || undefined,
+    });
+  }
+  if (notifForm.telegram.chatId || notifForm.telegram.botToken || notifForm.telegram.enabled) {
+    channels.push({
+      type: 'telegram',
+      enabled: notifForm.telegram.enabled,
+      botToken: notifForm.telegram.botToken || undefined,
+      chatId: notifForm.telegram.chatId || undefined,
+    });
+  }
   if (notifForm.email.smtpHost || notifForm.email.enabled) {
     const to = notifForm.email.toText
       .split(',')
@@ -1143,15 +1293,26 @@ function hydrateNotif(s: NotificationSettings) {
   const map: Record<string, NotificationChannel> = {};
   for (const c of s.channels) map[c.type] = c;
   notifForm.wecom.enabled = Boolean(map.wecom?.enabled);
-  notifForm.wecom.webhookUrl = map.wecom?.webhookUrl ?? '';
+  notifForm.wecom.webhookUrl = maskedOrEmpty(map.wecom?.webhookUrl);
+  notifConfigured.wecom = Boolean(map.wecom?.webhookUrl);
   notifForm.dingtalk.enabled = Boolean(map.dingtalk?.enabled);
-  notifForm.dingtalk.webhookUrl = map.dingtalk?.webhookUrl ?? '';
-  notifForm.dingtalk.secret = map.dingtalk?.secret ?? '';
+  notifForm.dingtalk.webhookUrl = maskedOrEmpty(map.dingtalk?.webhookUrl);
+  notifForm.dingtalk.secret = maskedOrEmpty(map.dingtalk?.secret);
+  notifConfigured.dingtalk = Boolean(map.dingtalk?.webhookUrl);
+  notifForm.feishu.enabled = Boolean(map.feishu?.enabled);
+  notifForm.feishu.webhookUrl = maskedOrEmpty(map.feishu?.webhookUrl);
+  notifForm.feishu.secret = maskedOrEmpty(map.feishu?.secret);
+  notifConfigured.feishu = Boolean(map.feishu?.webhookUrl);
+  notifForm.telegram.enabled = Boolean(map.telegram?.enabled);
+  notifForm.telegram.botToken = maskedOrEmpty(map.telegram?.botToken);
+  notifForm.telegram.chatId = map.telegram?.chatId ?? '';
+  notifConfigured.telegram = Boolean(map.telegram?.botToken);
   notifForm.email.enabled = Boolean(map.email?.enabled);
   notifForm.email.smtpHost = map.email?.smtpHost ?? '';
   notifForm.email.smtpPort = map.email?.smtpPort ?? 465;
   notifForm.email.smtpUser = map.email?.smtpUser ?? '';
-  notifForm.email.smtpPassword = '';
+  notifForm.email.smtpPassword = maskedOrEmpty(map.email?.smtpPassword);
+  notifConfigured.email = Boolean(map.email?.smtpHost);
   notifForm.email.secure = map.email?.secure ?? true;
   notifForm.email.from = map.email?.from ?? '';
   notifForm.email.toText = (map.email?.to ?? []).join(',');
@@ -1187,6 +1348,7 @@ async function saveNotif() {
     };
     message.value = '通知配置已保存（敏感字段服务端加密入库）';
     messageType.value = 'ok';
+    await loadNotif();
   } catch (e) {
     message.value = `保存失败：${(e as Error).message}`;
     messageType.value = 'err';
@@ -1228,6 +1390,12 @@ async function sendTestAlert() {
 </script>
 
 <style scoped>
+/* 供应商连通性测试结果 */
+.provider-test { display: flex; flex-direction: column; gap: 4px; margin-top: 12px; padding: 10px 12px; border: 1px solid var(--border, #e2e6ec); border-radius: 8px; background: var(--panel-soft, #f5f7fa); font-size: 12px; }
+.provider-test.ok { border-color: #b9e2ce; background: var(--ok-soft, #eefaf3); }
+.provider-test.err { border-color: #f0c6c0; background: var(--danger-soft, #fdecea); }
+.provider-test b { font-size: 13px; }
+
 /* 站点品牌 / TDK / SEO·GEO（T6.7）*/
 .seo-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 18px; }
 .brand-preview { align-items: center; margin: 4px 0 16px; gap: 16px; flex-wrap: wrap; }

@@ -66,6 +66,7 @@ export const navGroups: NavGroup[] = [
       { path: '/system/ai', label: 'AI 与密钥', icon: '⚿' },
       { path: '/system/notifications', label: '通知与告警', icon: '◔' },
       { path: '/system/ops', label: '版本与运维', icon: '⟳' },
+      { path: '/system/guide', label: '使用教程', icon: '？' },
       { path: '/system/audit', label: '审计与回收站', icon: '◉' },
     ],
   },
@@ -107,6 +108,7 @@ const routes: RouteRecordRaw[] = [
       // 系统管理：静态路由优先于 :section，审计页复用原可观测性组件
       { path: 'system', redirect: '/system/site' },
       { path: 'system/audit', name: 'system-audit', component: () => import('../views/ObservabilityView.vue') },
+      { path: 'system/guide', name: 'system-guide', component: () => import('../views/GuideView.vue') },
       { path: 'system/:section', name: 'system', component: () => import('../views/SystemView.vue') },
       { path: 'observability', redirect: '/system/audit' },
     ],

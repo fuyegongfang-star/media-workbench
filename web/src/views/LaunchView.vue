@@ -3,7 +3,7 @@
     <div class="head">
       <div>
         <h1>起号计划</h1>
-        <p class="muted">公众号图文 / 贴图起号的基础任务管理（T4.1 图文 + T4.2 贴图起号计划）。建立计划 → 拆解任务/图片组 → 关联内容项目 → 发布后状态自动回写；贴图计划支持图片组拖拽预览与每图配文。</p>
+        <p class="muted">公众号图文 / 贴图起号的基础任务管理。建立计划 → 拆解任务/图片组 → 关联内容项目 → 发布后状态自动回写；贴图计划支持图片组拖拽预览与每图配文。</p>
       </div>
       <button class="btn" type="button" :disabled="busy" @click="toggleCreate">{{ showCreate ? '收起' : '新建计划' }}</button>
     </div>
@@ -50,7 +50,10 @@
       </div>
       <div class="actions">
         <button class="btn" type="button" :disabled="busy || !form.ownedAccountId || !form.goal" @click="submitCreate">创建</button>
-        <span v-if="!form.ownedAccountId" class="muted">需先选择归属账号</span>
+        <span v-if="!ownedAccounts.length" class="muted">
+          尚未创建归属账号，请先到 <router-link to="/account">账号与策略</router-link> 新建自有账号。
+        </span>
+        <span v-else-if="!form.ownedAccountId" class="muted">需先选择归属账号</span>
         <span v-if="!form.goal" class="muted">需填写目标</span>
       </div>
     </div>
@@ -102,7 +105,7 @@
           <button class="btn ghost" type="button" :disabled="busy" @click="syncTask(t)">回写状态</button>
           <button class="btn danger" type="button" :disabled="busy" @click="removeTask(plan, t)">删除</button>
 
-          <!-- T4.2 贴图图片组：拖拽预览 + 每图配文 -->
+          <!-- 贴图图片组：拖拽预览 + 每图配文 -->
           <div v-if="plan.type === 'image'" class="image-group">
             <div class="ig-head muted small">
               图片组（{{ (t.imageItems ?? []).length }} 张，可拖拽调整顺序）
@@ -237,6 +240,12 @@ function projectLabel(p: ContentProjectItem): string {
 
 function ensureTaskForm(planId: string) {
   if (!taskForm[planId]) taskForm[planId] = { title: '', projectId: '' };
+}
+
+/** 展开 / 收起「新建计划」表单。此前模板绑定了该函数但脚本未定义，点击按钮无任何反应。 */
+function toggleCreate(): void {
+  showCreate.value = !showCreate.value;
+  if (showCreate.value) error.value = '';
 }
 
 function toggleExpand(plan: LaunchPlan) {

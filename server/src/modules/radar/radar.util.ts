@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import type { RadarConfig, ScoredCandidate } from './radar.contract';
+import type { CustomSource, RadarConfig, ScoredCandidate } from './radar.contract';
 
 /**
  * 雷达纯函数集合：无 I/O、可单测。
@@ -17,6 +17,41 @@ export function fingerprintOf(raw: string): string {
   return createHash('sha256').update(normalizeTitle(raw)).digest('hex');
 }
 
+/** 自定义数据源清洗：仅允许 http(s) URL、限制数量与字段长度，自动生成稳定 id 防重复。 */
+export function sanitizeCustomSources(input: unknown, max = 20): CustomSource[] {
+  if (!Array.isArray(input)) return [];
+  const strArray = (v: unknown, limit: number): string[] =>
+    Array.isArray(v)
+      ? v.filter((x): x is string => typeof x === 'string' && x.trim().length > 0)
+          .slice(0, limit)
+          .map((x) => x.trim().slice(0, 80))
+      : [];
+  const seen = new Set<string>();
+  const out: CustomSource[] = [];
+  for (const raw of input.slice(0, max)) {
+    if (!raw || typeof raw !== 'object') continue;
+    const o = raw as Record<string, unknown>;
+    const url = typeof o.url === 'string' ? o.url.trim().slice(0, 500) : '';
+    if (!/^https?:\/\/\S+$/i.test(url)) continue; // 拒绝 javascript:/data:/站内相对路径
+    const name = (typeof o.name === 'string' ? o.name.trim() : '').slice(0, 60) || url;
+    const idRaw = typeof o.id === 'string' ? o.id.trim() : '';
+    const id = /^[a-zA-Z0-9_-]{1,40}$/.test(idRaw)
+      ? idRaw
+      : `src_${createHash('sha256').update(url).digest('hex').slice(0, 10)}`;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    out.push({
+      id,
+      name,
+      url,
+      format: o.format === 'json' ? 'json' : 'rss',
+      enabled: o.enabled !== false,
+      keywords: strArray(o.keywords, 20),
+    });
+  }
+  return out;
+}
+
 /** 配置清洗：限制数组长度、过滤空串、条数夹在合理区间，防异常输入撑爆采集。 */
 export function sanitizeConfig(input: unknown): RadarConfig {
   const raw = (input && typeof input === 'object' ? input : {}) as Record<string, unknown>;
@@ -30,6 +65,7 @@ export function sanitizeConfig(input: unknown): RadarConfig {
     schedule: { enabled: false, time: '08:00', timezone: 'Asia/Shanghai' },
     monitoredAccounts: { x: [], youtube: [] },
     accountDedupeDays: 7,
+    customSources: [],
   } as RadarConfig;
 
   const strArray = (v: unknown, max: number): string[] =>
@@ -89,7 +125,15 @@ export function sanitizeConfig(input: unknown): RadarConfig {
     ? Math.max(0, Math.min(90, Math.floor(dedupeRaw)))
     : 7;
 
-  return { niches: niches.length ? niches : fallback.niches, sources, output, schedule, monitoredAccounts, accountDedupeDays };
+  return {
+    niches: niches.length ? niches : fallback.niches,
+    sources,
+    output,
+    schedule,
+    monitoredAccounts,
+    accountDedupeDays,
+    customSources: sanitizeCustomSources(raw.customSources),
+  };
 }
 
 /** 盯号内容去重键：优先稳定 URL（视频 ID / 推文 ID），无 URL 时回退标题指纹。 */

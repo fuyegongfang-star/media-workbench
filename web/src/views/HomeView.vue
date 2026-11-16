@@ -14,7 +14,7 @@
       <div class="home-nav-links">
         <a class="home-link" href="#features">功能</a>
         <a class="home-link" href="#flow">工作流</a>
-        <a class="home-link" href="#privacy">隐私</a>
+        <a class="home-link" href="#privacy">{{ privacyTitle }}</a>
         <router-link v-if="loggedIn" class="home-btn primary" to="/dashboard">进入工作台</router-link>
         <template v-else>
           <router-link class="home-btn" to="/login">登录</router-link>
@@ -26,7 +26,7 @@
     <div class="home-hero-wrap">
       <section class="home-hero">
         <div>
-          <span class="home-eyebrow">私有部署 · 内容生产中枢</span>
+          <span class="home-eyebrow">{{ seo.homeEyebrow || '内容生产中枢 · 全流程留痕' }}</span>
           <h1>把选题到发布，<br />收进<em>一条流水线</em></h1>
           <p class="home-lead">
             每日热点雷达自动汇总赛道情报，对标拆解沉淀策略，AI 起草与合规预审衔接审核，
@@ -39,7 +39,7 @@
               <a class="home-btn" href="#features">先看看功能</a>
             </template>
           </div>
-          <p class="home-meta">支持一键部署到自有服务器 · 数据留在自己的数据库 · MIT 开源 · 5 组业务导航</p>
+          <p class="home-meta">{{ seo.homeMetaLine || '选题 · 拆解 · 起草 · 审核 · 发布 · 复盘，一站完成' }}</p>
         </div>
 
         <div id="flow" class="hero-card">
@@ -84,22 +84,20 @@
 
     <section id="privacy" class="home-band home-band-soft">
       <div class="band-inner home-section privacy-inner">
-        <h2>隐私与数据</h2>
-        <p class="privacy-lead">
-          本站是私有部署实例，工作台内容不对公众开放。公开页面只用于介绍这套系统，不承载任何业务数据。
-        </p>
+        <h2>{{ privacyTitle }}</h2>
+        <p class="privacy-lead">{{ seo.privacyLead || '我们重视数据安全与合规。业务数据仅在授权账号登录后可见，公开页面不承载任何业务数据。' }}</p>
         <div class="privacy-grid">
           <div class="home-feature">
-            <h3>数据留在自己的服务器</h3>
-            <p>选题、素材、内容与效果数据存放在自有 PostgreSQL；附件落在自有存储卷，备份脚本可定时导出。</p>
+            <h3>数据存放与备份</h3>
+            <p>选题、素材、内容与效果数据集中存放于站点数据库，附件落在自有存储卷，可按计划备份导出。</p>
           </div>
           <div class="home-feature">
-            <h3>凭据加密入库</h3>
-            <p>LLM API Key、公众号 AppID / AppSecret 与通知渠道凭据经 AES-256-GCM 加密保存，前端只显示脱敏状态。</p>
+            <h3>凭据加密保管</h3>
+            <p>模型 API Key、公众号 AppID / AppSecret 与通知渠道凭据均加密保存，管理界面只显示脱敏状态。</p>
           </div>
           <div class="home-feature">
-            <h3>登录与权限边界</h3>
-            <p>JWT + argon2，所有者 / 管理员 / 编辑三级角色；自助注册默认关闭，是否开放由管理员决定。</p>
+            <h3>登录与权限</h3>
+            <p>所有者 / 管理员 / 编辑三级角色，按最小权限隔离；自助注册是否开放由管理员决定。</p>
           </div>
         </div>
       </div>
@@ -115,9 +113,7 @@
               <b>{{ siteName }}</b>
             </div>
             <p>{{ siteDesc }}</p>
-            <p class="foot-note">
-              本站为私有部署实例，页面信息由站点所有者维护；不代表上游开源项目立场。
-            </p>
+            <p v-if="seo.footerNote" class="foot-note">{{ seo.footerNote }}</p>
           </div>
 
           <div class="foot-col">
@@ -144,7 +140,7 @@
             <span v-else class="foot-static">联系邮箱：未公开</span>
             <a v-if="seo.icpNumber" :href="icpHref" target="_blank" rel="noopener noreferrer">{{ seo.icpNumber }}</a>
             <a v-if="seo.policeRecord" :href="policeHref" target="_blank" rel="noopener noreferrer">{{ seo.policeRecord }}</a>
-            <span class="foot-static">部署方式：私有部署 · 数据自持</span>
+            <span v-if="seo.deploymentLabel" class="foot-static">{{ seo.deploymentLabel }}</span>
           </div>
         </div>
 
@@ -152,7 +148,7 @@
           <span>© {{ year }} {{ owner }} · 保留所有权利</span>
           <span v-if="seo.copyrightNote">{{ seo.copyrightNote }}</span>
           <span>v0.1.0 · MIT License</span>
-          <span>本页为静态介绍，业务数据不对外公开</span>
+          <span v-if="seo.footerDisclaimer">{{ seo.footerDisclaimer }}</span>
         </div>
       </div>
     </footer>
@@ -171,8 +167,9 @@ const year = new Date().getFullYear();
 const seo = computed(() => siteInfo.value.seo);
 const siteName = computed(() => siteInfo.value.siteName || '自媒体工作台');
 const siteDesc = computed(
-  () => siteInfo.value.siteDesc || '把选题到发布收进一条流水线，私有部署、数据自持。',
+  () => siteInfo.value.siteDesc || '把选题到发布收进一条流水线，覆盖洞察、生产、复盘与系统配置。',
 );
+const privacyTitle = computed(() => seo.value.privacyTitle || '隐私与数据');
 const logo = computed(() => safeUrl(seo.value.logoUrl));
 const owner = computed(() => seo.value.ownerName.trim() || siteName.value);
 const ownerHref = computed(() => safeUrl(seo.value.ownerUrl));
@@ -192,7 +189,7 @@ const highlights = [
   { icon: '⌖', title: '全链路覆盖', desc: '找题 → 拆解 → 起草 → 审核 → 发布 → 复盘，五个环节串成一条线。' },
   { icon: '◔', title: '零 Key 起步', desc: '免费热点源与模板兜底可用；接入 LLM 后再解锁生成能力。' },
   { icon: '⚿', title: '凭据加密入库', desc: 'AES-256-GCM 保存第三方密钥，日志不打印明文、前端不回显。' },
-  { icon: '⛁', title: '数据自持', desc: 'PostgreSQL + 自有存储卷，备份脚本与一键更新都在自己手里。' },
+  { icon: '⛁', title: '数据统一管理', desc: '业务数据集中存放，备份与版本更新流程由站点管理员掌控。' },
 ];
 
 const features = [

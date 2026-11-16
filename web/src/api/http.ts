@@ -33,6 +33,50 @@ export async function fetchHealth(timeoutMs = 5000): Promise<HealthPayload> {
   }
 }
 
+// ============ 工作台业务总览 ============
+
+export interface BusinessOverview {
+  available: boolean;
+  generatedAt: string;
+  topics: { total: number; thisWeek: number };
+  titles: { total: number; selected: number };
+  projects: {
+    total: number;
+    byStatus: Record<string, number>;
+    inProgress: number;
+    pendingReview: number;
+    published: number;
+  };
+  radar: {
+    runDate: string;
+    status: string;
+    itemCount: number;
+    featuredCount: number;
+  } | null;
+  planner: { activePlans: number; pendingTasks: number };
+  queue: { queued: number; running: number };
+  generation: { monthRuns: number; monthCost: number; successRate: number };
+  metrics: { total: number; last30Days: number };
+  accounts: number;
+}
+
+/** 工作台首屏的业务指标聚合（需登录）；服务健康状态在「版本与运维」页查看。 */
+export async function fetchBusinessOverview(timeoutMs = 8000): Promise<BusinessOverview> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(`/${apiPrefix()}/overview`, {
+      signal: controller.signal,
+      headers: { Accept: 'application/json', ...authHeader() },
+    });
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return (await res.json()) as BusinessOverview;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 // ============ 系统设置（T1.8）============
 
 export interface SiteSettingsView {
@@ -284,7 +328,7 @@ export async function runBatch(params: BatchParams, timeoutMs = 15000): Promise<
 
 // ============ 通知渠道与监控告警（T1.10）============
 
-export type NotificationChannelType = 'wecom' | 'dingtalk' | 'email';
+export type NotificationChannelType = 'wecom' | 'dingtalk' | 'email' | 'feishu' | 'telegram';
 export type NotificationAlertKind =
   | 'task_success'
   | 'task_failed'
@@ -298,6 +342,8 @@ export interface NotificationChannel {
   enabled: boolean;
   webhookUrl?: string;
   secret?: string;
+  botToken?: string;
+  chatId?: string;
   smtpHost?: string;
   smtpPort?: number;
   smtpUser?: string;
@@ -3346,6 +3392,15 @@ export interface RadarNiche {
   keywords: string[];
 }
 
+export interface RadarCustomSource {
+  id: string;
+  name: string;
+  url: string;
+  format: 'rss' | 'json';
+  enabled: boolean;
+  keywords: string[];
+}
+
 export interface RadarConfig {
   niches: RadarNiche[];
   sources: Record<string, boolean>;
@@ -3353,6 +3408,7 @@ export interface RadarConfig {
   schedule: { enabled: boolean; time: string; timezone: string };
   monitoredAccounts: { x: string[]; youtube: string[] };
   accountDedupeDays: number;
+  customSources: RadarCustomSource[];
 }
 
 export interface RadarBriefSummary {
@@ -3419,6 +3475,22 @@ export function saveRadarConfig(config: RadarConfig): Promise<{ config: RadarCon
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(config),
   });
+}
+
+export interface RadarCustomSourceTest {
+  ok: boolean;
+  count: number;
+  sample: Array<{ title: string; url?: string }>;
+  error?: string;
+}
+
+/** 测试一个自定义 RSS / JSON 源是否可访问、能否解析出条目（不写库）。 */
+export function testRadarCustomSource(body: { url: string; format: 'rss' | 'json' }): Promise<RadarCustomSourceTest> {
+  return radarFetch('/custom-sources/test', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  }, 15_000);
 }
 
 export function triggerRadarCollect(): Promise<{ taskId: string; dispatched: boolean }> {
@@ -3511,4 +3583,52 @@ export function updateProvider(id: string, body: Partial<{
 
 export function deleteProvider(id: string): Promise<{ ok: boolean }> {
   return providerFetch(`/${encodeURIComponent(id)}`, { method: 'DELETE' });
+}
+
+export interface ProviderTestResult {
+  ok: boolean;
+  latencyMs: number;
+  model: string;
+  replySnippet?: string;
+  httpStatus?: number;
+  error?: string;
+}
+
+/**
+ * 供应商连通性测试：真实发起一次最小对话请求，返回耗时与模型回复片段。
+ * 明文 apiKey 只随本次请求发送，测试通过与否都不写入本地存储。
+ * 后端最多等 15s，这里给 25s 余量，避免网络抖动被误判成超时。
+ */
+export async function testProviderConnection(
+  body: {
+    providerId?: string;
+    provider?: string;
+    baseUrl?: string;
+    model?: string;
+    apiKey?: string;
+  },
+  timeoutMs = 25_000,
+): Promise<ProviderTestResult> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(`/${apiPrefix()}/system/providers/test`, {
+      method: 'POST',
+      signal: controller.signal,
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        ...authHeader(),
+      },
+      body: JSON.stringify(body),
+    });
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
+    if (!res.ok) {
+      const detail = (await res.json().catch(() => ({}))) as { message?: string };
+      throw new Error(detail.message || `HTTP ${res.status}`);
+    }
+    return (await res.json()) as ProviderTestResult;
+  } finally {
+    clearTimeout(timer);
+  }
 }

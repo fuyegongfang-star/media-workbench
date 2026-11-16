@@ -9,14 +9,14 @@
 [![NestJS 11](https://img.shields.io/badge/NestJS-11-E0234E?style=flat-square&logo=nestjs&logoColor=white)](https://nestjs.com/)
 [![Vue 3](https://img.shields.io/badge/Vue-3-42B883?style=flat-square&logo=vue.js&logoColor=white)](https://vuejs.org/)
 [![PostgreSQL 16](https://img.shields.io/badge/PostgreSQL-16-4169E1?style=flat-square&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
-[![396 unit tests](https://img.shields.io/badge/tests-396-16a34a?style=flat-square)](server/test/)
+[![411 unit tests](https://img.shields.io/badge/tests-411-16a34a?style=flat-square)](server/test/)
 
 [🚀 一键部署](#-一键部署)　·　[🗺 功能地图](#-功能地图)　·　[🛠 本地开发](#-本地开发)　·　[📚 文档](#-文档索引)
 
 </div>
 
 > [!IMPORTANT]
-> **部署状态**：已在真实云服务器（Ubuntu + Docker Compose）跑通全套服务：24 个迁移、PostgreSQL / Redis 连通、登录与用户管理端到端验证、396 个单元测试、镜像构建与健康检查均通过。仍未验证的是真实 LLM 供应商密钥调用、搜狗微信反爬与长期定时调度（需业务侧 Key 或观察周期）。健康检查在依赖不可用时如实返回 `unavailable`，不伪造通过。上线前请按 [部署指南第六节](deploy/README.md) 逐条验收。
+> **部署状态**：已在真实云服务器（Ubuntu + Docker Compose）跑通全套服务：25 个迁移、PostgreSQL / Redis 连通、登录与用户管理端到端验证、411 个单元测试、镜像构建与健康检查均通过。仍未验证的是真实 LLM 供应商密钥调用、搜狗微信反爬与长期定时调度（需业务侧 Key 或观察周期）。健康检查在依赖不可用时如实返回 `unavailable`，不伪造通过。上线前请按 [部署指南第六节](deploy/README.md) 逐条验收。
 
 ---
 
@@ -38,9 +38,9 @@
 
 ## 🖥 界面一览
 
-![工作台界面结构：侧栏导航、KPI 卡片、产出趋势与依赖健康状态](docs/interface.svg)
+![工作台界面结构：侧栏导航、业务总览 KPI 卡片、项目进度与最近选题简报](docs/interface.svg)
 
-前端按业务流程归集为 **5 个导航分组、17 个入口**，另加公开首页与三个认证页：
+前端按业务流程归集为 **5 个导航分组、18 个入口**，另加公开首页与三个认证页：
 
 | 分组 | 入口 |
 | :--- | :--- |
@@ -48,11 +48,15 @@
 | 选题与洞察 | 选题雷达 · 对标分析 · 账号与策略 |
 | 内容生产 | 内容项目 · 素材库 · 内容日历 · 批量操作 · 起号计划 |
 | 数据与复盘 | 效果看板 · 成本看板 |
-| 系统管理 | 站点设置 · 用户与权限 · AI 与密钥 · 通知与告警 · 版本与运维 · 审计与回收站 |
+| 系统管理 | 站点设置 · 用户与权限 · AI 与密钥 · 通知与告警 · 版本与运维 · 使用教程 · 审计与回收站 |
 
 - **未登录先见首页**：`/` 是公开的能力介绍页，再进入登录 / 注册 / 找回密码，不再一打开就撞上登录框。
-- **系统管理二级页签**：六个分类共用统一页头与面包屑，不再是「一个长页面塞满所有设置」。
-- **密钥集中**：LLM API Key、公众号 AppID / AppSecret、通知渠道凭据统一在「系统管理 → AI 与密钥」维护与查看状态；`APP_MASTER_KEY` 为服务端只读环境变量。业务页只保留业务参数。
+- **系统管理二级页签**：七个分类共用统一页头与面包屑，不再是「一个长页面塞满所有设置」。
+- **工作台是业务总览**：首屏只看选题、标题、项目进度、最近雷达简报、起号待办、本月 AI 成本与常用入口；依赖健康检查等运维信息收敛到「版本与运维」。
+- **内置图文使用教程**：`系统管理 → 使用教程` 含 8 章流程说明、内联 SVG 插图、滚动高亮目录与打印 / 导出 PDF，零外链依赖。
+- **密钥集中与连通性自检**：LLM API Key、公众号 AppID / AppSecret、通知渠道凭据统一在「系统管理 → AI 与密钥」维护；每个供应商可一键发起最小对话请求验证 Key 是否可用，密钥不入库、不回显、不写日志。
+- **正式运营文案可配**：首页眉标、隐私区说明、页脚品牌说明、服务说明与版权栏补充声明均在「站点设置 → 公开首页文案」编辑，留空不展示、不自动填占位。
+- **通知与数据源可扩展**：通知渠道支持企业微信 / 钉钉 / 邮件 / 飞书机器人 / Telegram 机器人；选题雷达可自行添加 RSS / Atom 或 JSON 自定义数据源，配置页带连通性测试。
 - **统一浅色设计系统**：全局 CSS variables 覆盖原生控件与历史页面硬编码深色，表单、表格、卡片、语义色一致。
 - **站点品牌与 SEO / GEO**：站点设置可配 TDK、Canonical、OG 图、Logo、收录开关、AI 站点摘要，以及页脚所有者 / 邮箱 / ICP / 公安备案；未填的备案与联系方式不展示，不伪造主体信息。
 
@@ -155,7 +159,7 @@ npm run typecheck                    # 前后端类型检查
 npm run validate                     # prisma validate（同样需 DATABASE_URL）
 npm run trial                        # 纯函数端到端流水线自检
 npm run health                       # 需 API 已启动
-node --test server/test/*.test.mjs   # 396 个单测（32 个文件）
+node --test server/test/*.test.mjs   # 411 个单测（34 个文件）
 ```
 
 </details>
@@ -166,11 +170,11 @@ node --test server/test/*.test.mjs   # 396 个单测（32 个文件）
 | 项 | 结果 |
 | :--- | :--- |
 | `npm run build` / `npm run typecheck` | ✅ 通过 |
-| 单元测试 | ✅ 396 / 396（32 个文件） |
+| 单元测试 | ✅ 411 / 411（34 个文件） |
 | `prisma validate` / 迁移文件 | ✅ 25 个迁移目录均有 `migration.sql`（含 `0023_site_seo_config`） |
 | `preflight`（一键脚本生成的 `.env`） | ✅ PASS 25 / WARN 3 / FAIL 0，WARN 均为未配置 AI 密钥 |
 | shell 脚本 | ✅ `sh -n` 通过、LF 换行、无 BOM |
-| 前端界面（首页 / 分组侧栏 / 设置中心 / 登录注册找回 / 品牌与 SEO 表单 / 页脚） | ✅ 1920 宽屏真实浏览器截图逐页自查通过 |
+| 前端界面（业务总览 / 分组侧栏 / 设置中心 / 使用教程 / 品牌与 SEO 表单 / 通知渠道 / 雷达自定义源 / 页脚） | ✅ 真实浏览器逐页截图 + 点击交互自查通过 |
 | 真机 PostgreSQL / Redis / 登录 / 用户管理 / 在线更新 | ✅ 已在 Ubuntu + Docker Compose 生产环境端到端验证 |
 | 真实 LLM 供应商调用 / 搜狗微信反爬 / 长期定时调度 | ⚠️ 仍需业务侧 Key 或观察周期，未伪造通过 |
 | 本机 Docker | ⚠️ 开发机无 Docker（不影响生产部署，本机只跑静态自验） |

@@ -191,17 +191,17 @@ export class SystemService {
         queueAvailable: this.taskQueue.available,
         note: this.taskQueue.available
           ? 'BullMQ 队列与 Worker 在线，异步任务可入队消费。'
-          : 'Redis 不可达，队列/Worker 降级（待环境），任务保留 queued 状态。',
+          : 'Redis 不可达，队列与 Worker 已降级，任务保留 queued 状态，恢复连接后继续处理。',
       },
       backup: {
         scripts: ['backup:db', 'backup:files', 'backup'],
         cronExample: 'deploy/backup.cron.example',
         manual: 'restore.md',
-        note: 'pg_dump 逻辑备份(gzip+轮换) + 文件 rsync 镜像/硬链接快照；真实执行在目标 Linux 服务器（本机已 self-test 验证逻辑）。',
+        note: 'pg_dump 逻辑备份（gzip + 轮换）与文件 rsync 镜像/硬链接快照；按部署文档配置定时备份与恢复流程。',
       },
       health: {
-        postgres: this.prisma.isConnected ? 'up' : 'unavailable (待环境)',
-        redis: this.taskQueue.available ? 'up' : 'unavailable (待环境)',
+        postgres: this.prisma.isConnected ? 'up' : 'unavailable',
+        redis: this.taskQueue.available ? 'up' : 'unavailable',
       },
       notifications: {
         enabledChannels: enabledNotif,

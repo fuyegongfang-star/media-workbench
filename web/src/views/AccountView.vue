@@ -120,7 +120,7 @@
             </button>
           </div>
         </div>
-        <p class="hint">账号级汇总（对标分析页）会产出草稿版本；此处可手动新建、编辑七字段卡、设为账号默认或解绑。默认策略会被内容项目（T3.2）继承。</p>
+        <p class="hint">账号级汇总（对标分析页）会产出草稿版本；此处可手动新建、编辑七字段卡、设为账号默认或解绑。默认策略会被内容项目继承。</p>
         <p v-if="strategyError" class="message err">{{ strategyError }}</p>
         <table v-if="strategies.length" class="tbl">
           <thead>

@@ -3,8 +3,7 @@
     <div class="block">
       <div class="head">
         <h2>发布后效果数据回收</h2>
-        <span class="badge">T3.10</span>
-      </div>
+        </div>
       <p class="desc">
         回收已发布文章的效果指标（阅读/分享/收藏/在看/涨粉/取关）。可手动录入，或配置公众号资质后由
         <code>METRICS_AUTO_PULL=1</code> 定时拉取 <code>getuserread/getarticleread/getusersummary</code>。

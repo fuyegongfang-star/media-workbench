@@ -1,4 +1,5 @@
-import type { CollectorId, MonitoredAccounts, RadarCollector, RawCandidate } from '../radar.contract';
+import type { CollectorId, CustomSource, MonitoredAccounts, RadarCollector, RawCandidate } from '../radar.contract';
+import { collectCustomSources } from './custom-source.collector';
 import { BilibiliCollector, HnrssCollector, ToutiaoCollector } from './hotlist.collector';
 import { SogouWechatCollector } from './sogou-wechat.collector';
 import { XAccountCollector, YoutubeAccountCollector } from './account.collector';
@@ -16,7 +17,8 @@ export const COLLECTORS: Record<CollectorId, RadarCollector> = {
 export const COLLECTOR_IDS = Object.keys(COLLECTORS) as CollectorId[];
 
 export interface CollectOutcome {
-  source: CollectorId;
+  /** 内置源为 CollectorId，自定义源为 `custom:<id>`。 */
+  source: string;
   items: RawCandidate[];
   error?: string;
 }
@@ -27,6 +29,7 @@ export async function collectAll(
   keywords: string[],
   perSourceLimit: number,
   accounts: MonitoredAccounts = { x: [], youtube: [] },
+  customSources: CustomSource[] = [],
 ): Promise<CollectOutcome[]> {
   const results: CollectOutcome[] = [];
   for (const id of COLLECTOR_IDS) {
@@ -46,6 +49,21 @@ export async function collectAll(
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message.split('\n')[0] : String(error);
       results.push({ source: id, items: [], error: msg.slice(0, 200) });
+    }
+  }
+  // 自定义源与内置源走同一条「去重 → 打分 → 出标题 → 落库」链路，单源失败同样只记 error。
+  if (customSources.length) {
+    try {
+      for (const outcome of await collectCustomSources(customSources, perSourceLimit)) {
+        results.push(outcome);
+      }
+    } catch (error: unknown) {
+      // 理论上 collectCustomSources 内部已逐源兜底，这里再兜一层避免整轮失败。
+      results.push({
+        source: 'custom',
+        items: [],
+        error: error instanceof Error ? error.message.slice(0, 200) : String(error).slice(0, 200),
+      });
     }
   }
   return results;

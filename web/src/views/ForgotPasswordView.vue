@@ -4,7 +4,7 @@
       <div class="brand">
         <div class="brand-mark">✦</div>
         <h1>找回密码</h1>
-        <p class="sub">私有部署实例，密码由管理员重置</p>
+        <p class="sub">密码由管理员重置，不提供在线自助找回</p>
       </div>
 
       <div class="notice">

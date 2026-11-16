@@ -15,6 +15,8 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { getSecretCrypto, maskSecret } from './crypto.util';
 import { UpsertProviderDto } from './dto/system-provider.dto';
 import { UpdateProviderDto } from './dto/update-provider.dto';
+import { TestProviderDto } from './dto/test-provider.dto';
+import { probeProvider, type ProviderProbeResult } from './provider-test.util';
 
 export interface ProviderView {
   id: string;
@@ -116,6 +118,37 @@ export class ProviderController {
       },
     });
     return this.toView(row);
+  }
+
+  /**
+   * 连通性测试：真实发起一次最小 chat 请求，验证 Base URL / API Key / 模型是否可用。
+   * - 传 providerId（且不带明文 apiKey）→ 用库里已加密的密钥；
+   * - 只带表单字段（含明文 apiKey）→ 测试尚未保存的配置，明文不入库、不写日志、不回显。
+   */
+  @Post('test')
+  async test(@Body() dto: TestProviderDto): Promise<ProviderProbeResult> {
+    let saved: { baseUrl: string | null; model: string; apiKeyEncrypted: string } | null = null;
+    if (dto.providerId) {
+      saved = await this.prisma.client.systemConfig.findUnique({ where: { id: dto.providerId } });
+      if (!saved) throw new NotFoundException(`LLM 供应商不存在：${dto.providerId}`);
+    } else if (dto.provider && dto.model && !dto.apiKey) {
+      saved = await this.prisma.client.systemConfig.findFirst({
+        where: { provider: dto.provider, model: dto.model },
+      });
+    }
+
+    const apiKey = dto.apiKey?.trim() || (saved ? this.decryptSafe(saved.apiKeyEncrypted) : '');
+    const model = dto.model?.trim() || saved?.model || '';
+    const baseUrl = dto.baseUrl ?? saved?.baseUrl ?? '';
+    if (!apiKey) {
+      return {
+        ok: false,
+        latencyMs: 0,
+        model,
+        error: '未填写 API Key，也没有找到已保存的密钥；请先填写密钥或保存供应商后再测试。',
+      };
+    }
+    return probeProvider({ baseUrl, apiKey, model });
   }
 
   /** 局部更新（改名/改模型/启停/换密钥）。 */

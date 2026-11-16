@@ -23,8 +23,8 @@ export class AppController {
       node: process.version,
       dependencies: {
         // PG 连接由 PrismaService 探活；Redis/BullMQ 由 TaskQueueService 真实探测（T1.5）
-        postgres: this.prisma.isConnected ? 'up' : 'unavailable (待环境)',
-        redis: this.taskQueue.available ? 'up' : 'unavailable (待环境)',
+        postgres: this.prisma.isConnected ? 'up' : 'unavailable',
+        redis: this.taskQueue.available ? 'up' : 'unavailable',
       },
     };
   }

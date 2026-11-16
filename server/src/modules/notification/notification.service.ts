@@ -16,11 +16,16 @@ import {
   decryptChannels,
   dingtalkSign,
   encryptChannels,
+  feishuSign,
   formatDingtalkPayload,
   formatEmailSubject,
+  formatFeishuPayload,
+  formatTelegramPayload,
   formatWecomPayload,
   maskChannel,
   mergeNotifications,
+  mergeSensitiveChannels,
+  telegramApiUrl,
 } from './notification.util';
 import { type UpsertNotificationChannelsDto } from './dto/notification.dto';
 
@@ -151,6 +156,44 @@ export class NotificationService implements OnModuleInit {
         }
         return { type: ch.type, ok: true };
       }
+      if (ch.type === 'feishu') {
+        if (!ch.webhookUrl) return { type: ch.type, ok: false, error: '缺少 webhookUrl' };
+        let payload = formatFeishuPayload(text);
+        if (ch.secret) {
+          const ts = Math.floor(Date.now() / 1000);
+          payload = formatFeishuPayload(text, { timestampSec: ts, sign: feishuSign(ch.secret, ts) });
+        }
+        const res = await fetch(ch.webhookUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        if (!res.ok) return { type: ch.type, ok: false, error: `HTTP ${res.status}` };
+        const data = (await res.json().catch(() => ({}))) as {
+          code?: number;
+          StatusCode?: number;
+          msg?: string;
+        };
+        const code = data.code ?? data.StatusCode;
+        if (typeof code === 'number' && code !== 0) {
+          return { type: ch.type, ok: false, error: `code ${code}${data.msg ? ` ${data.msg}` : ''}` };
+        }
+        return { type: ch.type, ok: true };
+      }
+      if (ch.type === 'telegram') {
+        if (!ch.botToken || !ch.chatId) return { type: ch.type, ok: false, error: '缺少 Bot Token 或 Chat ID' };
+        const res = await fetch(telegramApiUrl(ch.botToken), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(formatTelegramPayload(text, ch.chatId)),
+        });
+        const data = (await res.json().catch(() => ({}))) as { ok?: boolean; description?: string };
+        if (!res.ok || data.ok === false) {
+          const detail = data.description ? ` ${data.description}` : '';
+          return { type: ch.type, ok: false, error: `HTTP ${res.status}${detail}` };
+        }
+        return { type: ch.type, ok: true };
+      }
       if (ch.type === 'email') {
         return this.sendEmail(ch, text);
       }
@@ -237,9 +280,18 @@ export class NotificationService implements OnModuleInit {
       channels: dto.channels as unknown as ChannelConfig[],
       forwardKinds: dto.forwardKinds ?? defaultKinds(),
     });
-    let encryptedChannels = merged.channels;
+    // 前端只拿到脱敏串：未改动的密钥字段（留空 / `***`）沿用库里的密文，避免把占位串写成真凭据。
+    let existingChannels: ChannelConfig[] = [];
     try {
-      encryptedChannels = encryptChannels(merged.channels, getSecretCrypto());
+      const row = await this.prisma.client.siteConfig.findUnique({ where: { id: SITE_CONFIG_ID } });
+      existingChannels = mergeNotifications(undefined, row?.notifications as NotificationConfig | undefined).channels;
+    } catch {
+      existingChannels = [];
+    }
+    const keptChannels = mergeSensitiveChannels(existingChannels, merged.channels);
+    let encryptedChannels = keptChannels;
+    try {
+      encryptedChannels = encryptChannels(keptChannels, getSecretCrypto());
     } catch {
       encryptedChannels = []; // 主密钥未配置则清空密钥类字段，避免明文入库
     }
@@ -250,7 +302,8 @@ export class NotificationService implements OnModuleInit {
       update: { notifications: notifications as unknown as Prisma.InputJsonValue },
     });
     this.logger.log('通知渠道配置已保存（敏感字段经 AES-256-GCM 加密入库，日志不含明文）');
-    return { channels: merged.channels.map(maskChannel), forwardKinds: merged.forwardKinds };
+    // 返回脱敏视图，绝不把本次提交的明文回显给前端。
+    return { channels: keptChannels.map(maskChannel), forwardKinds: merged.forwardKinds };
   }
 
   async testChannel(type: NotificationChannelType, text?: string): Promise<SendResult> {

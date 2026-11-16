@@ -151,8 +151,9 @@ export class RadarService {
 
     try {
       // 1) 采集：逐源降级（账号类采集器收到监控账号清单）
-      const perSource = Math.max(20, Math.ceil(cfg.output.totalItems / Math.max(1, COLLECTOR_IDS.length)));
-      const outcomes = await collectAll(cfg.sources, keywords, perSource, cfg.monitoredAccounts);
+      const enabledCustom = cfg.customSources.filter((s) => s.enabled).length;
+      const perSource = Math.max(20, Math.ceil(cfg.output.totalItems / Math.max(1, COLLECTOR_IDS.length + enabledCustom)));
+      const outcomes = await collectAll(cfg.sources, keywords, perSource, cfg.monitoredAccounts, cfg.customSources);
       const sourceStats: Record<string, { count: number; error?: string; deduped?: number }> = {};
       const collected = outcomes.flatMap((o) => o.items);
 
@@ -186,12 +187,17 @@ export class RadarService {
       // 2) 打分 + 去重（相关度为主，热度为辅）
       const maxHeat = Math.max(1, ...raw.map((r) => Number(r.heat) || 0));
       const nicheNames = cfg.niches.filter((n) => n.enabled);
+      const customKeywords = new Map(cfg.customSources.map((s) => [`custom:${s.id}`, s.keywords]));
       const scored: ScoredCandidate[] = raw.map((r) => {
         const niche = nicheNames.find((n) => n.keywords.some((k) => r.title.toLowerCase().includes(k.toLowerCase())));
-        // 盯号内容是用户主动指定的账号，给 0.5 基础相关度，避免全部沉底；命中赛道关键词仍按原逻辑加分。
+        // 盯号与自定义源都是用户主动指定的来源，给 0.5 基础相关度，避免全部沉底；命中关键词仍按原逻辑加分。
         const isAccountSource = r.sourceName === 'x_account' || r.sourceName === 'youtube_account';
-        const rawRelevance = relevanceOf(r.title, niche?.keywords ?? keywords);
-        const relevance = isAccountSource ? Math.max(0.5, rawRelevance) : rawRelevance;
+        const isCustomSource = r.sourceName.startsWith('custom:');
+        const rawRelevance = relevanceOf(r.title, [
+          ...(niche?.keywords ?? keywords),
+          ...(customKeywords.get(r.sourceName) ?? []),
+        ]);
+        const relevance = isAccountSource || isCustomSource ? Math.max(0.5, rawRelevance) : rawRelevance;
         const heat01 = normalizeHeat(r.heat, maxHeat) / 100;
         return {
           ...r,
@@ -209,7 +215,7 @@ export class RadarService {
           where: { id: run.id },
           data: {
             status: 'failed',
-            error: '所有数据源均未返回条目（待环境/反爬）',
+            error: '所有数据源均未返回条目，请检查网络连接、反爬限制与数据源配置',
             sourceStats: sourceStats as Prisma.InputJsonValue,
             itemCount: 0,
             featuredCount: 0,
@@ -232,7 +238,7 @@ export class RadarService {
             runId: run.id,
             fingerprint: item.fingerprint,
             title: item.title.slice(0, 2000),
-            angle: `${item.sourceName === 'x_account' || item.sourceName === 'youtube_account' ? '监控账号' : '赛道'}：${item.niche ?? '综合'}；相关度 ${(item.relevance * 100).toFixed(0)}%`,
+            angle: `${item.sourceName === 'x_account' || item.sourceName === 'youtube_account' ? '监控账号' : item.sourceName.startsWith('custom:') ? '自定义源' : '赛道'}：${item.niche ?? '综合'}；相关度 ${(item.relevance * 100).toFixed(0)}%`,
             sourceUrl: item.url ?? null,
             sourceName: item.sourceName,
             sourceType: item.sourceType,

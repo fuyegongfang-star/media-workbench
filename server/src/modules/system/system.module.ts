@@ -6,6 +6,7 @@ import { SystemService } from './system.service';
 import { ProviderController } from './provider.controller';
 import { UpdateController } from './update.controller';
 import { UpdateService } from './update.service';
+import { OverviewController } from './overview.controller';
 
 /**
  * 系统设置模块（T1.8）：站点设置单例（基础信息 / 默认公众号 AppID 加密 / 合规开关）+ 状态总览。
@@ -14,7 +15,7 @@ import { UpdateService } from './update.service';
  */
 @Module({
   imports: [AuthModule, TasksModule],
-  controllers: [SystemController, ProviderController, UpdateController],
+  controllers: [SystemController, ProviderController, UpdateController, OverviewController],
   providers: [SystemService, UpdateService],
 })
 export class SystemModule {}

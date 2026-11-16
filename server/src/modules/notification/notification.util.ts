@@ -5,10 +5,10 @@ import { getSecretCrypto, SecretCrypto } from '../system/crypto.util';
  * 通知渠道与监控告警纯函数（T1.10，不依赖数据库/网络，可单测）。
  * - 渠道配置合并/清洗：仅保留合法渠道类型、布尔化 enabled、截断字符串、剔除未知字段（防异常输入）。
  * - 敏感字段加解密：webhookUrl/secret/smtpPassword 以 `enc:` 前缀存密文，读取时解密。
- * - 消息格式化：企业微信 / 钉钉 Webhook payload、钉钉签名、邮件主题、任务与告警文案。
+ * - 消息格式化：企业微信 / 钉钉 / 飞书 Webhook payload、钉钉与飞书签名、Telegram Bot payload、邮件主题、任务与告警文案。
  */
 
-export type NotificationChannelType = 'wecom' | 'dingtalk' | 'email';
+export type NotificationChannelType = 'wecom' | 'dingtalk' | 'email' | 'feishu' | 'telegram';
 export type NotificationAlertKind =
   | 'task_success'
   | 'task_failed'
@@ -17,7 +17,9 @@ export type NotificationAlertKind =
   | 'liveness'
   | 'generic';
 
-export const CHANNEL_TYPES: NotificationChannelType[] = ['wecom', 'dingtalk', 'email'];
+export const CHANNEL_TYPES: NotificationChannelType[] = ['wecom', 'dingtalk', 'email', 'feishu', 'telegram'];
+/** 前端回填给输入框的脱敏占位；保存时视为「保持原值」，绝不把占位串写进库。 */
+export const MASKED_SECRET = '***';
 export const ALERT_KINDS: NotificationAlertKind[] = [
   'task_success',
   'task_failed',
@@ -30,9 +32,12 @@ export const ALERT_KINDS: NotificationAlertKind[] = [
 export interface ChannelConfig {
   type: NotificationChannelType;
   enabled: boolean;
-  // 企业微信 / 钉钉
+  // 企业微信 / 钉钉 / 飞书
   webhookUrl?: string; // 可能含 key，敏感
-  secret?: string; // 钉钉签名密钥，敏感
+  secret?: string; // 钉钉 / 飞书签名密钥，敏感
+  // Telegram Bot
+  botToken?: string; // BotFather 签发的 token，敏感
+  chatId?: string; // 目标会话 id（不加密）
   // 邮件 SMTP
   smtpHost?: string;
   smtpPort?: number;
@@ -67,6 +72,10 @@ function sanitizeChannel(c: unknown): ChannelConfig | null {
   if (webhookUrl !== undefined) ch.webhookUrl = webhookUrl;
   const secret = str(obj.secret, 256);
   if (secret !== undefined) ch.secret = secret;
+  const botToken = str(obj.botToken, 512);
+  if (botToken !== undefined) ch.botToken = botToken;
+  const chatId = str(obj.chatId, 128);
+  if (chatId !== undefined) ch.chatId = chatId;
   const smtpHost = str(obj.smtpHost, 255);
   if (smtpHost !== undefined) ch.smtpHost = smtpHost;
   if (Number.isInteger(obj.smtpPort)) {
@@ -104,6 +113,31 @@ export function mergeNotifications(
   return { channels, forwardKinds };
 }
 
+/**
+ * 保存时保留未修改的敏感字段：
+ * 前端只拿到脱敏串，输入框留空/回显 `***` 都表示「保持原值」；显式传空串才是清空。
+ * 已加密的 `enc:` 值原样沿用，避免二次加密导致密钥不可用。
+ */
+export function mergeSensitiveChannels(existing: ChannelConfig[], incoming: ChannelConfig[]): ChannelConfig[] {
+  const byType = new Map(existing.map((c) => [c.type, c]));
+  const keys = ['webhookUrl', 'secret', 'smtpPassword', 'botToken'] as const;
+  return incoming.map((ch) => {
+    const old = byType.get(ch.type);
+    if (!old) return ch;
+    const out: ChannelConfig = { ...ch };
+    for (const key of keys) {
+      const value = out[key];
+      if (value === undefined || String(value).startsWith(MASKED_SECRET) || String(value).startsWith('enc:')) {
+        if (old[key] !== undefined) out[key] = old[key];
+        else delete out[key];
+      } else if (value === '') {
+        out[key] = ''; // 显式清空
+      }
+    }
+    return out;
+  });
+}
+
 function safeDecrypt(crypto: SecretCrypto, v: string): string {
   try {
     return crypto.decrypt(v.slice(4));
@@ -116,9 +150,11 @@ function safeDecrypt(crypto: SecretCrypto, v: string): string {
 export function encryptChannels(channels: ChannelConfig[], crypto: SecretCrypto): ChannelConfig[] {
   return channels.map((c) => {
     const out: ChannelConfig = { ...c };
-    if (c.webhookUrl) out.webhookUrl = `enc:${crypto.encrypt(c.webhookUrl)}`;
-    if (c.secret) out.secret = `enc:${crypto.encrypt(c.secret)}`;
-    if (c.smtpPassword) out.smtpPassword = `enc:${crypto.encrypt(c.smtpPassword)}`;
+    const enc = (v: string) => (v.startsWith('enc:') ? v : `enc:${crypto.encrypt(v)}`);
+    if (c.webhookUrl) out.webhookUrl = enc(c.webhookUrl);
+    if (c.secret) out.secret = enc(c.secret);
+    if (c.smtpPassword) out.smtpPassword = enc(c.smtpPassword);
+    if (c.botToken) out.botToken = enc(c.botToken);
     return out;
   });
 }
@@ -130,6 +166,7 @@ export function decryptChannels(channels: ChannelConfig[], crypto: SecretCrypto)
     if (c.webhookUrl?.startsWith('enc:')) out.webhookUrl = safeDecrypt(crypto, c.webhookUrl);
     if (c.secret?.startsWith('enc:')) out.secret = safeDecrypt(crypto, c.secret);
     if (c.smtpPassword?.startsWith('enc:')) out.smtpPassword = safeDecrypt(crypto, c.smtpPassword);
+    if (c.botToken?.startsWith('enc:')) out.botToken = safeDecrypt(crypto, c.botToken);
     return out;
   });
 }
@@ -151,7 +188,8 @@ export function maskChannel(c: ChannelConfig): ChannelConfig {
     out.webhookUrl = c.webhookUrl.startsWith('enc:') ? '***(已加密)' : maskWebhookUrl(c.webhookUrl);
   }
   if (c.secret) out.secret = '***';
-  if (c.smtpPassword) out.smtpPassword = '***';
+  if (c.smtpPassword) out.smtpPassword = MASKED_SECRET;
+  if (c.botToken) out.botToken = MASKED_SECRET;
   return out;
 }
 
@@ -166,6 +204,34 @@ export function formatDingtalkPayload(text: string): Record<string, unknown> {
 /** 钉钉自定义机器人签名：HMAC-SHA256(timestamp + '\n' + secret) base64（纯函数，可单测）。 */
 export function dingtalkSign(secret: string, timestampMs: number): string {
   return createHmac('sha256', secret).update(`${timestampMs}\n${secret}`).digest('base64');
+}
+
+/** 飞书自定义机器人签名：HMAC-SHA256，key 与待签串均为 `${timestamp}\n${secret}`，消息为空。 */
+export function feishuSign(secret: string, timestampSec: number): string {
+  const key = `${timestampSec}\n${secret}`;
+  return createHmac('sha256', key).update('').digest('base64');
+}
+
+/** 飞书 text 消息；启用签名校验时附带 timestamp / sign。 */
+export function formatFeishuPayload(
+  text: string,
+  opts?: { timestampSec?: number; sign?: string },
+): Record<string, unknown> {
+  return {
+    msg_type: 'text',
+    content: { text },
+    ...(opts?.sign ? { timestamp: String(opts.timestampSec ?? ''), sign: opts.sign } : {}),
+  };
+}
+
+/** Telegram Bot sendMessage；chat_id 支持数字、@channel 或频道 id。 */
+export function formatTelegramPayload(text: string, chatId: string): Record<string, unknown> {
+  return { chat_id: chatId, text, disable_web_page_preview: true };
+}
+
+/** token 中可能含冒号，需原样拼进 URL path；只做基础合法性检查，不写日志。 */
+export function telegramApiUrl(botToken: string): string {
+  return `https://api.telegram.org/bot${encodeURI(botToken).replace(/%3A/gi, ':')}/sendMessage`;
 }
 
 export function buildTaskNotifyText(

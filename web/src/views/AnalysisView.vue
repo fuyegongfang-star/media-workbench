@@ -82,7 +82,7 @@ name,platform,homepageUrl
       </div>
     </section>
 
-    <!-- 素材批量导入（T2.2：对标账号素材收集） -->
+    <!-- 素材批量导入 -->
     <section class="card">
       <h2 class="card-title">素材批量导入（对标账号素材收集）</h2>
       <p class="hint">支持 CSV / JSON（数组或单条）/ Markdown（按标题拆分）/ 每行「标题 - 正文」/ 单条表单 / Excel(.xlsx)。预览按指纹（标题+正文）去重，提交时三选一：跳过 / 合并（duplicateOfId 指向原记录）/ 保留副本。</p>
@@ -154,7 +154,7 @@ name,platform,homepageUrl
       </div>
     </section>
 
-    <!-- 单篇拆解（T2.3：ANALYSIS_SINGLE） -->
+    <!-- 单篇拆解 -->
     <section class="card">
       <div class="row" style="justify-content: space-between">
         <h2 class="card-title" style="margin: 0">单篇拆解（ANALYSIS_SINGLE）</h2>
@@ -173,7 +173,7 @@ name,platform,homepageUrl
       <p v-if="decompResult" class="hint">
         已创建任务 <span class="mono">{{ decompResult.taskId }}</span>
         <template v-if="decompResult.dispatched">，已进入队列待 Worker 消费</template>
-        <template v-else>；本地 Redis 不可用，任务保留 queued（待环境），连接后由 Worker 消费</template>
+        <template v-else>；任务队列未就绪，任务保留在排队状态，恢复后自动处理</template>
       </p>
 
       <p v-if="runsError" class="message err">{{ runsError }}</p>
@@ -202,7 +202,7 @@ name,platform,homepageUrl
       </div>
     </section>
 
-    <!-- 账号级汇总（T2.4：ANALYSIS_ACCOUNT_SUMMARY → 策略草稿） -->
+    <!-- 账号级汇总 -->
     <section class="card">
       <div class="row" style="justify-content: space-between">
         <h2 class="card-title" style="margin: 0">账号级汇总（ANALYSIS_ACCOUNT_SUMMARY）</h2>
@@ -217,7 +217,7 @@ name,platform,homepageUrl
       <p v-if="sumResult" class="hint">
         已创建任务 <span class="mono">{{ sumResult.taskId }}</span>
         <template v-if="sumResult.dispatched">，已进入队列待 Worker 消费</template>
-        <template v-else>；本地 Redis 不可用，任务保留 queued（待环境），连接后由 Worker 消费</template>
+        <template v-else>；任务队列未就绪，任务保留在排队状态，恢复后自动处理</template>
       </p>
 
       <p v-if="accountRunsError" class="message err">{{ accountRunsError }}</p>
@@ -237,10 +237,10 @@ name,platform,homepageUrl
       <p v-else-if="!accountRunsError" class="hint">暂无账号级汇总任务。</p>
     </section>
 
-    <!-- 策略版本（T1.7 后端 + T2.4 前端 + T2.5 绑定到自有账号） -->
+    <!-- 策略版本 -->
     <section class="card">
       <h2 class="card-title">策略版本（查看 / 编辑 / 绑定为账号默认）</h2>
-      <p class="hint">账号级汇总产出的草稿、以及手动创建的版本都在此管理。点击某版本可编辑字段卡，保存后写回；「绑定为账号默认」会原子地把该版本绑定到自有账号（写 OwnedAccount.defaultStrategyVersionId 并同步 isDefault），供后续内容项目（T3.2）继承，解除绑定即取消当前默认。</p>
+      <p class="hint">账号级汇总产出的草稿、以及手动创建的版本都在此管理。点击某版本可编辑字段卡，保存后写回；「绑定为账号默认」会原子地把该版本绑定到自有账号（写 OwnedAccount.defaultStrategyVersionId 并同步 isDefault），供后续内容项目继承，解除绑定即取消当前默认。</p>
       <div class="row">
         <input v-model="stratOwnedId" class="input wide mono" type="text" placeholder="自有账号 ID（与上方汇总同）" />
         <button class="btn" :disabled="stratLoading" @click="loadStrategies">加载版本</button>

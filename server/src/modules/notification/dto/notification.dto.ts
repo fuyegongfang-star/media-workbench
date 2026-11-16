@@ -39,6 +39,16 @@ export class ChannelConfigDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(512)
+  botToken?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(128)
+  chatId?: string;
+
+  @IsOptional()
+  @IsString()
   @MaxLength(255)
   smtpHost?: string;
 

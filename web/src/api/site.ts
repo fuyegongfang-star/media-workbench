@@ -30,19 +30,27 @@ export interface SiteSeoConfig {
   policeRecord: string;
   policeUrl: string;
   copyrightNote: string;
+  /** 公开首页文案（后台「系统管理 → 站点设置 → 首页公开文案」可改）。 */
+  homeEyebrow: string;
+  homeMetaLine: string;
+  privacyTitle: string;
+  privacyLead: string;
+  footerNote: string;
+  deploymentLabel: string;
+  footerDisclaimer: string;
 }
 
 export const DEFAULT_SEO: SiteSeoConfig = {
   seoTitle: '',
   seoDescription: '',
-  seoKeywords: '自媒体工作台,选题雷达,内容生产流水线,私有部署',
+  seoKeywords: '自媒体工作台,选题雷达,内容生产流水线,内容运营',
   canonicalUrl: '',
   ogImageUrl: '',
   indexable: true,
   logoUrl: '',
   logoAlt: '',
   geoSummary:
-    '自媒体工作台是一套可私有部署的内容生产系统，覆盖选题雷达采集赛道热点、对标拆解沉淀策略、AI 起草与合规预审、发布归档与效果成本复盘。全部数据存放在自有数据库，凭据加密入库。',
+    '自媒体工作台是一套面向内容团队的工作台系统，覆盖选题雷达采集赛道热点、对标拆解沉淀策略、AI 起草与合规预审、发布归档与效果成本复盘。全部数据存放在自有数据库，凭据加密入库。',
   llmsEnabled: true,
   ownerName: '',
   ownerUrl: '',
@@ -52,6 +60,13 @@ export const DEFAULT_SEO: SiteSeoConfig = {
   policeRecord: '',
   policeUrl: '',
   copyrightNote: '',
+  homeEyebrow: '内容生产中枢 · 全流程留痕',
+  homeMetaLine: '选题 · 拆解 · 起草 · 审核 · 发布 · 复盘，一站完成',
+  privacyTitle: '隐私与数据',
+  privacyLead: '我们重视数据安全与合规。业务数据仅在授权账号登录后可见，公开页面不承载任何业务数据。',
+  footerNote: '页面信息由站点所有者维护，保留所有权利。',
+  deploymentLabel: '',
+  footerDisclaimer: '',
 };
 
 export interface PublicSiteView {
@@ -72,7 +87,7 @@ export const DEFAULT_PUBLIC_SITE: PublicSiteView = {
 export const siteInfo = ref<PublicSiteView>({ ...DEFAULT_PUBLIC_SITE, seo: { ...DEFAULT_SEO } });
 
 const FALLBACK_DESC =
-  '把选题到发布收进一条流水线：热点雷达、对标拆解、AI 起草与合规预审、发布归档、效果与成本复盘。私有部署，数据自持。';
+  '把选题到发布收进一条流水线：热点雷达、对标拆解、AI 起草与合规预审、发布归档、效果与成本复盘。';
 
 function apiPrefix(): string {
   return import.meta.env.VITE_API_PREFIX ?? 'api';

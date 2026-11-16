@@ -7,7 +7,7 @@
       </div>
       <div class="head-actions">
         <span class="pill" :class="scheduler?.available ? 'ok' : 'warn'">
-          {{ scheduler?.available ? '定时已就绪' : '仅手动触发（Redis 待环境）' }}
+          {{ scheduler?.available ? '定时已就绪' : '仅手动触发（队列未就绪）' }}
         </span>
         <button class="btn primary" :disabled="collecting" @click="collect">
           {{ collecting ? '采集中…' : '立即采集' }}
@@ -146,7 +146,7 @@
           <h3 class="config-title">定时推送</h3>
           <label class="check"><input type="checkbox" v-model="config.schedule.enabled" /> 启用每天定时采集</label>
           <div class="field" style="margin-top:10px"><label>时间（Asia/Shanghai）</label><input v-model="config.schedule.time" class="input" type="time" /></div>
-          <p class="hint">{{ scheduler?.available ? 'Redis 在线，保存后定时任务即时生效。' : 'Redis 待环境：保存配置可成功，但定时不生效，需手动采集。' }}</p>
+          <p class="hint">{{ scheduler?.available ? 'Redis 在线，保存后定时任务即时生效。' : '任务队列未就绪：配置可保存，但定时采集暂不生效，请手动触发。' }}</p>
 
           <h3 class="config-title" style="margin-top:18px">监控账号（已启用 · 零 Key）</h3>
           <div class="field"><label>X 用户名（逗号分隔）</label>
@@ -164,6 +164,43 @@
           <p class="hint">监控账号发布的同一条内容在该窗口内只推一次，避免每日简报重复刷旧内容；填 <b>0</b> 则关闭去重（每轮全量）。默认 7 天，仅对 X / YouTube 盯号生效，不影响热榜。</p>
         </div>
       </div>
+
+      <!-- 自定义数据源：管理员可接入自有 RSS / JSON 源 -->
+      <div class="config-card custom-sources">
+        <h3 class="config-title">自定义数据源 <span class="pill">RSS / JSON</span></h3>
+        <p class="hint">
+          除内置零 Key 源外，可接入自有 RSS / Atom 订阅或返回数组的 JSON 接口。
+          JSON 支持顶层数组或 <code>items / data / results / list</code> 数组，条目取 <code>title</code> 与 <code>url</code>。
+          仅接受 http(s) 地址；单个源失败不影响其它源。保存后下次采集生效。
+        </p>
+        <div v-for="(s, si) in config.customSources" :key="s.id || si" class="custom-source-row">
+          <div class="row">
+            <label class="check"><input type="checkbox" v-model="s.enabled" /> 启用</label>
+            <input v-model="s.name" class="input" style="flex:1;min-width:140px" placeholder="来源名称" />
+            <select v-model="s.format" class="input" style="width:120px">
+              <option value="rss">RSS / Atom</option>
+              <option value="json">JSON</option>
+            </select>
+            <button class="btn small ghost" :disabled="testingSource === si" @click="testSource(s, si)">
+              {{ testingSource === si ? '测试中…' : '测试' }}
+            </button>
+            <button class="btn small ghost" @click="config.customSources.splice(si, 1)">删除</button>
+          </div>
+          <input v-model="s.url" class="input wide mono" placeholder="https://example.com/feed.xml 或 https://api.example.com/hot.json" />
+          <input
+            :value="s.keywords.join(', ')"
+            class="input wide"
+            placeholder="额外相关度关键词（逗号分隔，可选）"
+            @input="s.keywords = splitList(($event.target as HTMLInputElement).value)"
+          />
+          <p v-if="sourceTest[si]" class="hint" :class="sourceTest[si].ok ? 'test-ok' : 'test-err'">
+            {{ sourceTest[si].message }}
+          </p>
+        </div>
+        <p v-if="!config.customSources.length" class="hint">尚未添加自定义数据源，内置源仍可正常采集。</p>
+        <button class="btn small" @click="addCustomSource">+ 添加数据源</button>
+      </div>
+
       <div class="row" style="margin-top:14px">
         <button class="btn primary" :disabled="savingConfig" @click="saveConfig">{{ savingConfig ? '保存中…' : '保存配置' }}</button>
         <button class="btn ghost" @click="loadConfig">重新载入</button>
@@ -176,8 +213,9 @@
 import { computed, onMounted, reactive, ref } from 'vue';
 import {
   fetchRadarConfig, saveRadarConfig, triggerRadarCollect, fetchRadarBriefs, fetchRadarBrief,
-  convertRadarItem, fetchRadarStatus,
+  convertRadarItem, fetchRadarStatus, testRadarCustomSource,
   type RadarConfig, type RadarBriefSummary, type RadarBriefDetail, type RadarItemView, type RadarStatus,
+  type RadarCustomSource,
 } from '../api/http';
 
 const SOURCE_LABEL: Record<string, string> = {
@@ -212,7 +250,45 @@ const config = reactive<RadarConfig>({
   schedule: { enabled: false, time: '08:00', timezone: 'Asia/Shanghai' },
   monitoredAccounts: { x: [], youtube: [] },
   accountDedupeDays: 7,
+  customSources: [],
 });
+
+const testingSource = ref<number | null>(null);
+const sourceTest = reactive<Record<number, { ok: boolean; message: string }>>({});
+
+function addCustomSource() {
+  config.customSources.push({
+    id: `src_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
+    name: '',
+    url: '',
+    format: 'rss',
+    enabled: true,
+    keywords: [],
+  } as RadarCustomSource);
+}
+
+async function testSource(s: RadarCustomSource, index: number) {
+  if (!s.url.trim()) {
+    sourceTest[index] = { ok: false, message: '请先填写数据源 URL' };
+    return;
+  }
+  testingSource.value = index;
+  delete sourceTest[index];
+  try {
+    const r = await testRadarCustomSource({ url: s.url.trim(), format: s.format });
+    const first = r.sample[0]?.title;
+    sourceTest[index] = {
+      ok: r.ok,
+      message: r.ok
+        ? `连接成功，解析出 ${r.count} 条${first ? `，示例：${first}` : ''}`
+        : `连接失败：${r.error || '未解析出条目'}`,
+    };
+  } catch (e) {
+    sourceTest[index] = { ok: false, message: `测试失败：${(e as Error).message}` };
+  } finally {
+    testingSource.value = null;
+  }
+}
 
 function splitList(s: string): string[] {
   return s.split(',').map((x) => x.trim()).filter(Boolean);
@@ -227,6 +303,8 @@ async function loadConfig() {
   try {
     const c = await fetchRadarConfig();
     Object.assign(config, c);
+    // 兼容旧实例：配置里还没有 customSources 时补空数组，避免模板 v-for 报错。
+    if (!Array.isArray(config.customSources)) config.customSources = [];
   } catch (e) { notify(`配置加载失败：${(e as Error).message}`, true); }
 }
 
@@ -251,7 +329,7 @@ async function collect() {
   collecting.value = true;
   try {
     const r = await triggerRadarCollect();
-    notify(r.dispatched ? `采集任务已提交（${r.taskId}），稍后刷新查看简报` : '任务已创建，但 Redis 待环境未入队；请配置 Redis 后重试', !r.dispatched);
+    notify(r.dispatched ? `采集任务已提交（${r.taskId}），稍后刷新查看简报` : '任务已创建，但队列未就绪未入队；请稍后重试', !r.dispatched);
     setTimeout(() => { void loadBriefs(); }, 8000);
   } catch (e) { notify(`采集触发失败：${(e as Error).message}`, true); }
   finally { collecting.value = false; }
@@ -272,7 +350,7 @@ async function saveConfig() {
   try {
     const r = await saveRadarConfig(JSON.parse(JSON.stringify(config)) as RadarConfig);
     scheduler.value = r.scheduler;
-    notify('雷达配置已保存' + (r.scheduler.available ? '（定时已按新配置生效）' : '（Redis 待环境，定时未生效）'));
+    notify('雷达配置已保存' + (r.scheduler.available ? '（定时已按新配置生效）' : '（队列未就绪，定时未生效）'));
   } catch (e) { notify(`保存失败：${(e as Error).message}`, true); }
   finally { savingConfig.value = false; }
 }
@@ -334,6 +412,11 @@ onMounted(async () => {
 .config-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
 .config-card { background: var(--input, #15161f); border: 1px solid var(--border, #2a2c3a); border-radius: 8px; padding: 14px; }
 .config-title { font-size: 14px; margin: 0 0 10px; color: var(--text, #e6e8ef); }
+.custom-sources { margin-top: 14px; }
+.custom-source-row { display: flex; flex-direction: column; gap: 8px; padding: 10px; margin-bottom: 10px; border: 1px solid var(--border, #2a2c3a); border-radius: 8px; background: var(--panel-soft, #f5f7fa); }
+.custom-source-row .row { flex-wrap: wrap; }
+.test-ok { color: var(--ok, #16794b); }
+.test-err { color: var(--danger, #c0392b); }
 .niche-block { background: var(--panel, #1e2030); border: 1px solid var(--border, #2a2c3a); border-radius: 6px; padding: 10px; margin-bottom: 10px; }
 .niche-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
 .input { background: var(--panel, #1e2030); border: 1px solid var(--border, #2a2c3a); color: var(--text, #e6e8ef); border-radius: 6px; padding: 7px 9px; font-size: 12px; outline: none; }

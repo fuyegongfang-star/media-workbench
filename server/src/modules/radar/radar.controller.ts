@@ -2,7 +2,8 @@ import { Body, Controller, Get, Param, Post, Put, UseGuards } from '@nestjs/comm
 import { AccessTokenGuard } from '../auth/guards/access-token.guard';
 import { RadarService } from './radar.service';
 import { RadarSchedulerService } from './radar-scheduler.service';
-import { RadarConfigDto } from './dto/radar-config.dto';
+import { RadarConfigDto, TestCustomSourceDto } from './dto/radar-config.dto';
+import { fetchCustomSource } from './collectors/custom-source.collector';
 
 /**
  * 选题雷达控制器（T6.1）：
@@ -48,6 +49,13 @@ export class RadarController {
   @Post('collect')
   collect() {
     return this.svc.triggerCollect();
+  }
+
+  /** 测试一个尚未保存的自定义源：只回条数与前 3 条样例，不写库、不返回整包数据。 */
+  @Post('custom-sources/test')
+  async testCustomSource(@Body() dto: TestCustomSourceDto) {
+    const r = await fetchCustomSource({ url: dto.url, format: dto.format }, 10);
+    return { ok: r.ok, count: r.count, sample: r.sample, ...(r.error ? { error: r.error } : {}) };
   }
 
   @Get('briefs')

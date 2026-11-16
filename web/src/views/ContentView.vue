@@ -60,7 +60,7 @@
 
         <div class="sub">
           <h3 class="sub-title">AI 生成选题（TOPIC_GEN）</h3>
-          <p class="hint">基于策略与/或对标分析，异步产出候选选题（返回任务 ID；需配置 LLM 供应商并待环境就绪才会真正落库）。</p>
+          <p class="hint">基于策略与/或对标分析，异步产出候选选题（返回任务 ID；需配置模型供应商且服务就绪后才会写入）。</p>
           <div class="field"><label>策略 ID</label><input v-model="genTopicForm.strategyId" class="input wide mono" placeholder="可选" /></div>
           <div class="field"><label>分析 ID</label><input v-model="genTopicForm.analysisId" class="input wide mono" placeholder="可选" /></div>
           <div class="field"><label>数量</label><input v-model.number="genTopicForm.count" class="input" type="number" min="1" max="20" /></div>
@@ -126,10 +126,10 @@
       </template>
     </section>
 
-    <!-- 内容项目（T3.2：选中标题一键建内容项目）-->
+    <!-- 内容项目-->
     <section v-if="tab === 'projects'" class="card">
       <div class="row" style="justify-content: space-between">
-        <h2 class="card-title" style="margin: 0">内容项目（T3.2）</h2>
+        <h2 class="card-title" style="margin: 0">内容项目</h2>
         <button class="btn" :disabled="loadingP" @click="loadProjects">刷新</button>
       </div>
       <p v-if="projMsg" class="message">{{ projMsg }}</p>
@@ -288,7 +288,7 @@ async function genTopics() {
       analysisId: genTopicForm.analysisId || undefined,
       count: genTopicForm.count,
     });
-    genTopicMsg.value = `已提交，任务 ${r.taskId}（dispatched=${r.dispatched}）。待环境就绪后产出选题。`;
+    genTopicMsg.value = `已提交，任务 ${r.taskId}（dispatched=${r.dispatched}）。服务就绪后产出选题。`;
   } catch (e) {
     error.value = (e as Error).message;
   } finally {
@@ -370,7 +370,7 @@ async function genTitles() {
   genTitleing.value = true;
   try {
     const r = await generateTitles(activeTopic.value.id, { count: genTitleForm.count });
-    genTitleMsg.value = `已提交，任务 ${r.taskId}（dispatched=${r.dispatched}）。待环境就绪后产出标题。`;
+    genTitleMsg.value = `已提交，任务 ${r.taskId}（dispatched=${r.dispatched}）。服务就绪后产出标题。`;
   } catch (e) {
     error.value = (e as Error).message;
   } finally {
