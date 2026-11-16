@@ -20,6 +20,65 @@
       </div>
     </section>
 
+    <!-- 在线更新（T6.5）：api 只投递请求文件，真正的 git pull / 重建在独立 updater 容器执行 -->
+    <section class="card">
+      <h2 class="card-title">
+        版本与在线更新
+        <span class="pill" :class="updateStatus.available ? 'ok' : 'warn'">
+          {{ updateStatus.available ? '更新服务在线' : '更新服务未启用' }}
+        </span>
+      </h2>
+      <p class="hint">
+        代码来自 GitHub 仓库 <code>main</code> 分支。更新由服务器上独立的 updater 容器执行
+        （拉取代码 → 自动备份 → 重建 api / web），服务会短暂中断 1-3 分钟，本页自动显示进度。
+      </p>
+
+      <div class="status-grid" style="margin-top:12px">
+        <div class="status-card">
+          <div class="status-head">当前部署版本</div>
+          <div class="status-body"><code>{{ updateStatus.currentCommit || '未知' }}</code></div>
+        </div>
+        <div class="status-card">
+          <div class="status-head">远端最新版本</div>
+          <div class="status-body">
+            <code>{{ (updateStatus.check?.remoteCommit || updateStatus.remoteCommit || '未检查').slice(0, 12) }}</code>
+          </div>
+        </div>
+        <div class="status-card">
+          <div class="status-head">执行状态</div>
+          <div class="status-body">
+            <span class="pill" :class="phaseClass">{{ phaseLabel }}</span>
+            <div class="hint" style="margin-top:6px">{{ updateStatus.message || '—' }}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:12px">
+        <button class="btn" :disabled="!canTriggerUpdate" @click="onCheckUpdate">
+          {{ checkingUpdate ? '提交中…' : '检查更新' }}
+        </button>
+        <button v-if="isOwner" class="btn primary" :disabled="!canTriggerUpdate" @click="onApplyUpdate">
+          {{ hasNewCommits ? '一键更新' : '重新部署' }}
+        </button>
+        <span v-else class="hint">仅「所有者」可执行更新</span>
+        <span v-if="hasNewCommits" class="pill warn">有 {{ updateStatus.check?.behindBy }} 个新提交</span>
+        <span v-else-if="updateStatus.check?.upToDate" class="pill ok">已是最新</span>
+        <span v-if="updateStatus.check?.checkedAt" class="hint">检查于 {{ formatTime(updateStatus.check.checkedAt) }}</span>
+      </div>
+
+      <div v-if="updateStatus.log.length" class="update-log">
+        <div class="status-head">执行日志（最近 {{ updateStatus.log.length }} 行）</div>
+        <pre>{{ updateStatus.log.join('\n') }}</pre>
+      </div>
+
+      <p v-if="updateStatus.phase === 'success' && updateStatus.type === 'apply'" class="message ok">
+        更新已完成。如界面仍是旧版，请强制刷新浏览器（Ctrl+F5）。
+      </p>
+      <p v-else-if="updateStatus.phase === 'failed'" class="message err">
+        上次执行失败：{{ updateStatus.message }}。详情见上方日志；旧版本服务通常未受影响。
+      </p>
+    </section>
+
     <!-- 状态总览：把已完成的认证/任务中心/备份/健康接入系统设置页（此前前端空白的根因） -->
     <section class="card">
       <h2 class="card-title">状态总览</h2>
@@ -300,7 +359,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, onUnmounted, reactive, ref } from 'vue';
 import {
   fetchSystemStatus,
   fetchSystemSettings,
@@ -326,6 +385,10 @@ import {
   resetUserPassword, deleteUser,
   type UserView,
 } from '../api/auth';
+import {
+  fetchUpdateStatus, checkUpdate, applyUpdate,
+  type UpdateStatus,
+} from '../api/update';
 
 const currentUser = computed(() => getUser());
 const roleLabel = computed(() => {
@@ -633,11 +696,114 @@ async function removeProvider(p: ProviderView) {
   }
 }
 
+// ---- 在线更新（T6.5）----
+const updateStatus = ref<UpdateStatus>({
+  available: false,
+  phase: 'unknown',
+  type: '',
+  requestId: '',
+  message: '',
+  currentCommit: '',
+  remoteCommit: '',
+  startedAt: '',
+  finishedAt: '',
+  updatedAt: '',
+  check: null,
+  log: [],
+  serverTime: '',
+});
+const checkingUpdate = ref(false);
+const applyingUpdate = ref(false);
+const isOwner = computed(() => currentUser.value?.role === 'owner');
+const hasNewCommits = computed(() => (updateStatus.value.check?.behindBy ?? 0) > 0);
+const canTriggerUpdate = computed(() =>
+  updateStatus.value.available
+  && updateStatus.value.phase !== 'running'
+  && !checkingUpdate.value
+  && !applyingUpdate.value,
+);
+const phaseLabel = computed(() => {
+  const labels: Record<string, string> = {
+    idle: '空闲', running: '执行中', success: '成功', failed: '失败', unknown: '未知',
+  };
+  return labels[updateStatus.value.phase] ?? '未知';
+});
+const phaseClass = computed(() => {
+  const classes: Record<string, string> = {
+    idle: '', running: 'warn', success: 'ok', failed: 'warn', unknown: '',
+  };
+  return classes[updateStatus.value.phase] ?? '';
+});
+
+function formatTime(iso: string): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? iso : d.toLocaleString();
+}
+
+let updateTimer: number | null = null;
+async function refreshUpdateStatus() {
+  try {
+    updateStatus.value = await fetchUpdateStatus();
+  } catch {
+    // 更新模块不可用时保留上一次状态，不打断系统设置其它区块
+  }
+}
+function startUpdatePolling() {
+  if (updateTimer !== null) return;
+  updateTimer = window.setInterval(refreshUpdateStatus, 3000);
+}
+function stopUpdatePolling() {
+  if (updateTimer !== null) {
+    window.clearInterval(updateTimer);
+    updateTimer = null;
+  }
+}
+
+async function onCheckUpdate() {
+  checkingUpdate.value = true;
+  message.value = '';
+  try {
+    await checkUpdate();
+    await refreshUpdateStatus();
+    message.value = '检查任务已提交，正在连接 GitHub…';
+    messageType.value = 'ok';
+  } catch (e) {
+    message.value = `检查更新失败：${(e as Error).message}`;
+    messageType.value = 'err';
+  } finally {
+    checkingUpdate.value = false;
+  }
+}
+
+async function onApplyUpdate() {
+  const tip = hasNewCommits.value
+    ? '将从 GitHub 拉取最新代码并重建 api / web。'
+    : '当前已是最新版本，仍将重新构建并重启 api / web。';
+  if (!window.confirm(`${tip}\n\n更新前会自动备份数据库与附件，服务将短暂中断 1-3 分钟。确认继续？`)) return;
+  applyingUpdate.value = true;
+  message.value = '';
+  try {
+    await applyUpdate();
+    await refreshUpdateStatus();
+    message.value = '更新任务已提交，正在后台执行，请勿关闭本页…';
+    messageType.value = 'ok';
+  } catch (e) {
+    message.value = `提交更新失败：${(e as Error).message}`;
+    messageType.value = 'err';
+  } finally {
+    applyingUpdate.value = false;
+  }
+}
+
 onMounted(async () => {
   await loadAll();
   await loadNotif();
   await loadProviders();
+  await refreshUpdateStatus();
+  startUpdatePolling();
 });
+onUnmounted(stopUpdatePolling);
 
 // ---- 通知与告警（T1.10）逻辑 ----
 function buildNotifPayload(): NotificationSettings {
@@ -763,6 +929,10 @@ async function sendTestAlert() {
 </script>
 
 <style scoped>
+/* 在线更新（T6.5）*/
+.update-log { margin-top: 12px; border: 1px solid var(--border, #2a2c3a); border-radius: 8px; padding: 10px 12px; background: var(--panel-soft, rgba(127, 127, 127, .06)); }
+.update-log pre { margin: 6px 0 0; max-height: 220px; overflow: auto; font-size: 12px; line-height: 1.6; white-space: pre-wrap; word-break: break-all; color: inherit; opacity: .85; }
+
 /* 用户管理（T6.4）*/
 .user-list { display: flex; flex-direction: column; gap: 8px; margin: 10px 0 16px; }
 .user-row { border: 1px solid var(--border, #2a2c3a); border-radius: 8px; padding: 10px 12px; }

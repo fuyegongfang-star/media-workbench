@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-# 自媒体工作台 — 生产镜像（双构建目标：api / web）
+# 自媒体工作台 — 生产镜像（三构建目标：api / web / updater）
 # 构建：docker compose -f docker-compose.prod.yml build
 # 说明：选用 Debian slim（glibc），避免 musl 下 Prisma / @node-rs/argon2 原生二进制兼容问题。
 # 注意：本机无 Docker，本文件未在真机执行过镜像构建；首次上线请按 deploy/README.md 逐步核验。
@@ -52,3 +52,16 @@ FROM nginx:1.27-alpine AS web
 COPY deploy/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/web/dist /usr/share/nginx/html
 EXPOSE 80
+
+# ---------- 运行阶段：在线更新守护（T6.5）----------
+# 独立容器：轮询共享 storage 卷里的请求 → git pull → 只重建 api/web。
+# 只有本镜像持有 docker.sock；api 镜像零额外权限。不对外暴露任何端口。
+FROM alpine:3.20 AS updater
+RUN apk add --no-cache docker-cli docker-cli-compose git curl ca-certificates
+WORKDIR /repo
+COPY deploy/updater.sh /usr/local/bin/updater.sh
+RUN chmod +x /usr/local/bin/updater.sh
+ENV UPDATER_REPO_DIR=/repo \
+    UPDATER_STATE_DIR=/app/storage/update \
+    UPDATER_HEALTH_URL=http://web/api/health
+CMD ["/bin/sh", "/usr/local/bin/updater.sh"]

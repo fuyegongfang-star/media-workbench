@@ -81,6 +81,30 @@ services:
       api:
         condition: service_healthy
 
+  # 在线更新守护（T6.5）：独立容器轮询共享卷里的请求，执行 git pull + 重建 api/web。
+  # 安全：仅本容器持有 docker.sock，api 容器零额外权限；不对外暴露端口。
+  # 更新时 updater.sh 只 `up -d --build api web`，不会重建自身，因此过程不中断。
+  # 若不需要后台一键更新，可执行 `docker compose -f docker-compose.prod.yml stop updater`
+  # 或直接注释掉本 service（系统设置页会显示「更新服务未启用」）。
+  updater:
+    build:
+      context: .
+      target: updater
+    restart: unless-stopped
+    environment:
+      # 必须与宿主机一致：容器内 cwd 是 /repo，若按目录名推导会变成 "repo"，
+      # 导致重建时创建第二套容器与卷。值由 .env 提供（bootstrap.sh 自动写入）。
+      COMPOSE_PROJECT_NAME: ${COMPOSE_PROJECT_NAME:-media-workbench}
+      UPDATER_BRANCH: ${UPDATER_BRANCH:-main}
+      UPDATER_BACKUP_BEFORE_APPLY: ${UPDATER_BACKUP_BEFORE_APPLY:-1}
+      TZ: Asia/Shanghai
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${REPO_ROOT:-.}:/repo
+      - storage:/app/storage
+    depends_on:
+      - web
+
   # 按需备份（不会随 up -d 启动）：./deploy/backup.sh
   # 复用 postgres 镜像里的 pg_dump，并直接挂载 storage 卷；
   # 宿主机无需 psql / Node，也不用把 5432 暴露到公网。

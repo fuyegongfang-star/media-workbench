@@ -122,6 +122,16 @@ else
   echo "[bootstrap] 已生成 .env（权限 600）：所有密钥已随机化，可选占位符已清空"
 fi
 
+# 固定 compose 项目名（T6.5）：updater 容器以 /repo 为工作目录执行 compose，
+# 若让它按目录名推导会得到 "repo"，与宿主机的 "media-workbench" 不一致，
+# 从而在更新时创建第二套容器和卷。显式写进 .env，compose 会自动读取。
+PROJECT_NAME=$(basename "$ROOT")
+if grep -q '^COMPOSE_PROJECT_NAME=' "$ENV_FILE"; then
+  set_env COMPOSE_PROJECT_NAME "$PROJECT_NAME"
+else
+  printf '\nCOMPOSE_PROJECT_NAME=%s\n' "$PROJECT_NAME" >> "$ENV_FILE"
+fi
+
 WEB_PORT_VALUE=$(get_env_from WEB_PORT "$ENV_FILE")
 [ -n "$WEB_PORT_VALUE" ] || WEB_PORT_VALUE=8080
 ORIGIN_VALUE=$(get_env_from CORS_ORIGIN "$ENV_FILE")
@@ -186,7 +196,7 @@ cat <<'EOF'
   看状态   docker compose -f docker-compose.prod.yml ps
   停止     docker compose -f docker-compose.prod.yml down
   备份     ./deploy/backup.sh
-  更新     git pull && ./deploy/bootstrap.sh
+  更新     后台「系统设置 → 版本与更新 → 一键更新」（也可命令行 git pull && ./deploy/bootstrap.sh）
 
 安全提醒：
   · 当前是 HTTP 明文；公网部署请在前面挂宝塔 / nginx 反代并启用 HTTPS

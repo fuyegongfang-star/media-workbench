@@ -4,6 +4,8 @@ import { TasksModule } from '../tasks/tasks.module';
 import { SystemController } from './system.controller';
 import { SystemService } from './system.service';
 import { ProviderController } from './provider.controller';
+import { UpdateController } from './update.controller';
+import { UpdateService } from './update.service';
 
 /**
  * 系统设置模块（T1.8）：站点设置单例（基础信息 / 默认公众号 AppID 加密 / 合规开关）+ 状态总览。
@@ -12,7 +14,7 @@ import { ProviderController } from './provider.controller';
  */
 @Module({
   imports: [AuthModule, TasksModule],
-  controllers: [SystemController, ProviderController],
-  providers: [SystemService],
+  controllers: [SystemController, ProviderController, UpdateController],
+  providers: [SystemService, UpdateService],
 })
 export class SystemModule {}
