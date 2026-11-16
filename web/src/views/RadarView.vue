@@ -105,6 +105,10 @@
 
     <!-- 雷达配置 -->
     <section v-if="tab === 'config'" class="panel">
+      <p class="hint" style="margin-bottom:14px">
+        这里只配置业务参数（赛道词库、数据源、监控账号）。LLM API Key、公众号与通知渠道凭据统一在
+        <router-link to="/system/ai">设置中心 → AI 与密钥</router-link> 维护，不在业务页重复填写。
+      </p>
       <div class="config-grid">
         <div class="config-card">
           <h3 class="config-title">赛道词库</h3>

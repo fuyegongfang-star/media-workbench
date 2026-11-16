@@ -1,5 +1,5 @@
 /**
- * 在线更新 API（T6.5）：系统设置 → 版本与更新。
+ * 在线更新 API（T6.5）：系统管理 → 版本与运维。
  * 与 auth.ts 共用同一套 token；401 由 main.ts 的全局 fetch 拦截统一处理。
  */
 import { getToken } from './auth';

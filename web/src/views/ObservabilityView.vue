@@ -1,20 +1,6 @@
 <template>
   <div class="obs">
-    <!-- 开发期令牌：可观测性接口需鉴权；生产由登录流程下发，此处仅用于本地联调 -->
-    <section class="card">
-      <h2 class="card-title">访问令牌（开发/QA）</h2>
-      <div class="row">
-        <input
-          v-model="token"
-          class="input wide"
-          type="text"
-          placeholder="粘贴 Bearer 令牌（本地联调用，存于浏览器 localStorage）"
-        />
-        <button class="btn" @click="saveToken">保存令牌</button>
-        <button class="btn ghost" @click="clearToken">清除</button>
-      </div>
-      <p class="hint">提示：登录后从 /api/auth/login 响应中取 accessToken 填入；未填则接口返回 401。</p>
-    </section>
+    <SettingsHeader active="audit" />
 
     <!-- 选项卡 -->
     <div class="tabs">
@@ -109,6 +95,7 @@
 
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue';
+import SettingsHeader from '../components/SettingsHeader.vue';
 import {
   fetchAuditLog,
   fetchRecycleBin,
@@ -118,21 +105,11 @@ import {
   type RecycleResult,
 } from '../api/http';
 
-const token = ref<string>(localStorage.getItem('wb_token') ?? '');
 const tab = ref<'audit' | 'recycle'>('audit');
 const loading = ref(false);
 const message = ref('');
 const messageType = ref<'ok' | 'err'>('ok');
 
-function saveToken() {
-  localStorage.setItem('wb_token', token.value.trim());
-  flash('令牌已保存到本地（仅本浏览器）', 'ok');
-}
-function clearToken() {
-  localStorage.removeItem('wb_token');
-  token.value = '';
-  flash('令牌已清除', 'ok');
-}
 function flash(msg: string, type: 'ok' | 'err') {
   message.value = msg;
   messageType.value = type;

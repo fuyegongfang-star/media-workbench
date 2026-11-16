@@ -196,7 +196,7 @@ cat <<'EOF'
   看状态   docker compose -f docker-compose.prod.yml ps
   停止     docker compose -f docker-compose.prod.yml down
   备份     ./deploy/backup.sh
-  更新     后台「系统设置 → 版本与更新 → 一键更新」（也可命令行 git pull && ./deploy/bootstrap.sh）
+  更新     后台「系统管理 → 版本与运维 → 一键更新」（也可命令行 git pull && ./deploy/bootstrap.sh）
 
 安全提醒：
   · 当前是 HTTP 明文；公网部署请在前面挂宝塔 / nginx 反代并启用 HTTPS

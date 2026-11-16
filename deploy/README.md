@@ -24,7 +24,7 @@ cd /opt/media-workbench
 ./deploy/bootstrap.sh --env-only                                # 只生成 .env 供自检
 ./deploy/bootstrap.sh --no-build                                # 已有镜像，快速重启
 git pull && ./deploy/bootstrap.sh                               # 更新版本（命令行，自动增量迁移）
-# 后台一键更新：系统设置 → 版本与更新 → 一键更新（无需登录服务器，见第八节）
+# 后台一键更新：系统管理 → 版本与运维 → 一键更新（无需登录服务器，见第八节）
 ```
 
 脚本自动完成：生成 64 位 `APP_MASTER_KEY`、96 位 `JWT_SECRET`、48 位数据库口令与 16 位初始口令
@@ -128,7 +128,7 @@ npm run migrate:deploy
 ./deploy/backup.sh
 ```
 
-更新版本：优先用后台「系统设置 → 版本与更新 → 一键更新」（见第八节），命令行等价写法是 `git pull && ./deploy/bootstrap.sh`。两种方式都沿用已有 `.env`、不轮换密钥，容器启动时自动跑增量迁移。
+更新版本：优先用后台「系统管理 → 版本与运维 → 一键更新」（见第八节），命令行等价写法是 `git pull && ./deploy/bootstrap.sh`。两种方式都沿用已有 `.env`、不轮换密钥，容器启动时自动跑增量迁移。
 
 ---
 
@@ -182,7 +182,7 @@ npm run migrate:deploy
 
 ## 八、后台一键在线更新（T6.5）
 
-部署完成后，用**所有者（owner）**账号进入「系统设置 → 版本与更新」，无需再登录服务器：
+部署完成后，用**所有者（owner）**账号进入「系统管理 → 版本与运维」，无需再登录服务器：
 
 1. **检查更新**：对比服务器当前 commit 与 GitHub `main` 分支最新 commit，显示落后几个提交。
 2. **一键更新**：拉取代码 → 自动备份数据库与附件 → 重建 `api` / `web` → 等健康检查通过 → 显示结果。

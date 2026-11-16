@@ -17,28 +17,39 @@
       <rect x="130" y="34" width="420" height="24" rx="12" fill="#ffffff" stroke="#e2e8f0"/>
       <text x="146" y="50" font-size="11.5" fill="#94a3b8">app.example.com/dashboard</text>
 
-      <!-- sidebar -->
-      <rect x="30" y="68" width="210" height="456" fill="#1e293b"/>
-      <text x="50" y="104" font-size="14" font-weight="700" fill="#f8fafc">◧ 自媒体工作台</text>
-      <rect x="42" y="126" width="186" height="30" rx="8" fill="#334155"/>
-      <rect x="52" y="137" width="8" height="8" rx="2" fill="#60a5fa"/>
-      <text x="70" y="146" font-size="12.5" font-weight="600" fill="#f1f5f9">工作台</text>
-      <rect x="52" y="169" width="8" height="8" rx="2" fill="#64748b"/><text x="70" y="178" font-size="12.5" fill="#94a3b8">内容项目</text>
-      <rect x="52" y="201" width="8" height="8" rx="2" fill="#64748b"/><text x="70" y="210" font-size="12.5" fill="#94a3b8">对标分析</text>
-      <rect x="52" y="233" width="8" height="8" rx="2" fill="#64748b"/><text x="70" y="242" font-size="12.5" fill="#94a3b8">账号与策略</text>
-      <rect x="52" y="265" width="8" height="8" rx="2" fill="#64748b"/><text x="70" y="274" font-size="12.5" fill="#94a3b8">素材库</text>
-      <rect x="52" y="297" width="8" height="8" rx="2" fill="#64748b"/><text x="70" y="306" font-size="12.5" fill="#94a3b8">内容日历</text>
-      <rect x="52" y="329" width="8" height="8" rx="2" fill="#64748b"/><text x="70" y="338" font-size="12.5" fill="#94a3b8">效果看板</text>
-      <rect x="52" y="361" width="8" height="8" rx="2" fill="#64748b"/><text x="70" y="370" font-size="12.5" fill="#94a3b8">系统设置</text>
-      <rect x="52" y="393" width="8" height="8" rx="2" fill="#64748b"/><text x="70" y="402" font-size="12.5" fill="#94a3b8">可观测性</text>
-      <line x1="50" y1="430" x2="220" y2="430" stroke="#334155"/>
-      <text x="50" y="458" font-size="11" fill="#64748b">12 个导航入口</text>
-      <text x="50" y="478" font-size="11" fill="#64748b">+ 内容项目详情页</text>
+      <!-- sidebar：T6.6 分组导航 + 系统管理二级菜单（浅色设计系统） -->
+      <rect x="30" y="68" width="210" height="456" fill="#f8fafc"/>
+      <line x1="240" y1="68" x2="240" y2="524" stroke="#e2e8f0" stroke-width="1.5"/>
+      <text x="50" y="104" font-size="14" font-weight="700" fill="#1f2733">◧ 自媒体工作台</text>
+
+      <text x="50" y="132" font-size="10" font-weight="700" fill="#94a3b8">总览</text>
+      <rect x="42" y="138" width="186" height="24" rx="7" fill="#eaf1ff"/>
+      <text x="54" y="155" font-size="12" font-weight="600" fill="#2f6fed">◧  工作台</text>
+
+      <text x="50" y="184" font-size="10" font-weight="700" fill="#94a3b8">选题与洞察</text>
+      <text x="54" y="205" font-size="12" fill="#5b6675">⌖  选题雷达</text>
+      <text x="54" y="227" font-size="12" fill="#5b6675">◎  对标分析</text>
+      <text x="54" y="249" font-size="12" fill="#5b6675">☰  账号与策略</text>
+
+      <text x="50" y="277" font-size="10" font-weight="700" fill="#94a3b8">内容生产</text>
+      <text x="54" y="298" font-size="12" fill="#5b6675">✎  内容项目</text>
+      <text x="54" y="320" font-size="12" fill="#5b6675">▤  素材库</text>
+      <text x="54" y="342" font-size="12" fill="#5b6675">▦  内容日历</text>
+      <text x="54" y="364" font-size="11" fill="#94a3b8">＋ 批量操作 · 起号计划</text>
+
+      <text x="50" y="392" font-size="10" font-weight="700" fill="#94a3b8">数据与复盘</text>
+      <text x="54" y="413" font-size="12" fill="#5b6675">▥  效果看板</text>
+      <text x="54" y="435" font-size="12" fill="#5b6675">¥  成本看板</text>
+
+      <text x="50" y="463" font-size="10" font-weight="700" fill="#94a3b8">系统管理 · 二级菜单</text>
+      <text x="54" y="484" font-size="12" fill="#5b6675">⚙  站点设置 · 用户与权限</text>
+      <text x="54" y="506" font-size="12" fill="#2f6fed">⚿  AI 与密钥（密钥集中）</text>
+      <text x="54" y="520" font-size="10" fill="#94a3b8">通知 / 版本与运维 / 审计回收站…</text>
     </g>
 
     <!-- main header -->
     <text x="270" y="110" font-size="22" font-weight="700" fill="#0f172a">工作台</text>
-    <text x="270" y="132" font-size="12" fill="#94a3b8">服务与内容生产概览</text>
+    <text x="270" y="132" font-size="12" fill="#94a3b8">总览 / 工作台 · 服务与内容生产概览</text>
     <circle cx="1132" cy="108" r="17" fill="#c7d2fe"/>
     <text x="1126" y="113" font-size="13" font-weight="700" fill="#4338ca">A</text>
 
@@ -92,6 +103,6 @@
     <line x1="290" y1="478" x2="1150" y2="478" stroke="#f1f5f9"/>
     <text x="290" y="494" font-size="11.5" fill="#64748b">立项　→　AI 初稿　→　待审　→　已发布　·　每一步都留版本与审核意见</text>
 
-    <text x="40" y="558" font-size="13" fill="#64748b">界面结构示意 · 双击仓库根 preview.html 可查看零依赖离线快照（暗色主题、非实时、按钮不可提交）</text>
+    <text x="40" y="558" font-size="13" fill="#64748b">界面结构示意 · T6.6 分组导航 + 系统管理二级菜单 + 统一浅色设计系统 · preview.html 为零依赖离线快照（非实时、按钮不可提交）</text>
   </g>
 </svg>

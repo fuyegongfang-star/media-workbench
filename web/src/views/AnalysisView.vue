@@ -1,21 +1,5 @@
 <template>
   <div class="an">
-    <!-- 开发期令牌 -->
-    <section class="card">
-      <h2 class="card-title">访问令牌（开发/QA）</h2>
-      <div class="row">
-        <input
-          v-model="token"
-          class="input wide"
-          type="text"
-          placeholder="粘贴 Bearer 令牌（本地联调用，存于浏览器 localStorage）"
-        />
-        <button class="btn" @click="saveToken">保存令牌</button>
-        <button class="btn ghost" @click="clearToken">清除</button>
-      </div>
-      <p class="hint">提示：登录后从 /api/auth/login 响应取 accessToken 填入；导入与写接口需令牌，未填返回 401。</p>
-    </section>
-
     <!-- 对标账号列表 -->
     <section class="card">
       <div class="row" style="justify-content: space-between">
@@ -333,7 +317,6 @@ import {
   type StrategyItem,
 } from '../api/http';
 
-const token = ref<string>(localStorage.getItem('wb_token') ?? '');
 const accounts = ref<ReferenceAccount[]>([]);
 const listError = ref('');
 const loading = ref(false);
@@ -385,15 +368,6 @@ function flash(msg: string, type: 'ok' | 'err' = 'ok') {
   messageType.value = type;
 }
 
-function saveToken() {
-  localStorage.setItem('wb_token', token.value.trim());
-  flash('令牌已保存到本地（仅本浏览器）');
-}
-function clearToken() {
-  localStorage.removeItem('wb_token');
-  token.value = '';
-  flash('令牌已清除');
-}
 
 async function loadList() {
   loading.value = true;

@@ -1,7 +1,9 @@
 <template>
   <div class="sys">
-    <!-- 当前账号：登录态由登录页统一维护，令牌自动注入，无需手动粘贴 -->
-    <section class="card">
+    <SettingsHeader :active="section" />
+
+    <!-- 用户与权限：当前账号 -->
+    <section v-if="section === 'users'" class="card">
       <h2 class="card-title">当前账号</h2>
       <div class="row">
         <span class="pill ok">{{ currentUser?.username ?? '未登录' }}</span>
@@ -20,8 +22,8 @@
       </div>
     </section>
 
-    <!-- 在线更新（T6.5）：api 只投递请求文件，真正的 git pull / 重建在独立 updater 容器执行 -->
-    <section class="card">
+    <!-- 版本与运维：在线更新 -->
+    <section v-if="section === 'ops'" class="card">
       <h2 class="card-title">
         版本与在线更新
         <span class="pill" :class="updateStatus.available ? 'ok' : 'warn'">
@@ -81,8 +83,8 @@
       </p>
     </section>
 
-    <!-- 状态总览：把已完成的认证/任务中心/备份/健康接入系统设置页（此前前端空白的根因） -->
-    <section class="card">
+    <!-- 版本与运维：状态总览 -->
+    <section v-if="section === 'ops'" class="card">
       <h2 class="card-title">状态总览</h2>
       <div class="status-grid">
         <div class="status-card">
@@ -129,9 +131,9 @@
       </div>
     </section>
 
-    <!-- 站点设置单例：基础信息 / 默认公众号(AppID 加密) / 合规开关 -->
-    <section class="card">
-      <h2 class="card-title">站点设置（单例）</h2>
+    <!-- 站点设置：基础信息与全局开关（密钥统一收敛到「AI 与密钥」） -->
+    <section v-if="section === 'site'" class="card">
+      <h2 class="card-title">站点信息与合规</h2>
 
       <div class="field">
         <label>站点名称</label>
@@ -143,36 +145,9 @@
         <textarea v-model="form.siteDesc" class="input" rows="2" maxlength="200" placeholder="可选" />
       </div>
 
-      <div class="field">
-        <label>默认公众号 AppID</label>
-        <input
-          v-model="form.defaultWechatAppId"
-          class="input mono"
-          type="text"
-          maxlength="64"
-          placeholder="留空表示清空；提交后服务端 AES-256-GCM 加密入库"
-        />
-        <p class="hint">
-          当前状态：<b>{{ settings.appIdConfigured ? '已配置（脱敏）' : '未配置' }}</b>
-          <span v-if="settings.defaultWechatAppIdMasked"> · {{ settings.defaultWechatAppIdMasked }}</span>
-        </p>
-      </div>
-
-      <!-- T3.9 公众号发布执行所需 AppSecret（与 AppID 配套，AES 加密入库） -->
-      <div class="field">
-        <label>默认公众号 AppSecret（T3.9 发布执行）</label>
-        <input
-          v-model="form.defaultWechatAppSecret"
-          class="input mono"
-          type="password"
-          maxlength="128"
-          placeholder="留空表示清空；提交后服务端 AES-256-GCM 加密入库，日志绝不打印明文"
-        />
-        <p class="hint">
-          当前状态：<b>{{ settings.appSecretConfigured ? '已配置' : '未配置' }}</b>
-          · 与 AppID 配套用于换取 access_token，完成草稿同步/发布/群发。
-        </p>
-      </div>
+      <p class="hint">
+        全站 API Key、第三方凭据统一在「AI 与密钥」页配置与查看状态，不再散落在各业务页面。
+      </p>
 
       <div class="field">
         <label>合规开关</label>
@@ -200,8 +175,100 @@
       </div>
     </section>
 
+    <!-- AI 与密钥：全站凭据状态总览 -->
+    <section v-if="section === 'ai'" class="card">
+      <h2 class="card-title">密钥与集成总览</h2>
+      <p class="hint">
+        下列凭据全部由服务端以 AES-256-GCM 加密保存，前端只显示配置状态与脱敏串，绝不回显明文。
+        请在此集中维护，不要在各业务功能页重复填写。
+      </p>
+      <div class="key-grid">
+        <div class="key-item">
+          <span class="key-name">AI 模型 API Key</span>
+          <span class="key-state">
+            {{ providers.length ? `已配置 ${providers.length} 个供应商` : '尚未配置（未配置时 AI 能力以模板兜底）' }}
+          </span>
+          <span class="key-foot"><a href="#llm-form" class="btn small">去配置</a></span>
+        </div>
+        <div class="key-item">
+          <span class="key-name">公众号 AppID</span>
+          <span class="key-state">{{ settings.appIdConfigured ? `已配置 · ${settings.defaultWechatAppIdMasked}` : '未配置' }}</span>
+          <span class="key-foot"><a href="#wechat-cred" class="btn small">去配置</a></span>
+        </div>
+        <div class="key-item">
+          <span class="key-name">公众号 AppSecret</span>
+          <span class="key-state">{{ settings.appSecretConfigured ? '已配置（加密入库）' : '未配置' }}</span>
+          <span class="key-foot"><a href="#wechat-cred" class="btn small">去配置</a></span>
+        </div>
+        <div class="key-item">
+          <span class="key-name">通知渠道凭据</span>
+          <span class="key-state">
+            {{ notifStatus ? `已启用 ${notifStatus.enabledChannels} / ${notifStatus.totalChannels} 个渠道` : '未加载状态' }}
+          </span>
+          <span class="key-foot"><router-link class="btn small" to="/system/notifications">去配置</router-link></span>
+        </div>
+        <div class="key-item">
+          <span class="key-name">选题雷达数据源</span>
+          <span class="key-state">头条 / B站 / HN RSS / 搜狗微信 / X / YouTube，零 Key 可用</span>
+          <span class="key-foot"><router-link class="btn small" to="/radar">配置赛道</router-link></span>
+        </div>
+        <div class="key-item">
+          <span class="key-name">主加密密钥 APP_MASTER_KEY</span>
+          <span class="key-state">服务端环境变量，前端不可读取。轮换会使已加密数据无法解密，请勿随意更改。</span>
+          <span class="key-foot"><span class="pill">只读</span></span>
+        </div>
+      </div>
+    </section>
+
+    <!-- AI 与密钥：公众号平台凭据（原站点设置里的密钥字段迁移至此） -->
+    <section v-if="section === 'ai'" id="wechat-cred" class="card">
+      <h2 class="card-title">平台凭据 · 微信公众号</h2>
+      <p class="hint">
+        用于内容项目发布执行（草稿同步 / 发布 / 群发）。出于安全，明文永不回填：输入框留空表示保持原值，
+        只提交你本次填写的字段；确需移除凭据请点「清空凭据」。提交后服务端 AES-256-GCM 加密入库，日志绝不打印明文。
+      </p>
+      <div class="field">
+        <label>默认公众号 AppID</label>
+        <input
+          v-model="form.defaultWechatAppId"
+          class="input wide mono"
+          type="text"
+          maxlength="64"
+          placeholder="填写新的 AppID（留空保持原值）"
+        />
+        <p class="hint">
+          当前状态：<b>{{ settings.appIdConfigured ? '已配置（脱敏）' : '未配置' }}</b>
+          <span v-if="settings.defaultWechatAppIdMasked"> · {{ settings.defaultWechatAppIdMasked }}</span>
+        </p>
+      </div>
+      <div class="field">
+        <label>默认公众号 AppSecret</label>
+        <input
+          v-model="form.defaultWechatAppSecret"
+          class="input wide mono"
+          type="password"
+          maxlength="128"
+          placeholder="填写新的 AppSecret（留空保持原值）"
+        />
+        <p class="hint">当前状态：<b>{{ settings.appSecretConfigured ? '已配置' : '未配置' }}</b></p>
+      </div>
+      <div class="row">
+        <button class="btn primary" :disabled="savingCred" @click="saveCredentials">
+          {{ savingCred ? '保存中…' : '保存平台凭据' }}
+        </button>
+        <button
+          v-if="settings.appIdConfigured || settings.appSecretConfigured"
+          class="btn"
+          :disabled="savingCred"
+          @click="clearCredentials"
+        >清空凭据</button>
+        <span class="hint">站点名称、合规开关等仍在「站点设置」页维护。</span>
+      </div>
+      <p v-if="credMessage" class="message" :class="credType">{{ credMessage }}</p>
+    </section>
+
     <!-- LLM 供应商（T6.2）：SystemConfig 的 CRUD，密钥 AES 加密入库、前端仅见脱敏 -->
-    <section class="card">
+    <section v-if="section === 'ai'" id="llm-form" class="card">
       <h2 class="card-title">AI 模型供应商（密钥加密存储）</h2>
       <p class="hint">
         选题雷达的赛道打分与标题生成、以及全站 AI 能力都依赖这里。支持 OpenAI 兼容协议（OpenAI / DeepSeek / Moonshot 等）。
@@ -241,9 +308,9 @@
       </div>
     </section>
 
-    <!-- 通知与告警（T1.10）：企业微信/钉钉 Webhook + 邮件 SMTP；敏感字段服务端加密入库 -->
-    <section class="card">
-      <h2 class="card-title">通知与告警（T1.10）</h2>
+    <!-- 通知与告警 -->
+    <section v-if="section === 'notifications'" class="card">
+      <h2 class="card-title">通知与告警</h2>
       <p class="hint">企业微信/钉钉 Webhook 与邮件 SMTP 凭据仅存于服务端（AES-256-GCM 加密入库），前端仅见脱敏。任务成功/失败与备份失败/配额/存活告警将推送至启用的渠道。</p>
 
       <div class="notif-grid">
@@ -300,8 +367,8 @@
       </div>
     </section>
 
-    <!-- 用户管理（T6.4）：仅 owner/admin 可用；角色/禁用/改密/软删 -->
-    <section class="card" v-if="canManageUsers">
+    <!-- 用户与权限：仅 owner/admin 可管理 -->
+    <section v-if="section === 'users' && canManageUsers" class="card">
       <h2 class="card-title">用户管理</h2>
       <p class="hint">管理可登录本工作台的账号。角色：所有者(owner) 拥有全部权限，管理员(admin) 可管理用户，编辑(editor) 仅使用业务功能。不能删除或禁用自己，也不能降级最后一个所有者。</p>
 
@@ -356,12 +423,20 @@
       </div>
     </section>
 
+    <section v-if="section === 'users' && !canManageUsers" class="card">
+      <h2 class="card-title">用户管理</h2>
+      <p class="hint">仅「所有者 / 管理员」可管理账号。如需调整权限或重置密码，请联系管理员。</p>
+    </section>
+
     <p v-if="message" class="message" :class="messageType">{{ message }}</p>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, reactive, ref } from 'vue';
+import { useRoute } from 'vue-router';
+import { systemSections } from '../router';
+import SettingsHeader from '../components/SettingsHeader.vue';
 import {
   fetchSystemStatus,
   fetchSystemSettings,
@@ -391,6 +466,13 @@ import {
   fetchUpdateStatus, checkUpdate, applyUpdate,
   type UpdateStatus,
 } from '../api/update';
+
+// 二级菜单：/system/:section 决定本页只展示对应分类，避免所有设置挤在一屏
+const route = useRoute();
+const section = computed(() => {
+  const raw = typeof route.params.section === 'string' ? route.params.section : 'site';
+  return systemSections.some((s) => s.key === raw) ? raw : 'site';
+});
 
 const currentUser = computed(() => getUser());
 const roleLabel = computed(() => {
@@ -426,6 +508,9 @@ const form = reactive({
 });
 
 const saving = ref(false);
+const savingCred = ref(false);
+const credMessage = ref('');
+const credType = ref<'ok' | 'err'>('ok');
 const message = ref('');
 const messageType = ref<'ok' | 'err'>('ok');
 
@@ -608,29 +693,80 @@ async function loadAll() {
   await loadUsers();
 }
 
+/**
+ * 站点设置保存：只提交站点字段。
+ * 不能携带 defaultWechatAppId/AppSecret —— 后端语义是「传空串即清空」，
+ * 而明文凭据出于安全从不回填，若在此带上空串会误清已配置的公众号凭据。
+ */
 async function save() {
   saving.value = true;
   message.value = '';
   const payload = {
     siteName: form.siteName,
     siteDesc: form.siteDesc,
-    defaultWechatAppId: form.defaultWechatAppId,
-    defaultWechatAppSecret: form.defaultWechatAppSecret,
     compliance: { ...form.compliance },
     allowRegistration: form.allowRegistration,
   };
   try {
-    const s = await saveSystemSettings(payload);
-    settings.value = s;
-    form.defaultWechatAppId = '';
-    form.defaultWechatAppSecret = '';
-    message.value = '站点设置已保存（AppID / AppSecret 已加密入库）';
+    settings.value = await saveSystemSettings(payload);
+    message.value = '站点设置已保存（平台凭据保持原值）';
     messageType.value = 'ok';
   } catch (e) {
     message.value = `保存失败：${(e as Error).message}`;
     messageType.value = 'err';
   } finally {
     saving.value = false;
+  }
+}
+
+/** 平台凭据保存：只提交本次实际填写的字段，未填字段保持原值。 */
+async function saveCredentials() {
+  savingCred.value = true;
+  credMessage.value = '';
+  const appId = form.defaultWechatAppId.trim();
+  const appSecret = form.defaultWechatAppSecret.trim();
+  if (!appId && !appSecret) {
+    credMessage.value = '未填写新凭据，未做任何更改；如需移除请点「清空凭据」。';
+    credType.value = 'ok';
+    savingCred.value = false;
+    return;
+  }
+  const payload: { defaultWechatAppId?: string; defaultWechatAppSecret?: string } = {};
+  if (appId) payload.defaultWechatAppId = appId;
+  if (appSecret) payload.defaultWechatAppSecret = appSecret;
+  try {
+    settings.value = await saveSystemSettings(payload);
+    form.defaultWechatAppId = '';
+    form.defaultWechatAppSecret = '';
+    credMessage.value = '平台凭据已加密入库；未填写的字段保持原值。';
+    credType.value = 'ok';
+  } catch (e) {
+    credMessage.value = `保存失败：${(e as Error).message}`;
+    credType.value = 'err';
+  } finally {
+    savingCred.value = false;
+  }
+}
+
+/** 显式清空：需要二次确认，避免误操作导致发布执行中断。 */
+async function clearCredentials() {
+  if (!window.confirm('确认清空公众号 AppID 与 AppSecret？清空后内容发布执行将不可用。')) return;
+  savingCred.value = true;
+  credMessage.value = '';
+  try {
+    settings.value = await saveSystemSettings({
+      defaultWechatAppId: '',
+      defaultWechatAppSecret: '',
+    });
+    form.defaultWechatAppId = '';
+    form.defaultWechatAppSecret = '';
+    credMessage.value = '公众号凭据已清空。';
+    credType.value = 'ok';
+  } catch (e) {
+    credMessage.value = `清空失败：${(e as Error).message}`;
+    credType.value = 'err';
+  } finally {
+    savingCred.value = false;
   }
 }
 

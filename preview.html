@@ -159,6 +159,51 @@
   .tabpane { display: none; }
   .tabpane.active { display: block; }
 
+  /* ---------- T6.6 浅色界面还原（内嵌 mock，代表真实应用配色） ---------- */
+  .light-mock {
+    background: #f4f6f9; color: #1f2733; border: 1px solid #d9dfe7;
+    border-radius: 10px; overflow: hidden; margin: 12px 0 16px;
+    font-size: 12px; line-height: 1.6;
+  }
+  .lm-bar { background: #ffffff; border-bottom: 1px solid #e2e6ec; padding: 9px 14px; display: flex; gap: 9px; align-items: center; flex-wrap: wrap; }
+  .lm-bar b { font-size: 13px; }
+  .lm-bar span { color: #5b6675; }
+  .lm-dot { width: 8px; height: 8px; border-radius: 50%; background: #cbd5e1; display: inline-block; }
+  .lm-body { display: flex; min-height: 210px; }
+  .lm-side { width: 190px; flex: 0 0 190px; background: #ffffff; border-right: 1px solid #e2e6ec; padding: 12px 10px; }
+  .lm-side .lm-brand { font-weight: 700; font-size: 13px; margin-bottom: 10px; }
+  .lm-grp { color: #8893a4; font-size: 10px; letter-spacing: .6px; margin: 10px 0 4px; }
+  .lm-link { padding: 4px 8px; border-radius: 6px; color: #5b6675; }
+  .lm-link.on { background: #eaf1ff; color: #2f6fed; font-weight: 600; }
+  .lm-main { flex: 1; min-width: 0; padding: 14px 16px; background: #f4f6f9; }
+  .lm-title { font-size: 15px; font-weight: 700; margin: 0 0 3px; }
+  .lm-crumb { color: #8893a4; font-size: 11px; margin-bottom: 10px; }
+  .lm-card { background: #ffffff; border: 1px solid #e2e6ec; border-radius: 9px; padding: 12px 14px; margin-bottom: 10px; box-shadow: 0 1px 2px rgba(15,23,42,.04); }
+  .lm-card h4 { margin: 0 0 6px; font-size: 13px; }
+  .lm-tabs { display: flex; gap: 4px; flex-wrap: wrap; border-bottom: 1px solid #e2e6ec; margin-bottom: 10px; }
+  .lm-tab { padding: 5px 10px; font-size: 11.5px; color: #5b6675; border-bottom: 2px solid transparent; }
+  .lm-tab.on { color: #2f6fed; border-bottom-color: #2f6fed; font-weight: 600; }
+  .lm-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
+  .lm-key { background: #f8fafc; border: 1px solid #e2e6ec; border-radius: 7px; padding: 8px 10px; }
+  .lm-key b { display: block; font-size: 11.5px; }
+  .lm-key span { color: #5b6675; font-size: 11px; }
+  .lm-pill { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 10.5px; border: 1px solid #b9e2ce; background: #e8f7ee; color: #177a45; }
+  .lm-pill.blue { border-color: #bcd2ff; background: #eaf1ff; color: #2f6fed; }
+  .lm-pill.gray { border-color: #dde3ea; background: #f1f4f8; color: #5b6675; }
+  .lm-field { margin-bottom: 8px; }
+  .lm-field label { display: block; font-size: 11px; color: #5b6675; margin-bottom: 3px; }
+  .lm-input { width: 100%; background: #ffffff; border: 1px solid #cfd6e0; border-radius: 6px; padding: 5px 9px; font-size: 11.5px; color: #1f2733; }
+  .lm-btn { display: inline-block; background: #2f6fed; color: #fff; border-radius: 6px; padding: 5px 12px; font-size: 11.5px; border: none; }
+  .lm-btn.ghost { background: #ffffff; color: #2f6fed; border: 1px solid #bcd2ff; }
+  .lm-hero { background: linear-gradient(135deg, #eaf1ff, #ffffff); border-bottom: 1px solid #e2e6ec; padding: 26px 22px; }
+  .lm-hero h3 { margin: 0 0 8px; font-size: 21px; }
+  .lm-hero p { margin: 0 0 14px; color: #5b6675; font-size: 12.5px; }
+  .lm-steps { display: flex; gap: 6px; flex-wrap: wrap; padding: 14px 16px; }
+  .lm-step { background: #ffffff; border: 1px solid #e2e6ec; border-radius: 8px; padding: 8px 10px; min-width: 120px; font-size: 11.5px; }
+  .lm-step span { display: block; color: #8893a4; font-size: 10.5px; margin-top: 4px; }
+  .lm-auth { max-width: 300px; margin: 18px auto; }
+  @media (max-width: 700px) { .lm-side { display: none; } }
+
   /* ---------- 进展看板 ---------- */
   .kpi {
     background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius);
@@ -228,11 +273,15 @@
     <div class="nav-item" data-view="observability"><span class="nav-icon">◉</span><span class="nav-label">可观测性</span><span class="nav-phase">T1.9</span></div>
     <div class="nav-group">人工补齐（11-08）</div>
     <div class="nav-item" data-view="account"><span class="nav-icon">☰</span><span class="nav-label">账号与策略</span><span class="nav-phase">真实 UI</span></div>
+    <div class="nav-group">T6.6 · UI/UX 梳理（11-16）</div>
+    <div class="nav-item" data-view="ux"><span class="nav-icon">✦</span><span class="nav-label">问题清单与改造</span><span class="nav-phase">NEW</span></div>
+    <div class="nav-item" data-view="ui"><span class="nav-icon">▣</span><span class="nav-label">浅色界面还原</span><span class="nav-phase">NEW</span></div>
+    <div class="nav-item" data-view="auth"><span class="nav-icon">⌂</span><span class="nav-label">首页与认证</span><span class="nav-phase">NEW</span></div>
     <div class="side-foot">
       检查点 <b>已对齐 T5.2</b><br />
-      34 项全完成 + T6.1-T6.5 · 0 阻塞<br />
+      34 项全完成 + T6.1-T6.6 · 0 阻塞<br />
       单测 388/388 通过<br />
-      选题雷达·盯号·用户管理·在线更新 · 已真机部署
+      雷达·盯号·用户管理·在线更新·UI/UX 梳理 · 已真机部署
     </div>
   </aside>
 
@@ -242,8 +291,9 @@
       <span class="tag blue">离线快照 · 无需服务</span>
       <span class="tag ok">388/388 单测</span>
       <span class="tag ok">真机已部署 · PG/Redis up</span>
+      <span class="tag blue">T6.6 UI/UX 梳理</span>
       <span class="spacer"></span>
-      <span class="stamp">数据截止 2026-11-10 07:07 · 生成于 11-10 21:05</span>
+      <span class="stamp">数据截止 2026-11-16 · 生成于 11-16 下午</span>
     </div>
 
     <div class="content">
@@ -252,7 +302,8 @@
       <section class="view active" id="overview">
         <div class="note">
           <strong>为什么之前预览地址打不开？</strong> 原先给的是本机 dev server（<code>127.0.0.1:5173</code>），常驻后台进程会被沙箱回收，隔一阵就失效。
-          本页是<strong>单文件静态快照</strong>，不连任何服务、不依赖端口，打开即看、永不失效。下方界面结构按真实源码还原（配色适配暗色主题），
+          本页是<strong>单文件静态快照</strong>，不连任何服务、不依赖端口，打开即看、永不失效。看板外壳仍是暗色，但 T6.6 起真实应用已切换为<strong>统一浅色设计系统</strong>；
+          新增的「问题清单与改造 / 浅色界面还原 / 首页与认证」三页内嵌浅色 mock 还原真实观感。
           <strong>数据为离线快照，非实时应用</strong>，按钮不可真实提交。
         </div>
 
@@ -261,7 +312,7 @@
           <div class="kpi"><div class="num ok">34</div><div class="lbl">已完成功能项</div><div class="sub">T1.1–T1.10 / T2.1–T2.5 / T3.1–T3.11 / T4.1–T4.6 / T5.1–T5.2</div></div>
           <div class="kpi"><div class="num blue">388</div><div class="lbl">单测全量通过</div><div class="sub">388 pass / 0 fail · 31 测试文件（含在线更新 15 项）</div></div>
           <div class="kpi"><div class="num ok">T6.1</div><div class="lbl">选题雷达新增</div><div class="sub">11-16 手工开发：免费源采集 + 打分出标题 + 一键转选题 + LLM 供应商管理</div></div>
-          <div class="kpi"><div class="num warn">3</div><div class="lbl">待补外部条件</div><div class="sub">PG16 · Redis · LLM 密钥</div></div>
+          <div class="kpi"><div class="num blue">T6.6</div><div class="lbl">UI/UX 全盘梳理</div><div class="sub">分组导航 · 设置中心二级菜单 · 密钥集中 · 公开首页 · 浅色设计系统</div></div>
         </div>
 
         <div class="section-title"><span class="bar"></span>各阶段完成度</div>
@@ -289,11 +340,12 @@
         <div class="grid g2">
           <div class="card">
             <h3>构建与类型</h3>
-            <div class="kv"><span>npm run build（server tsc + web vite）</span><b class="up">✓ 通过 · 4.57s</b></div>
-            <div class="kv"><span>web 产物</span><b>13 视图 chunk + index</b></div>
-            <div class="kv"><span>node --test server/test/*.test.mjs（28 文件）</span><b class="up">✓ 344/344</b></div>
-            <div class="kv"><span>npm run typecheck（tsc --noEmit）</span><b class="up">✓ 通过</b></div>
-            <div class="kv"><span>npm run validate → prisma validate</span><b class="up">✓ schema valid</b></div>
+            <div class="kv"><span>npm run typecheck（server + web tsc --noEmit）</span><b class="up">✓ 通过</b></div>
+            <div class="kv"><span>npm run build（server tsc + web vite）</span><b class="up">✓ 通过 · 3.39s</b></div>
+            <div class="kv"><span>node --test server/test/*.test.mjs（31 文件）</span><b class="up">✓ 388/388 · 0 fail</b></div>
+            <div class="kv"><span>prisma validate</span><b class="up">✓ schema valid</b></div>
+            <div class="kv"><span>真实浏览器截图自查（8 张）</span><b class="up">✓ 首页/登录/设置/素材/成本等</b></div>
+            <div class="kv"><span>web 产物</span><b>按路由懒加载拆分多 chunk + index</b></div>
           </div>
           <div class="card">
             <h3>安全护栏（夜间任务约束）</h3>
@@ -309,23 +361,173 @@
 
         <div class="section-title"><span class="bar"></span>卡点与收尾说明</div>
         <div class="grid g3">
-          <div class="card"><h3>🔴 环境缺失</h3><p class="hint">本机无 Docker / PostgreSQL 16 / Redis，也无 LLM 供应商密钥。依赖 DB、队列、AI 的功能只到代码层 + 纯函数单测，真实联调全部「待环境」。</p></div>
-          <div class="card"><h3>🟡 版本管理</h3><p class="hint">git 仓库尚未 init（夜间护栏禁止自动动 git）。代码目前无版本管理，建议人工首次提交。</p></div>
+          <div class="card"><h3>🟢 生产环境已就绪</h3><p class="hint">Ubuntu + Docker Compose 真机跑通：24 个迁移、PG16 / Redis up、登录与用户管理端到端、镜像构建与健康检查。开发机仍无 Docker，本机只跑静态自验，不影响生产。</p></div>
+          <div class="card"><h3>🟢 版本管理与在线更新</h3><p class="hint">GitHub 公开仓库 <code>fuyegongfang-star/media-workbench</code>，<code>main</code> + 基线 tag。后台「系统管理 → 版本与运维 → 一键更新」由独立 updater 容器拉代码、备份、重建 api/web，仅 owner 可触发。</p></div>
+          <div class="card"><h3>🎨 T6.6 UI/UX 全盘梳理</h3><p class="hint">五类问题一次收敛：全局浅色设计系统、五组导航 + 系统管理二级菜单、设置中心六页分类、密钥集中到「AI 与密钥」、公开首页 + 注册 / 找回密码；清掉各业务页「开发/QA 访问令牌」面板。</p></div>
           <div class="card"><h3>🟢 检查点漂移已修正（11-10 06:02）</h3><p class="hint">夜间巡检发现 <code>.dev/state.json</code> 的 <code>completed</code> 仅 33 项、缺 <b>T4.6</b>（巡检文案却写 34 项）。核验 T4.6 代码真实性（成本看板 4 文件 + 19/19 单测 + <code>CostDashboardView.vue</code> + 路由）后按护栏补回，对齐 <b>34 项</b>，杜绝误认领重做。</p></div>
           <div class="card"><h3>🏁 全清单收官（11-09 02:24）</h3><p class="hint"><b>34/34 代码完成</b>：T5.1 试跑脚手架 + 观察清单、T5.2 默认继承微调与 <code>Platform</code> 扩展（迁移 0020）。<code>进度.md</code> 已写收尾报告；11-10 的 03:56 / 04:59 / 06:02 / 07:07 四次触发均为<b>纯状态巡检</b>，无任务可认领、不写码、不伪造通过。</p></div>
           <div class="card"><h3>🟢 人工补齐：账号与策略面板（11-08）</h3><p class="hint">白天会话按用户指示把全站最后一个占位 <code>AccountView.vue</code> 重写为真实三页签面板（自有账号 CRUD / 策略版本七字段卡与默认绑定 / 对标账号只读概览），并补齐 <code>http.ts</code> 的 OwnedAccount CRUD 与策略新建/删除封装。<b>非排期 T 任务，不计入 34 项</b>；自验 build + typecheck + 单测 + prisma validate 全过。</p></div>
-          <div class="card"><h3>🚀 生产部署资产（11-10 人工补齐）</h3><p class="hint">已补 <code>Dockerfile</code>（api/web 双目标）、<code>docker-compose.prod.yml</code>（PG16+Redis+API+nginx）、nginx 反代、自动 <code>prisma migrate deploy</code> 入口、<code>deploy/.env.prod.example</code>、<code>scripts/preflight.mjs</code> 与 <code>deploy/README.md</code>。<b>静态自检可达成 FAIL=0，但本机无 Docker：镜像构建、22 个迁移的真实执行、登录/队列/AI 联调仍属首次上线核验项</b>，未伪造通过。</p></div>
+          <div class="card"><h3>🚀 一键部署资产（11-10 补齐 · 11-15 真机验证）</h3><p class="hint"><code>deploy/bootstrap.sh</code> 是唯一入口：生成全部密钥与初始口令、清占位符、build、迁移、健康轮询、打印一次性凭据；幂等不覆盖已有 <code>.env</code>。<code>deploy/backup.sh</code> 走 compose backup profile。README / 部署指南已切到图文版（3 张自绘 SVG）。</p></div>
         </div>
 
         <div class="section-title"><span class="bar"></span>后续触发说明（全清单已收官）</div>
         <div class="card">
-          <p class="hint" style="margin-top:0">夜间任务 <code>04c31a65</code> 仍 ACTIVE，每小时巡检，时间守卫限定 23:00–07:50。但 <code>开发排期.md</code> 已<b>无未开始 T 任务可认领</b>：11-10 起各次触发只做「时间守卫 → 读检查点 → 代码真实性复核 → 重跑自验 → 刷新 <code>updatedAt</code>」，不写任何源码。要继续推进需二选一：<b>① 补齐 PG16 / Redis / LLM 密钥</b> → 跑 <code>prisma migrate deploy</code> + <code>scripts/trial-run.mjs</code> 真实素材全流程，把「待环境」项变绿；<b>② 新增排期任务</b>（如 T0.2/T0.3 原型走查）→ 巡检会按新顺序自动认领。</p>
+          <p class="hint" style="margin-top:0">夜间任务 <code>04c31a65</code> 仍 ACTIVE，每小时巡检，时间守卫限定 23:00–07:50。<code>开发排期.md</code> 的 34 项 T 任务已全部收官，11-10 起各次触发只做「时间守卫 → 读检查点 → 代码真实性复核 → 重跑自验 → 刷新 <code>updatedAt</code>」，不写任何源码。11-16 的 T6.1–T6.6 均为<b>白天手工开发</b>（雷达 / 盯号 / 用户注册管理 / 后台一键更新 / UI/UX 梳理），不计入 34 项、不走检查点。后续推进方向：<b>① 配置真实 LLM 供应商 Key</b> 验证 AI 打分与生成；<b>② 观察长期定时调度与搜狗微信反爬</b>；<b>③ 补 T0.2/T0.3 原型交互走查</b>（唯一未闭环的排期项）。</p>
           <div class="badge-line"><span class="pill ok">一次一条 · 写→验→报</span><span class="pill blue">检查点幂等防并发</span><span class="pill warn">连续 3 次失败记 blocked 跳过</span><span class="pill">计划文档只读</span></div>
         </div>
 
         <div class="footer-note">
           数据真相源：<code>进度.md</code>（每晚 23:10 刷新）· 计划文档：<code>开发排期.md</code> / <code>技术方案与任务拆分.md</code> / <code>深入设计.md</code> / <code>功能遗漏盘点.md</code>。<br />
           本页由会话生成，仅用于离线查看，不参与自动开发流程，不修改任何业务代码。
+        </div>
+      </section>
+
+      <!-- ============ T6.6：问题清单与改造 ============ -->
+      <section class="view" id="ux">
+        <div class="row" style="justify-content:space-between;align-items:flex-start;flex-wrap:wrap">
+          <div>
+            <h2 style="margin:0 0 6px">UI/UX 与信息架构全盘梳理 <span class="pill ok">T6.6 手工交付</span></h2>
+            <p class="hint" style="margin:0">2026-11-16 基于 7 张真机截图提出的五类问题，逐条定位根因并直接改代码；非夜间任务、不改计划文档、不计入 34 项检查点。</p>
+          </div>
+          <span class="pill blue">前端为主 · 后端 API / Prisma / 迁移零改动</span>
+        </div>
+
+        <div class="section-title"><span class="bar"></span>用户提出的问题 → 根因 → 落地</div>
+        <div class="card" style="padding:0;overflow:hidden">
+          <table style="margin:0">
+            <thead><tr><th style="width:22%">问题</th><th style="width:31%">根因</th><th>本次落地</th></tr></thead>
+            <tbody>
+              <tr><td>配色、排版撕裂：白底里冒出深色输入框、浅灰字看不清</td><td>历史 scoped 样式大量写 <code>var(--input, #15161f)</code>，全局未定义 <code>--input</code> 就回落到深色；LibraryView / CostDashboardView 还有整块硬编码深色</td><td>重写 <code>web/src/styles.css</code> 为完整浅色 token 体系 + 原生控件基线；两处 scoped 样式变量化；语义色用强覆盖保证历史页面一致</td></tr>
+              <tr><td>系统设置全挤在一个长页面</td><td><code>SystemView.vue</code> 约 1155 行，七类卡片堆一列</td><td><code>/system/:section</code> 动态路由 + <code>SettingsHeader.vue</code> 二级页签，拆成站点设置 / 用户与权限 / AI 与密钥 / 通知与告警 / 版本与运维 / 审计与回收站 六页；<code>/system</code> 与 <code>/observability</code> 做兼容重定向</td></tr>
+              <tr><td>菜单目录乱，没按业务与系统流程归集</td><td>13 项平铺，还带 T1.1 / T6.1 等开发阶段标签</td><td><code>navGroups</code> 五组（总览 / 选题与洞察 / 内容生产 / 数据与复盘 / 系统管理），可折叠分组 + 面包屑 + 用户区；删掉阶段标签</td></tr>
+              <tr><td>打开站点直接是登录页，且没有注册 / 找回密码</td><td>根路径重定向 <code>/dashboard</code>，守卫把未登录全踢到 <code>/login</code>；认证页只有条件显示的注册入口</td><td>新增公开 <code>HomeView.vue</code>（Hero + 五步流程 + 六个能力卡），登录页常驻注册 / 找回密码 / 返回首页；新增 <code>ForgotPasswordView.vue</code>（私有部署不伪造邮件，给管理员重置申请文本）</td></tr>
+              <tr><td>Key 与设置散落在各功能页</td><td>站点设置里混着公众号 AppID/AppSecret；业务页提示「去系统设置配 LLM 密钥」；还有一堆「访问令牌（开发/QA）」输入框</td><td>「AI 与密钥」集中展示 LLM Key / 公众号凭据 / 通知渠道 / 雷达零 Key 源 / 主密钥只读说明；业务页只留业务参数并统一指向新路径；删除 6 个页面的 token 面板与 <code>http.ts</code> 中 60+ 处「请粘贴 Bearer 令牌」错误文案</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="section-title"><span class="bar"></span>凭据保存语义修复（本次自查发现的回归）</div>
+        <div class="card">
+          <p class="hint" style="margin-top:0">拆页后「站点设置」不再显示 AppID / AppSecret 输入框，但原 <code>save()</code> 仍无条件把两个空串提交给后端；而 <code>system.service.ts</code> 的语义是「传空串即清空」——只改站点名就会误清已配置的公众号凭据。</p>
+          <div class="grid g3">
+            <div class="card" style="background:var(--bg-soft)"><h3>站点设置</h3><p class="hint" style="margin:0"><code>save()</code> 只提交 siteName / siteDesc / compliance / allowRegistration，不再携带任何凭据字段。</p></div>
+            <div class="card" style="background:var(--bg-soft)"><h3>AI 与密钥</h3><p class="hint" style="margin:0">新增 <code>saveCredentials()</code>：明文永不回填，只提交本次实际填写的字段，留空 = 保持原值；两个都空则不发请求。</p></div>
+            <div class="card" style="background:var(--bg-soft)"><h3>显式清空</h3><p class="hint" style="margin:0">新增「清空凭据」按钮，二次确认后才提交两个空串，避免误操作中断发布执行。</p></div>
+          </div>
+        </div>
+
+        <div class="section-title"><span class="bar"></span>自验证据</div>
+        <div class="grid g2">
+          <div class="card"><h3>工程自验</h3>
+            <div class="kv"><span>npm run typecheck</span><b class="up">✓ 前后端通过</b></div>
+            <div class="kv"><span>npm run build</span><b class="up">✓ vite 3.39s</b></div>
+            <div class="kv"><span>node --test server/test/*.test.mjs</span><b class="up">✓ 388/388 · 31 文件</b></div>
+            <div class="kv"><span>五个系统二级页标题</span><b class="up">✓ 逐一核对</b></div>
+          </div>
+          <div class="card"><h3>真实浏览器截图自查（8 张）</h3>
+            <p class="hint" style="margin-top:0">本地 <code>vite preview</code> + agent-browser 实拍：首页、登录、找回密码、工作台分组侧栏、系统设置 AI 与密钥页、内容项目、素材库、成本看板。发现并修掉 <code>.sub</code> 全局选择器误把登录页副标题渲染成卡片的问题（改为 <code>.content .sub</code>）。</p>
+            <p class="hint" style="margin-bottom:0">本地只起静态前端、无 NestJS / PG / Redis，业务页 API 报 500 属预期降级，不是 UI 缺陷。</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ T6.6：浅色界面还原 ============ -->
+      <section class="view" id="ui">
+        <div class="note">下面是 T6.6 之后真实应用的<strong>浅色界面</strong>内嵌还原（非截图、静态 mock）：分组侧栏、面包屑、设置中心二级页签、密钥总览。真实应用请访问部署域名。</div>
+
+        <div class="section-title"><span class="bar"></span>分组导航 + 系统管理二级菜单 + 密钥集中</div>
+        <div class="light-mock">
+          <div class="lm-bar"><span class="lm-dot"></span><span class="lm-dot"></span><span class="lm-dot"></span><b>自媒体工作台</b><span style="margin-left:auto">owner ▾</span></div>
+          <div class="lm-body">
+            <div class="lm-side">
+              <div class="lm-brand">◧ 自媒体工作台</div>
+              <div class="lm-grp">总览</div><div class="lm-link">◧ 工作台</div>
+              <div class="lm-grp">选题与洞察</div><div class="lm-link">⌖ 选题雷达</div><div class="lm-link">◎ 对标分析</div><div class="lm-link">☰ 账号与策略</div>
+              <div class="lm-grp">内容生产</div><div class="lm-link">✎ 内容项目</div><div class="lm-link">▤ 素材库</div><div class="lm-link">▦ 内容日历</div><div class="lm-link">⛒ 批量操作</div><div class="lm-link">⇧ 起号计划</div>
+              <div class="lm-grp">数据与复盘</div><div class="lm-link">▥ 效果看板</div><div class="lm-link">¥ 成本看板</div>
+              <div class="lm-grp">系统管理 ▾</div><div class="lm-link">⚙ 站点设置</div><div class="lm-link">♧ 用户与权限</div><div class="lm-link on">⚿ AI 与密钥</div><div class="lm-link">◔ 通知与告警</div><div class="lm-link">⟳ 版本与运维</div><div class="lm-link">◉ 审计与回收站</div>
+            </div>
+            <div class="lm-main">
+              <div class="lm-crumb">系统管理 / AI 与密钥</div>
+              <div class="lm-title">AI 与密钥 <span class="lm-pill blue">设置中心</span></div>
+              <div class="lm-crumb">全站凭据集中维护；业务页只保留业务参数。</div>
+              <div class="lm-tabs"><span class="lm-tab">站点设置</span><span class="lm-tab">用户与权限</span><span class="lm-tab on">AI 与密钥</span><span class="lm-tab">通知与告警</span><span class="lm-tab">版本与运维</span><span class="lm-tab">审计与回收站</span></div>
+              <div class="lm-card">
+                <h4>密钥与集成总览</h4>
+                <div class="lm-grid">
+                  <div class="lm-key"><b>AI 模型 API Key</b><span>已配置 N 个供应商 · 脱敏回显</span></div>
+                  <div class="lm-key"><b>公众号 AppID</b><span>已配置 · wx****12ab</span></div>
+                  <div class="lm-key"><b>公众号 AppSecret</b><span>已配置（AES-256-GCM 加密入库）</span></div>
+                  <div class="lm-key"><b>通知渠道凭据</b><span>已启用 2 / 4 · 去「通知与告警」</span></div>
+                  <div class="lm-key"><b>选题雷达数据源</b><span>头条 / B站 / HN / 微信 / X / YT · 零 Key</span></div>
+                  <div class="lm-key"><b>APP_MASTER_KEY</b><span>服务端环境变量 · 前端不可读 · 只读</span></div>
+                </div>
+              </div>
+              <div class="lm-card">
+                <h4>平台凭据 · 微信公众号</h4>
+                <p style="color:#5b6675;font-size:11.5px;margin:0 0 9px">明文永不回填；留空 = 保持原值，只提交本次填写的字段。</p>
+                <div class="lm-grid">
+                  <div class="lm-field"><label>默认公众号 AppID</label><input class="lm-input" placeholder="填写新的 AppID（留空保持原值）" disabled /></div>
+                  <div class="lm-field"><label>默认公众号 AppSecret</label><input class="lm-input" type="password" placeholder="填写新的 AppSecret（留空保持原值）" disabled /></div>
+                </div>
+                <span class="lm-btn">保存平台凭据</span> <span class="lm-btn ghost">清空凭据</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="section-title"><span class="bar"></span>设计系统要点</div>
+        <div class="grid g3">
+          <div class="card"><h3>统一 token</h3><p class="hint"><code>--bg / --panel / --panel-soft / --input / --border / --text / --muted / --brand / --brand-soft / --ok-soft / --warn-soft / --danger-soft</code>，并补齐所有历史别名，杜绝 fallback 回落深色。</p></div>
+          <div class="card"><h3>原生控件基线</h3><p class="hint">全局统一 <code>input / select / textarea / button / table / code / pre</code>，业务页不必各写一套；<code>.field / .row / .tabs / .tbl / .pill / .message</code> 成为共用类。</p></div>
+          <div class="card"><h3>开发遗留清理</h3><p class="hint">删除 ContentView / AnalysisView / LibraryView / AccountView / CalendarView / ObservabilityView 的「访问令牌（开发/QA）」面板与相关函数；登录态由 <code>api/http.ts</code> 自动注入、401 自动跳登录。</p></div>
+        </div>
+      </section>
+
+      <!-- ============ T6.6：公开首页与认证 ============ -->
+      <section class="view" id="auth">
+        <div class="note">未登录访问 <code>/</code> 不再是登录框，而是公开首页；登录 / 注册 / 找回密码各有独立路由。下方为浅色静态还原。</div>
+
+        <div class="section-title"><span class="bar"></span>公开首页（HomeView.vue）</div>
+        <div class="light-mock">
+          <div class="lm-bar"><b>◧ 自媒体工作台</b><span style="margin-left:auto">能力 · 流程 · 文档</span><span class="lm-btn ghost">登录</span><span class="lm-btn">免费注册</span></div>
+          <div class="lm-hero">
+            <h3>把内容生产串成一条可追溯的流水线</h3>
+            <p>从赛道热点采集、对标拆解，到选题标题、起草审核、发布归档与成本复盘，一个工作台走完全程。</p>
+            <span class="lm-btn">进入工作台</span> <span class="lm-btn ghost">了解流程 ↓</span>
+          </div>
+          <div class="lm-steps">
+            <div class="lm-step">① 选题雷达采集赛道热点<span>零 Key 免费源</span></div>
+            <div class="lm-step">② 对标拆解沉淀账号策略<span>素材 / 分析</span></div>
+            <div class="lm-step">③ 选题与标题候选生成<span>AI + 人工</span></div>
+            <div class="lm-step">④ 起草 · 合规预审 · 审核<span>版本留痕</span></div>
+            <div class="lm-step">⑤ 发布归档 · 效果成本复盘<span>看板</span></div>
+          </div>
+        </div>
+
+        <div class="section-title"><span class="bar"></span>认证入口（Login / Register / ForgotPassword）</div>
+        <div class="grid g2">
+          <div class="light-mock" style="margin:0">
+            <div class="lm-auth">
+              <div class="lm-title" style="text-align:center;margin-top:6px">登录工作台</div>
+              <div class="lm-crumb" style="text-align:center">继续管理你的内容生产流程</div>
+              <div class="lm-card">
+                <div class="lm-field"><label>用户名</label><input class="lm-input" placeholder="请输入用户名" disabled /></div>
+                <div class="lm-field"><label>密码</label><input class="lm-input" type="password" placeholder="请输入密码" disabled /></div>
+                <div style="display:flex;justify-content:space-between;font-size:11px;color:#2f6fed;margin-bottom:9px"><span>忘记密码？</span><span>注册账号</span></div>
+                <span class="lm-btn" style="width:100%;text-align:center;display:block">登录</span>
+                <div style="text-align:center;font-size:10.5px;color:#8893a4;margin-top:10px">← 返回站点首页</div>
+              </div>
+            </div>
+          </div>
+          <div class="card">
+            <h3>找回密码：不伪造邮件</h3>
+            <p class="hint">私有部署没有邮件服务，口令用 <code>argon2</code> 单向散列、无法在浏览器自助找回。页面如实说明原因，给出三步处理路径，并提供「复制给管理员的重置申请文本」按钮，由 owner/admin 在「系统管理 → 用户与权限 → 用户管理」重置临时口令。</p>
+            <div class="kv"><span>注册开关</span><b>站点设置页控制，默认关闭</b></div>
+            <div class="kv"><span>新账号角色</span><b>固定 editor，不可自提权</b></div>
+            <div class="kv"><span>路由守卫</span><b class="up">根路径公开，其余未登录跳 /login?redirect=</b></div>
+            <div class="kv"><span>401 全局拦截</span><b class="up">清 wb_token / wb_refresh_token / wb_user</b></div>
+          </div>
         </div>
       </section>
 
@@ -423,12 +625,7 @@
 
       <!-- ============ 内容项目 ============ -->
       <section class="view" id="content">
-        <div class="note">按 <code>ContentView.vue</code> 还原（T3.1）。三个页签：选题管理 / 标题管理 / 内容项目。写接口需 Bearer 令牌，未填返回 401。</div>
-        <div class="card">
-          <h3>访问令牌（T6.4 起已升级为登录页）</h3>
-          <p class="hint">现在通过 <code>/login</code> 登录页输入账号密码，令牌由前端自动注入请求头、过期自动跳转登录；不再需要手动粘贴。下方为历史快照占位。</p>
-          <div class="row"><input class="input wide" style="max-width:420px" placeholder="（历史占位）Bearer 令牌" disabled /><button class="btn" disabled>保存令牌</button><button class="btn ghost" disabled>清除</button></div>
-        </div>
+        <div class="note">按 <code>ContentView.vue</code> 还原（T3.1）。三个页签：选题管理 / 标题管理 / 内容项目。<strong>T6.6 起已移除「访问令牌（开发/QA）」面板</strong>：登录态由 <code>/login</code> 获取、<code>api/http.ts</code> 自动注入请求头，401 自动跳登录；写接口仍受 AccessTokenGuard 保护。</div>
         <div class="tabs" style="margin-top:18px">
           <button class="tab active" data-tab="c-topics">选题管理</button>
           <button class="tab" data-tab="c-titles">标题管理</button>
@@ -537,7 +734,11 @@
 
       <!-- ============ 系统设置 ============ -->
       <section class="view" id="system">
-        <div class="note">按 <code>SystemView.vue</code> 还原（T1.8 站点设置 + T6.4 用户管理）。敏感字段 AppID 提交后由服务端 AES-256-GCM 加密入库。</div>
+        <div class="note">按 T6.6 之后的 <code>SystemView.vue</code> 还原：<strong>已拆成六个二级页</strong>（站点设置 / 用户与权限 / AI 与密钥 / 通知与告警 / 版本与运维 / 审计与回收站），共用 <code>SettingsHeader.vue</code> 页签。密钥统一在「AI 与密钥」，站点设置页不再出现 AppID / AppSecret。想看新版浅色界面请点左侧「浅色界面还原」。</div>
+        <div class="card" style="margin-bottom:16px"><h3>设置中心二级页签 <span class="pill ok">T6.6 新增</span></h3>
+          <div class="badge-line"><span class="pill blue">站点设置</span><span class="pill blue">用户与权限</span><span class="pill blue">AI 与密钥</span><span class="pill blue">通知与告警</span><span class="pill blue">版本与运维</span><span class="pill blue">审计与回收站</span></div>
+          <p class="hint" style="margin-bottom:0">路由 <code>/system/:section</code>；<code>/system</code> 重定向到站点设置，<code>/observability</code> 重定向到审计与回收站。站点设置保存不再携带凭据字段，避免误清公众号 AppID / AppSecret。</p>
+        </div>
         <div class="card" style="margin-bottom:16px"><h3>用户管理 <span class="pill ok">T6.4 新增 · 真机已验</span></h3>
           <p class="hint">仅 owner/admin 可访问：用户列表 / 建号 / 改角色 / 禁用启用 / 重置密码 / 软删；不能删自己或降级最后一个 owner。"允许自助注册"开关默认关闭，开启后登录页显示注册入口，新账号固定 editor。账号密码经 argon2 哈希，列表绝不含哈希。真机端到端 15/15 通过，禁用后登录返回 401。</p>
           <div class="kv"><span>注册 / 用户管理端点</span><b class="up">POST /auth/register · GET /users · PATCH /users/:id/role|status · 改密 · 软删</b></div>
@@ -563,7 +764,7 @@
             <div>
               <div class="field"><label>站点名称</label><input class="input wide" value="自媒体工作台" /></div>
               <div class="field"><label>站点描述</label><input class="input wide" placeholder="可选" /></div>
-              <div class="field"><label>默认公众号 AppID</label><input class="input wide mono" placeholder="留空表示清空；提交后 AES-256-GCM 加密入库" /></div>
+              <div class="field"><label>默认公众号 AppID</label><input class="input wide mono" placeholder="已迁至「AI 与密钥」页集中维护" disabled /></div>
             </div>
             <div>
               <div class="field"><label>合规开关</label>
@@ -571,7 +772,7 @@
                 <label class="hint" style="display:block"><input type="checkbox" checked /> 编辑器自动保存</label>
                 <label class="hint" style="display:block"><input type="checkbox" /> 严格审核（发布前强制复核）</label>
               </div>
-              <p class="hint">当前状态：<b>未配置</b>（AppID 脱敏展示）</p>
+              <p class="hint">当前状态：<b>未配置</b>（AppID 脱敏展示，凭据维护请到「AI 与密钥」）</p>
             </div>
           </div>
           <button class="btn primary">保存设置</button>
@@ -580,7 +781,7 @@
 
       <!-- ============ 可观测性 ============ -->
       <section class="view" id="observability">
-        <div class="note">按 <code>ObservabilityView.vue</code> 还原（T1.9）。审计日志 + 回收站（软删记录恢复），后端路由 <code>/api/observability/audit</code>、<code>/api/observability/recycle-bin</code>。</div>
+        <div class="note">按 <code>ObservabilityView.vue</code> 还原（T1.9，T6.6 起复用为「系统管理 → 审计与回收站」并挂 <code>SettingsHeader</code> 页头）。审计日志 + 回收站（软删记录恢复），后端路由 <code>/api/observability/audit</code>、<code>/api/observability/recycle-bin</code>；页内原有的「访问令牌」面板已删除。</div>
         <div class="tabs">
           <button class="tab active" data-tab="o-audit">审计日志</button>
           <button class="tab" data-tab="o-recycle">回收站</button>
@@ -605,8 +806,7 @@
         <div class="note">按 <code>AccountView.vue</code> 还原 —— <strong>已由占位重写为真实面板</strong>。三页签分别接入后端 T1.7 / T2.5 的 <code>/api/owned-accounts</code>、<code>/api/strategies</code>、<code>/api/reference-accounts</code>；离线快照无数据，按真实接口结构展示。</div>
         <div class="card">
           <div class="row" style="justify-content:space-between"><h3 style="margin:0">账号与策略 <span class="pill ok">真实 UI</span></h3><span class="pill blue">后端 T1.7 / T2.5 已就绪</span></div>
-          <p class="hint" style="margin-top:8px">访问令牌（开发/QA）：粘贴 Bearer 令牌存 localStorage；未填或过期时接口返回 401，页面明确提示而不吞错。</p>
-          <div class="row" style="margin-top:10px"><input class="input wide" placeholder="粘贴 Bearer 令牌（存于浏览器 localStorage，仅本地联调使用）" /><button class="btn">保存令牌</button><button class="btn ghost">清除</button></div>
+          <p class="hint" style="margin-top:8px">T6.6 起登录态自动管理，本页不再出现令牌输入框；接口 401 时全局拦截并跳转登录页，无需手工粘贴 Bearer 令牌。</p>
         </div>
         <div class="tabs">
           <button class="tab active" data-tab="a-owned">自有账号</button>
@@ -740,7 +940,7 @@
           <div class="kpi"><div class="num blue">—</div><div class="lbl">平均时长</div></div>
         </div>
         <div class="card" style="margin-top:14px"><h3>配额预警（本月）</h3>
-          <p class="hint">按供应商模型对比「本月已花费 / 月度预算」：≥80% 预警、≥100% 越界。预算需在「系统设置 → 模型与提示词」为每个供应商模型填写 <code>monthlyBudget</code>。</p>
+          <p class="hint">按供应商模型对比「本月已花费 / 月度预算」：≥80% 预警、≥100% 越界。预算在「系统管理 → AI 与密钥 → AI 模型供应商」为每个供应商模型填写 <code>monthlyBudget</code>。</p>
           <div class="ph" style="margin-top:12px">¥ 配额进度条 · 离线快照无数据（需 PG + 已配置预算）</div>
         </div>
         <div class="card" style="margin-top:14px"><h3>每日花费趋势</h3>
@@ -758,7 +958,7 @@
       overview: '进展总览', radar: '选题雷达', dashboard: '工作台', content: '内容项目', project: '创作上下文',
       analysis: '对标分析', launch: '起号计划', calendar: '内容日历', library: '素材库',
       batch: '批量操作', cost: '成本看板', metrics: '效果看板', system: '系统设置', observability: '可观测性',
-      account: '账号与策略'
+      account: '账号与策略', ux: '问题清单与改造', ui: '浅色界面还原', auth: '首页与认证'
     };
     var navs = document.querySelectorAll('.nav-item');
     navs.forEach(function (n) {

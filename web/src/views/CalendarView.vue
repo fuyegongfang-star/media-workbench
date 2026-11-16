@@ -1,19 +1,5 @@
 <template>
   <div class="cal">
-    <!-- 令牌（与系统设置页共用 localStorage 'wb_token'；无令牌时接口返回 401） -->
-    <div class="token-row">
-      <label class="token-label">Bearer 令牌</label>
-      <input
-        class="token-input"
-        type="password"
-        placeholder="粘贴系统设置页的 Bearer 令牌（无则只读/401）"
-        :value="token"
-        @input="onTokenInput"
-      />
-      <span v-if="token" class="badge badge-ok">已装载</span>
-      <span v-else class="badge">未设置</span>
-    </div>
-
     <!-- 工具条：月份导航 + 视图切换 + 类型筛选 -->
     <div class="toolbar">
       <div class="nav-group">
@@ -125,17 +111,6 @@ import {
   type CalendarItem,
   type CalendarKind,
 } from '../api/http';
-
-const TOKEN_KEY = 'wb_token';
-
-const token = ref<string>(localStorage.getItem(TOKEN_KEY) || '');
-function onTokenInput(e: Event) {
-  const v = (e.target as HTMLInputElement).value.trim();
-  token.value = v;
-  if (v) localStorage.setItem(TOKEN_KEY, v);
-  else localStorage.removeItem(TOKEN_KEY);
-  load();
-}
 
 const kindList: CalendarKind[] = ['topic', 'title', 'content', 'launch'];
 const kindFilter = ref<Record<CalendarKind, boolean>>({
@@ -309,28 +284,6 @@ watch([viewYear, viewMonth], () => {
   display: flex;
   flex-direction: column;
   gap: 14px;
-}
-
-.token-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.token-label {
-  font-size: 13px;
-  color: var(--muted);
-  white-space: nowrap;
-}
-
-.token-input {
-  flex: 0 1 420px;
-  padding: 7px 10px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--panel);
-  color: var(--text);
-  font-size: 13px;
 }
 
 .toolbar {

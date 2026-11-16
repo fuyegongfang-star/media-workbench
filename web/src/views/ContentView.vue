@@ -1,21 +1,5 @@
 <template>
   <div class="ct">
-    <!-- 开发期令牌 -->
-    <section class="card">
-      <h2 class="card-title">访问令牌（开发/QA）</h2>
-      <div class="row">
-        <input
-          v-model="token"
-          class="input wide"
-          type="text"
-          placeholder="粘贴 Bearer 令牌（本地联调用，存于浏览器 localStorage）"
-        />
-        <button class="btn" @click="saveToken">保存令牌</button>
-        <button class="btn ghost" @click="clearToken">清除</button>
-      </div>
-      <p class="hint">提示：登录后从 /api/auth/login 响应取 accessToken 填入；写接口需令牌，未填返回 401。</p>
-    </section>
-
     <!-- 页签 -->
     <div class="tabs">
       <button :class="['tab', { active: tab === 'topics' }]" @click="tab = 'topics'">选题管理</button>
@@ -194,7 +178,6 @@ import {
 
 const router = useRouter();
 
-const token = ref<string>(localStorage.getItem('wb_token') ?? '');
 const tab = ref<'topics' | 'titles' | 'projects'>('topics');
 const error = ref('');
 
@@ -219,13 +202,6 @@ const genTopicForm = reactive({ strategyId: '', analysisId: '', count: 5 });
 const titleForm = reactive({ text: '', basis: '', score: null as number | null, tags: '' });
 const genTitleForm = reactive({ count: 8 });
 
-function saveToken() {
-  localStorage.setItem('wb_token', token.value.trim());
-}
-function clearToken() {
-  localStorage.removeItem('wb_token');
-  token.value = '';
-}
 function statusClass(s: string): string {
   if (s === 'active' || s === 'selected' || s === 'success') return 'ok';
   if (s === 'archived' || s === 'rejected' || s === 'failed') return 'warn';

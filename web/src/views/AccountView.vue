@@ -1,22 +1,10 @@
 <template>
   <div class="ac">
-    <!-- 开发期令牌：与其它模块一致，所有账号接口均需 Bearer 令牌 -->
     <section class="card">
       <div class="row" style="justify-content: space-between">
         <h2 class="card-title" style="margin: 0">账号与策略</h2>
-        <span class="hint">对应 PRD §4.6 / §6.2 · 后端 T1.7 / T2.5 已落地</span>
+        <span class="hint">管理自有账号、策略版本与对标账号</span>
       </div>
-      <div class="row token-row">
-        <input
-          v-model="token"
-          class="input wide"
-          type="text"
-          placeholder="粘贴 Bearer 令牌（存于浏览器 localStorage，仅本地联调使用）"
-        />
-        <button class="btn" @click="saveToken">保存令牌</button>
-        <button class="btn ghost" @click="clearToken">清除</button>
-      </div>
-      <p class="hint">登录后从 /api/auth/login 响应取 accessToken 填入；未填或过期时接口返回 401。</p>
     </section>
 
     <!-- 页签 -->
@@ -249,7 +237,6 @@ const tabs: { key: TabKey; label: string }[] = [
 ];
 const activeTab = ref<TabKey>('owned');
 
-const token = ref<string>(localStorage.getItem('wb_token') ?? '');
 const message = ref('');
 const messageType = ref<'ok' | 'err'>('ok');
 
@@ -260,16 +247,6 @@ function flash(msg: string, type: 'ok' | 'err' = 'ok') {
 function errMsg(e: unknown): string {
   return e instanceof Error ? e.message : String(e);
 }
-function saveToken() {
-  localStorage.setItem('wb_token', token.value.trim());
-  flash('令牌已保存到本地（仅本浏览器）');
-}
-function clearToken() {
-  localStorage.removeItem('wb_token');
-  token.value = '';
-  flash('令牌已清除');
-}
-
 function fmtDate(v?: string | null): string {
   if (!v) return '—';
   const d = new Date(v);

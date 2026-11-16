@@ -85,7 +85,7 @@ export async function fetchSystemSettings(timeoutMs = 5000): Promise<SiteSetting
       signal: controller.signal,
       headers: { Accept: 'application/json', ...authHeader() },
     });
-    if (res.status === 401) throw new Error('需要登录令牌：请在上方输入框粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as SiteSettingsView;
   } finally {
@@ -114,7 +114,7 @@ export async function saveSystemSettings(
       headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...authHeader() },
       body: JSON.stringify(payload),
     });
-    if (res.status === 401) throw new Error('需要登录令牌：请在上方输入框粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as SiteSettingsView;
   } finally {
@@ -157,7 +157,7 @@ export async function fetchAuditLog(
       signal: controller.signal,
       headers: { Accept: 'application/json', ...authHeader() },
     });
-    if (res.status === 401) throw new Error('需要登录令牌：请在系统设置页粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as AuditLogResult;
   } finally {
@@ -190,7 +190,7 @@ export async function fetchRecycleBin(type?: string, timeoutMs = 8000): Promise<
       signal: controller.signal,
       headers: { Accept: 'application/json', ...authHeader() },
     });
-    if (res.status === 401) throw new Error('需要登录令牌：请在系统设置页粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as RecycleResult;
   } finally {
@@ -215,7 +215,7 @@ export async function restoreRecycleItem(
         headers: { Accept: 'application/json', ...authHeader() },
       },
     );
-    if (res.status === 401) throw new Error('需要登录令牌：请在系统设置页粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (res.status === 404) throw new Error('该记录不存在或已恢复');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as { restored: boolean };
@@ -260,7 +260,7 @@ export async function runBatch(params: BatchParams, timeoutMs = 15000): Promise<
       headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...authHeader() },
       body: JSON.stringify(params),
     });
-    if (res.status === 401) throw new Error('需要登录令牌：请在系统设置页粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) {
       let msg = '';
       try {
@@ -339,7 +339,7 @@ export async function fetchNotificationChannels(timeoutMs = 5000): Promise<Notif
       signal: controller.signal,
       headers: { Accept: 'application/json', ...authHeader() },
     });
-    if (res.status === 401) throw new Error('需要登录令牌：请在上方输入框粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as NotificationSettings;
   } finally {
@@ -361,7 +361,7 @@ export async function saveNotificationChannels(
       headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...authHeader() },
       body: JSON.stringify(payload),
     });
-    if (res.status === 401) throw new Error('需要登录令牌：请在系统设置页粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as NotificationSettings;
   } finally {
@@ -384,7 +384,7 @@ export async function testNotification(
       headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...authHeader() },
       body: JSON.stringify({ type, text }),
     });
-    if (res.status === 401) throw new Error('需要登录令牌：请在系统设置页粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as { type: string; ok: boolean; error?: string };
   } finally {
@@ -407,7 +407,7 @@ export async function sendAlert(
       headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...authHeader() },
       body: JSON.stringify({ kind, detail }),
     });
-    if (res.status === 401) throw new Error('需要登录令牌：请在系统设置页粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as { type: string; ok: boolean; error?: string }[];
   } finally {
@@ -444,7 +444,7 @@ export async function fetchReferenceAccounts(
       signal: controller.signal,
       headers: { Accept: 'application/json', ...authHeader() },
     });
-    if (res.status === 401) throw new Error('需要登录令牌：请在上方输入框粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as ReferenceAccount[];
   } finally {
@@ -472,7 +472,7 @@ export async function createReferenceAccount(
       headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...authHeader() },
       body: JSON.stringify(payload),
     });
-    if (res.status === 401) throw new Error('需要登录令牌：请在上方输入框粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as ReferenceAccount;
   } finally {
@@ -501,7 +501,7 @@ export async function updateReferenceAccount(
       headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...authHeader() },
       body: JSON.stringify(payload),
     });
-    if (res.status === 401) throw new Error('需要登录令牌：请在上方输入框粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as ReferenceAccount;
   } finally {
@@ -522,7 +522,7 @@ export async function deleteReferenceAccount(
       signal: controller.signal,
       headers: { Accept: 'application/json', ...authHeader() },
     });
-    if (res.status === 401) throw new Error('需要登录令牌：请在上方输入框粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as { id: string; deleted: boolean };
   } finally {
@@ -565,7 +565,7 @@ export async function previewReferenceImport(
       headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...authHeader() },
       body: JSON.stringify(payload),
     });
-    if (res.status === 401) throw new Error('需要登录令牌：请在上方输入框粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as ImportPreviewResult;
   } finally {
@@ -602,7 +602,7 @@ export async function commitReferenceImport(
       headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...authHeader() },
       body: JSON.stringify({ rows }),
     });
-    if (res.status === 401) throw new Error('需要登录令牌：请在上方输入框粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as ImportCommitResult;
   } finally {
@@ -651,7 +651,7 @@ export async function previewMaterialImport(
       headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...authHeader() },
       body: JSON.stringify(payload),
     });
-    if (res.status === 401) throw new Error('需要登录令牌：请在上方输入框粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as MaterialImportPreviewResult;
   } finally {
@@ -691,7 +691,7 @@ export async function commitMaterialImport(
       headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...authHeader() },
       body: JSON.stringify({ referenceAccountId, rows }),
     });
-    if (res.status === 401) throw new Error('需要登录令牌：请在上方输入框粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as MaterialImportCommitResult;
   } finally {
@@ -740,7 +740,7 @@ export async function decomposeMaterial(
       signal: controller.signal,
       headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...authHeader() },
     });
-    if (res.status === 401) throw new Error('需要登录令牌：请在上方输入框粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as DecomposeResult;
   } finally {
@@ -761,7 +761,7 @@ export async function listAnalysesForMaterial(
       signal: controller.signal,
       headers: { Accept: 'application/json', ...authHeader() },
     });
-    if (res.status === 401) throw new Error('需要登录令牌：请在上方输入框粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as AnalysisItem[];
   } finally {
@@ -779,7 +779,7 @@ export async function listAnalysisRuns(timeoutMs = 8000): Promise<AnalysisRunIte
       signal: controller.signal,
       headers: { Accept: 'application/json', ...authHeader() },
     });
-    if (res.status === 401) throw new Error('需要登录令牌：请在上方输入框粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as AnalysisRunItem[];
   } finally {
@@ -812,7 +812,7 @@ export async function summarizeAccount(
         body: JSON.stringify({ analysisIds }),
       },
     );
-    if (res.status === 401) throw new Error('需要登录令牌：请在上方输入框粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as SummarizeResult;
   } finally {
@@ -830,7 +830,7 @@ export async function listAccountRuns(timeoutMs = 8000): Promise<AnalysisRunItem
       signal: controller.signal,
       headers: { Accept: 'application/json', ...authHeader() },
     });
-    if (res.status === 401) throw new Error('需要登录令牌：请在上方输入框粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as AnalysisRunItem[];
   } finally {
@@ -888,7 +888,7 @@ export async function listStrategies(
         headers: { Accept: 'application/json', ...authHeader() },
       },
     );
-    if (res.status === 401) throw new Error('需要登录令牌：请在系统设置页粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as StrategyItem[];
   } finally {
@@ -906,7 +906,7 @@ export async function getStrategy(id: string, timeoutMs = 8000): Promise<Strateg
       signal: controller.signal,
       headers: { Accept: 'application/json', ...authHeader() },
     });
-    if (res.status === 401) throw new Error('需要登录令牌：请在系统设置页粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as StrategyItem;
   } finally {
@@ -929,7 +929,7 @@ export async function updateStrategy(
       headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...authHeader() },
       body: JSON.stringify(dto),
     });
-    if (res.status === 401) throw new Error('需要登录令牌：请在系统设置页粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as StrategyItem;
   } finally {
@@ -955,7 +955,7 @@ export async function bindStrategy(
         body: JSON.stringify({ strategyId }),
       },
     );
-    if (res.status === 401) throw new Error('需要登录令牌：请在系统设置页粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as { id: string; defaultStrategyVersionId: string | null };
   } finally {
@@ -1018,7 +1018,7 @@ export async function listTopics(
       signal: controller.signal,
       headers: { Accept: 'application/json', ...authHeader() },
     });
-    if (res.status === 401) throw new Error('需要登录令牌：请在上方输入框粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as TopicItem[];
   } finally {
@@ -1049,7 +1049,7 @@ export async function createTopic(
       headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...authHeader() },
       body: JSON.stringify(payload),
     });
-    if (res.status === 401) throw new Error('需要登录令牌：请在上方输入框粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as TopicItem;
   } finally {
@@ -1079,7 +1079,7 @@ export async function updateTopic(
       headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...authHeader() },
       body: JSON.stringify(dto),
     });
-    if (res.status === 401) throw new Error('需要登录令牌：请在上方输入框粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as TopicItem;
   } finally {
@@ -1100,7 +1100,7 @@ export async function deleteTopic(
       signal: controller.signal,
       headers: { Accept: 'application/json', ...authHeader() },
     });
-    if (res.status === 401) throw new Error('需要登录令牌：请在上方输入框粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as { id: string; deleted: boolean };
   } finally {
@@ -1122,7 +1122,7 @@ export async function generateTopics(
       headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...authHeader() },
       body: JSON.stringify(payload),
     });
-    if (res.status === 401) throw new Error('需要登录令牌：请在上方输入框粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as GenerateResult;
   } finally {
@@ -1142,7 +1142,7 @@ export async function listTitles(
       signal: controller.signal,
       headers: { Accept: 'application/json', ...authHeader() },
     });
-    if (res.status === 401) throw new Error('需要登录令牌：请在上方输入框粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as TitleCandidateItem[];
   } finally {
@@ -1171,7 +1171,7 @@ export async function createTitle(
       headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...authHeader() },
       body: JSON.stringify(payload),
     });
-    if (res.status === 401) throw new Error('需要登录令牌：请在上方输入框粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as TitleCandidateItem;
   } finally {
@@ -1204,7 +1204,7 @@ export async function updateTitle(
         body: JSON.stringify(dto),
       },
     );
-    if (res.status === 401) throw new Error('需要登录令牌：请在上方输入框粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as TitleCandidateItem;
   } finally {
@@ -1229,7 +1229,7 @@ export async function deleteTitle(
         headers: { Accept: 'application/json', ...authHeader() },
       },
     );
-    if (res.status === 401) throw new Error('需要登录令牌：请在上方输入框粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as { id: string; deleted: boolean };
   } finally {
@@ -1254,7 +1254,7 @@ export async function selectTitle(
         headers: { Accept: 'application/json', ...authHeader() },
       },
     );
-    if (res.status === 401) throw new Error('需要登录令牌：请在上方输入框粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as TitleCandidateItem;
   } finally {
@@ -1280,7 +1280,7 @@ export async function generateTitles(
         body: JSON.stringify(payload),
       },
     );
-    if (res.status === 401) throw new Error('需要登录令牌：请在上方输入框粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as GenerateResult;
   } finally {
@@ -1350,7 +1350,7 @@ export async function createContentProjectFromTitle(
       headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...authHeader() },
       body: JSON.stringify({ titleCandidateId }),
     });
-    if (res.status === 401) throw new Error('需要登录令牌：请在系统设置页粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as CreateProjectResult;
   } finally {
@@ -1375,7 +1375,7 @@ export async function listContentProjects(
       signal: controller.signal,
       headers: { Accept: 'application/json', ...authHeader() },
     });
-    if (res.status === 401) throw new Error('需要登录令牌：请在系统设置页粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as ContentProjectItem[];
   } finally {
@@ -1412,7 +1412,7 @@ export async function refreshContentProjectContext(
       signal: controller.signal,
       headers: { Accept: 'application/json', ...authHeader() },
     });
-    if (res.status === 401) throw new Error('需要登录令牌：请在系统设置页粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as ProjectContext;
   } finally {
@@ -1432,7 +1432,7 @@ export async function getContentProjectContext(
       signal: controller.signal,
       headers: { Accept: 'application/json', ...authHeader() },
     });
-    if (res.status === 401) throw new Error('需要登录令牌：请在系统设置页粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as ProjectContext;
   } finally {
@@ -1456,7 +1456,7 @@ export async function triggerProjectGeneration(
       headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...authHeader() },
       body: JSON.stringify(model ? { stage, model } : { stage }),
     });
-    if (res.status === 401) throw new Error('需要登录令牌：请在系统设置页粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as { taskId: string; dispatched: boolean; stage: string };
   } finally {
@@ -1537,7 +1537,7 @@ export async function getContentProject(
       signal: controller.signal,
       headers: { Accept: 'application/json', ...authHeader() },
     });
-    if (res.status === 401) throw new Error('需要登录令牌：请在系统设置页粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as ContentProjectDetail;
   } finally {
@@ -1567,7 +1567,7 @@ export async function updateContentProject(
       headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...authHeader() },
       body: JSON.stringify(patch),
     });
-    if (res.status === 401) throw new Error('需要登录令牌：请在系统设置页粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as ContentProjectDetail;
   } finally {
@@ -1595,7 +1595,7 @@ export async function exportContentProject(
       signal: controller.signal,
       headers: { Accept: 'application/json', ...authHeader() },
     });
-    if (res.status === 401) throw new Error('需要登录令牌：请在系统设置页粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as ExportProjectResult;
   } finally {
@@ -1630,7 +1630,7 @@ export async function recordPublication(
         body: JSON.stringify(payload),
       },
     );
-    if (res.status === 401) throw new Error('需要登录令牌：请在系统设置页粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as ContentProjectDetail;
   } finally {
@@ -1684,7 +1684,7 @@ async function wechatPost(
       headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...authHeader() },
       body: JSON.stringify(payload),
     });
-    if (res.status === 401) throw new Error('需要登录令牌：请在系统设置页粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as ContentProjectDetail;
   } finally {
@@ -1701,7 +1701,7 @@ export async function getWeChatPublishState(id: string, timeoutMs = 8000): Promi
       signal: controller.signal,
       headers: { Accept: 'application/json', ...authHeader() },
     });
-    if (res.status === 401) throw new Error('需要登录令牌：请在系统设置页粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as WeChatPublishState;
   } finally {
@@ -1736,7 +1736,7 @@ export async function saveContentVersion(
       headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...authHeader() },
       body: JSON.stringify(body),
     });
-    if (res.status === 401) throw new Error('需要登录令牌：请在系统设置页粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as ContentVersionItem;
   } finally {
@@ -1756,7 +1756,7 @@ export async function listContentVersions(
       signal: controller.signal,
       headers: { Accept: 'application/json', ...authHeader() },
     });
-    if (res.status === 401) throw new Error('需要登录令牌：请在系统设置页粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as ContentVersionItem[];
   } finally {
@@ -1781,7 +1781,7 @@ export async function restoreContentVersion(
         headers: { Accept: 'application/json', ...authHeader() },
       },
     );
-    if (res.status === 401) throw new Error('需要登录令牌：请在系统设置页粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as ContentVersionItem;
   } finally {
@@ -1821,7 +1821,7 @@ export async function listGenerationRuns(
         headers: { Accept: 'application/json', ...authHeader() },
       },
     );
-    if (res.status === 401) throw new Error('需要登录令牌：请在系统设置页粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as GenerationRunItem[];
   } finally {
@@ -1846,7 +1846,7 @@ export async function adoptContentVersion(
         headers: { Accept: 'application/json', ...authHeader() },
       },
     );
-    if (res.status === 401) throw new Error('需要登录令牌：请在系统设置页粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as ContentVersionItem;
   } finally {
@@ -1871,7 +1871,7 @@ export async function discardContentVersion(
         headers: { Accept: 'application/json', ...authHeader() },
       },
     );
-    if (res.status === 401) throw new Error('需要登录令牌：请在系统设置页粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as { id: string; deleted: boolean };
   } finally {
@@ -1924,7 +1924,7 @@ export async function getContentProjectReview(
       signal: controller.signal,
       headers: { Accept: 'application/json', ...authHeader() },
     });
-    if (res.status === 401) throw new Error('需要登录令牌：请在系统设置页粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as ContentReview;
   } finally {
@@ -1950,7 +1950,7 @@ export async function updateReviewChecklist(
         body: JSON.stringify({ items }),
       },
     );
-    if (res.status === 401) throw new Error('需要登录令牌：请在系统设置页粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as ContentReview;
   } finally {
@@ -1977,7 +1977,7 @@ export async function submitForReview(
         body: JSON.stringify({ overrideCompliance: opts?.overrideCompliance ?? false }),
       },
     );
-    if (res.status === 401) throw new Error('需要登录令牌：请在系统设置页粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) {
       // 尝试解析结构化错误（如合规预审拦截 COMPLIANCE_BLOCKED），否则回退状态码
       try {
@@ -2012,7 +2012,7 @@ export async function checkCompliance(
         body: JSON.stringify({ versionId: opts?.versionId ?? null, content: opts?.content ?? null }),
       },
     );
-    if (res.status === 401) throw new Error('需要登录令牌：请在系统设置页粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as ComplianceCheckResult;
   } finally {
@@ -2038,7 +2038,7 @@ export async function sendBackForRevision(
         body: JSON.stringify({ comment }),
       },
     );
-    if (res.status === 401) throw new Error('需要登录令牌：请在系统设置页粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as ContentProjectDetail;
   } finally {
@@ -2062,7 +2062,7 @@ export async function approveReview(
         headers: { Accept: 'application/json', ...authHeader() },
       },
     );
-    if (res.status === 401) throw new Error('需要登录令牌：请在系统设置页粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as ContentProjectDetail;
   } finally {
@@ -2107,7 +2107,7 @@ export async function detectVersion(
         body: JSON.stringify(opts),
       },
     );
-    if (res.status === 401) throw new Error('需要登录令牌：请在系统设置页粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as { taskId: string; dispatched: boolean };
   } finally {
@@ -2130,7 +2130,7 @@ export async function listTextReviews(
         headers: { Accept: 'application/json', ...authHeader() },
       },
     );
-    if (res.status === 401) throw new Error('需要登录令牌：请在系统设置页粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as TextReviewRunItem[];
   } finally {
@@ -2157,7 +2157,7 @@ export async function decideTextReview(
         body: JSON.stringify({ decision }),
       },
     );
-    if (res.status === 401) throw new Error('需要登录令牌：请在系统设置页粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as TextReviewRunItem;
   } finally {
@@ -2183,7 +2183,7 @@ export async function polishProject(
         body: JSON.stringify(opts),
       },
     );
-    if (res.status === 401) throw new Error('需要登录令牌：请在系统设置页粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as { taskId: string; dispatched: boolean };
   } finally {
@@ -2276,7 +2276,7 @@ export async function listLaunchPlans(
       signal: controller.signal,
       headers: { Accept: 'application/json', ...authHeader() },
     });
-    if (res.status === 401) throw new Error('需要登录令牌：请在系统设置页粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as LaunchPlan[];
   } finally {
@@ -2298,7 +2298,7 @@ export async function createLaunchPlan(
       headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...authHeader() },
       body: JSON.stringify(payload),
     });
-    if (res.status === 401) throw new Error('需要登录令牌：请在系统设置页粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as LaunchPlan;
   } finally {
@@ -2315,7 +2315,7 @@ export async function getLaunchPlan(id: string, timeoutMs = 8000): Promise<Launc
       signal: controller.signal,
       headers: { Accept: 'application/json', ...authHeader() },
     });
-    if (res.status === 401) throw new Error('需要登录令牌：请在系统设置页粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as LaunchPlan;
   } finally {
@@ -2338,7 +2338,7 @@ export async function updateLaunchPlan(
       headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...authHeader() },
       body: JSON.stringify(payload),
     });
-    if (res.status === 401) throw new Error('需要登录令牌：请在系统设置页粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as LaunchPlan;
   } finally {
@@ -2356,7 +2356,7 @@ export async function deleteLaunchPlan(id: string, timeoutMs = 8000): Promise<{ 
       signal: controller.signal,
       headers: { Accept: 'application/json', ...authHeader() },
     });
-    if (res.status === 401) throw new Error('需要登录令牌：请在系统设置页粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as { id: string; deleted: boolean };
   } finally {
@@ -2374,7 +2374,7 @@ export async function syncLaunchPlan(id: string, timeoutMs = 8000): Promise<Laun
       signal: controller.signal,
       headers: { Accept: 'application/json', ...authHeader() },
     });
-    if (res.status === 401) throw new Error('需要登录令牌：请在系统设置页粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as LaunchPlanProgress;
   } finally {
@@ -2391,7 +2391,7 @@ export async function getLaunchPlanProgress(id: string, timeoutMs = 8000): Promi
       signal: controller.signal,
       headers: { Accept: 'application/json', ...authHeader() },
     });
-    if (res.status === 401) throw new Error('需要登录令牌：请在系统设置页粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as LaunchPlanProgress;
   } finally {
@@ -2414,7 +2414,7 @@ export async function createLaunchTask(
       headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...authHeader() },
       body: JSON.stringify(payload),
     });
-    if (res.status === 401) throw new Error('需要登录令牌：请在系统设置页粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as LaunchTask;
   } finally {
@@ -2437,7 +2437,7 @@ export async function updateLaunchTask(
       headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...authHeader() },
       body: JSON.stringify(payload),
     });
-    if (res.status === 401) throw new Error('需要登录令牌：请在系统设置页粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as LaunchTask;
   } finally {
@@ -2455,7 +2455,7 @@ export async function deleteLaunchTask(taskId: string, timeoutMs = 8000): Promis
       signal: controller.signal,
       headers: { Accept: 'application/json', ...authHeader() },
     });
-    if (res.status === 401) throw new Error('需要登录令牌：请在系统设置页粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as { id: string; deleted: boolean };
   } finally {
@@ -2473,7 +2473,7 @@ export async function syncLaunchTask(taskId: string, timeoutMs = 8000): Promise<
       signal: controller.signal,
       headers: { Accept: 'application/json', ...authHeader() },
     });
-    if (res.status === 401) throw new Error('需要登录令牌：请在系统设置页粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as LaunchTask;
   } finally {
@@ -2526,7 +2526,7 @@ export async function fetchCalendar(
       signal: controller.signal,
       headers: { Accept: 'application/json', ...authHeader() },
     });
-    if (res.status === 401) throw new Error('需要登录令牌：请在系统设置页粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as CalendarResult;
   } finally {
@@ -2553,7 +2553,7 @@ export async function rescheduleCalendarItem(
         body: JSON.stringify({ date }),
       },
     );
-    if (res.status === 401) throw new Error('需要登录令牌：请在系统设置页粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (res.status === 404) throw new Error('该日历项不存在或不属于当前用户');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as CalendarItem;
@@ -2573,7 +2573,7 @@ export async function listLaunchImageItems(taskId: string, timeoutMs = 8000): Pr
       signal: controller.signal,
       headers: { Accept: 'application/json', ...authHeader() },
     });
-    if (res.status === 401) throw new Error('需要登录令牌：请在系统设置页粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as LaunchImageItem[];
   } finally {
@@ -2596,7 +2596,7 @@ export async function addLaunchImageItem(
       headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...authHeader() },
       body: JSON.stringify(payload),
     });
-    if (res.status === 401) throw new Error('需要登录令牌：请在系统设置页粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as LaunchImageItem;
   } finally {
@@ -2620,7 +2620,7 @@ export async function updateLaunchImageItem(
       headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...authHeader() },
       body: JSON.stringify(payload),
     });
-    if (res.status === 401) throw new Error('需要登录令牌：请在系统设置页粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as LaunchImageItem;
   } finally {
@@ -2638,7 +2638,7 @@ export async function deleteLaunchImageItem(taskId: string, itemId: string, time
       signal: controller.signal,
       headers: { Accept: 'application/json', ...authHeader() },
     });
-    if (res.status === 401) throw new Error('需要登录令牌：请在系统设置页粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as { id: string; deleted: boolean };
   } finally {
@@ -2661,7 +2661,7 @@ export async function reorderLaunchImageItems(
       headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...authHeader() },
       body: JSON.stringify({ orderedIds }),
     });
-    if (res.status === 401) throw new Error('需要登录令牌：请在系统设置页粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as LaunchImageItem[];
   } finally {
@@ -2685,7 +2685,7 @@ export async function listMediaAssets(
       signal: controller.signal,
       headers: { Accept: 'application/json', ...authHeader() },
     });
-    if (res.status === 401) throw new Error('需要登录令牌：请在系统设置页粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const body = (await res.json()) as { items?: MediaAssetItem[]; persisted?: boolean };
     return body.items ?? [];
@@ -2722,7 +2722,7 @@ export async function listOwnedAccounts(timeoutMs = 8000): Promise<OwnedAccountI
       signal: controller.signal,
       headers: { Accept: 'application/json', ...authHeader() },
     });
-    if (res.status === 401) throw new Error('需要登录令牌：请在系统设置页粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as OwnedAccountItem[];
   } finally {
@@ -2779,7 +2779,7 @@ async function accountRequest<T>(
       },
     });
     if (res.status === 401) {
-      throw new Error('需要登录令牌：请在系统设置页粘贴 Bearer 令牌后重试');
+      throw new Error('登录状态已失效，请重新登录');
     }
     if (res.status === 404) throw new Error('记录不存在或不属于当前用户');
     if (!res.ok) {
@@ -2916,7 +2916,7 @@ export async function searchMaterials(
       signal: controller.signal,
       headers: { Accept: 'application/json', ...authHeader() },
     });
-    if (res.status === 401) throw new Error('需要登录令牌：请在系统设置页粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as MaterialSearchResult;
   } finally {
@@ -2933,7 +2933,7 @@ export async function fetchMaterialTags(timeoutMs = 8000): Promise<TagCount[]> {
       signal: controller.signal,
       headers: { Accept: 'application/json', ...authHeader() },
     });
-    if (res.status === 401) throw new Error('需要登录令牌：请在系统设置页粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as TagCount[];
   } finally {
@@ -2950,7 +2950,7 @@ export async function fetchDeletedMaterials(timeoutMs = 8000): Promise<DeletedMa
       signal: controller.signal,
       headers: { Accept: 'application/json', ...authHeader() },
     });
-    if (res.status === 401) throw new Error('需要登录令牌：请在系统设置页粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as DeletedMaterial[];
   } finally {
@@ -2967,7 +2967,7 @@ export async function fetchMaterialGraph(id: string, timeoutMs = 8000): Promise<
       signal: controller.signal,
       headers: { Accept: 'application/json', ...authHeader() },
     });
-    if (res.status === 401) throw new Error('需要登录令牌：请在系统设置页粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as MaterialGraph;
   } finally {
@@ -2990,7 +2990,7 @@ export async function updateMaterial(
       headers: { 'Content-Type': 'application/json', ...authHeader() },
       body: JSON.stringify(body),
     });
-    if (res.status === 401) throw new Error('需要登录令牌：请在系统设置页粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as MaterialListItem;
   } finally {
@@ -3008,7 +3008,7 @@ export async function deleteMaterial(id: string, timeoutMs = 8000): Promise<{ id
       signal: controller.signal,
       headers: { Accept: 'application/json', ...authHeader() },
     });
-    if (res.status === 401) throw new Error('需要登录令牌：请在系统设置页粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as { id: string; deleted: true };
   } finally {
@@ -3026,7 +3026,7 @@ export async function restoreMaterial(id: string, timeoutMs = 8000): Promise<{ i
       signal: controller.signal,
       headers: { Accept: 'application/json', ...authHeader() },
     });
-    if (res.status === 401) throw new Error('需要登录令牌：请在系统设置页粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as { id: string; restored: true };
   } finally {
@@ -3118,7 +3118,7 @@ export async function fetchMetrics(
       signal: controller.signal,
       headers: { Accept: 'application/json', ...authHeader() },
     });
-    if (res.status === 401) throw new Error('需要登录令牌：请在系统设置页粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as MetricListResult;
   } finally {
@@ -3144,7 +3144,7 @@ export async function fetchMetricDashboard(
       signal: controller.signal,
       headers: { Accept: 'application/json', ...authHeader() },
     });
-    if (res.status === 401) throw new Error('需要登录令牌：请在系统设置页粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as MetricDashboard;
   } finally {
@@ -3166,7 +3166,7 @@ export async function createMetric(
       headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...authHeader() },
       body: JSON.stringify(payload),
     });
-    if (res.status === 401) throw new Error('需要登录令牌：请在系统设置页粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as MetricItem;
   } finally {
@@ -3187,7 +3187,7 @@ export async function pullWechatMetrics(
       signal: controller.signal,
       headers: { Accept: 'application/json', ...authHeader() },
     });
-    if (res.status === 401) throw new Error('需要登录令牌：请在系统设置页粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as { pulled: number; note: string };
   } finally {
@@ -3217,7 +3217,7 @@ export async function fetchPublishedProjects(
       signal: controller.signal,
       headers: { Accept: 'application/json', ...authHeader() },
     });
-    if (res.status === 401) throw new Error('需要登录令牌：请在系统设置页粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const items = (await res.json()) as Array<{
       id: string;
@@ -3325,7 +3325,7 @@ export async function getCostOverview(
       signal: controller.signal,
       headers: { Accept: 'application/json', ...authHeader() },
     });
-    if (res.status === 401) throw new Error('需要登录令牌：请在系统设置页粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as CostOverview;
   } finally {
@@ -3396,7 +3396,7 @@ async function radarFetch<T>(path: string, init?: RequestInit, timeoutMs = 8000)
       signal: controller.signal,
       headers: { Accept: 'application/json', ...authHeader(), ...(init?.headers ?? {}) },
     });
-    if (res.status === 401) throw new Error('需要登录令牌：请在系统设置页粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as T;
   } finally {
@@ -3466,7 +3466,7 @@ async function providerFetch<T>(path: string, init?: RequestInit): Promise<T> {
       signal: controller.signal,
       headers: { Accept: 'application/json', ...authHeader(), ...(init?.headers ?? {}) },
     });
-    if (res.status === 401) throw new Error('需要登录令牌：请在系统设置页粘贴 Bearer 令牌后重试');
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as T;
   } finally {

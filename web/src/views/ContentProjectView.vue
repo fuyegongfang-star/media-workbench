@@ -107,7 +107,7 @@
           <h3 class="sub-title">生成运行记录（ARTICLE_GEN）</h3>
           <p class="hint">
             每次触发生成/续写/改写/压缩/扩写都会落一条 GenerationRun（含状态、模型、耗时、关联 staging 版本）。
-            配置 LLM 密钥 + PostgreSQL/Redis 后，由 T3.5 处理器真实生成并写出 staging 版本；本机无环境时任务保留 queued（待环境）。
+            在「设置中心 → AI 与密钥」配置 LLM 供应商，并确保 PostgreSQL/Redis 在线后，由 T3.5 处理器真实生成并写出 staging 版本；无环境时任务保留 queued。
           </p>
           <p v-if="genRuns.length === 0" class="hint">
             暂无生成记录。点击右侧「AI 操作入口」即可发起生成任务。
@@ -264,7 +264,7 @@
           <h3 class="sub-title">公众号发布执行（T3.9）</h3>
           <p class="hint">
             审核通过后可执行：① 同步草稿箱（<span class="mono">add_draft</span>，回写 media_id）② 正式发布（<span class="mono">freepublish</span>，回写文章链接）③ 群发（可定时）。
-            公众号 AppID / AppSecret（AES 加密入库）需在系统设置中配置。
+            公众号 AppID / AppSecret（AES 加密入库）统一在「设置中心 → AI 与密钥」配置。
           </p>
           <div class="publish-actions">
             <button class="btn primary" :disabled="wechatBusy" @click="doSyncDraft">① 同步草稿箱</button>

@@ -9,7 +9,7 @@
 [![NestJS 11](https://img.shields.io/badge/NestJS-11-E0234E?style=flat-square&logo=nestjs&logoColor=white)](https://nestjs.com/)
 [![Vue 3](https://img.shields.io/badge/Vue-3-42B883?style=flat-square&logo=vue.js&logoColor=white)](https://vuejs.org/)
 [![PostgreSQL 16](https://img.shields.io/badge/PostgreSQL-16-4169E1?style=flat-square&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
-[![332 unit tests](https://img.shields.io/badge/tests-332-16a34a?style=flat-square)](server/test/)
+[![388 unit tests](https://img.shields.io/badge/tests-388-16a34a?style=flat-square)](server/test/)
 
 [🚀 一键部署](#-一键部署)　·　[🗺 功能地图](#-功能地图)　·　[🛠 本地开发](#-本地开发)　·　[📚 文档](#-文档索引)
 
@@ -40,7 +40,22 @@
 
 ![工作台界面结构：侧栏导航、KPI 卡片、产出趋势与依赖健康状态](docs/interface.svg)
 
-前端共 **12 个导航入口 + 1 个内容项目详情页**。想看真实渲染效果，双击仓库根的 [`preview.html`](preview.html)——零外部依赖的离线快照，非实时、按钮不可提交。
+前端按业务流程归集为 **5 个导航分组、17 个入口**，另加公开首页与三个认证页：
+
+| 分组 | 入口 |
+| :--- | :--- |
+| 总览 | 工作台 |
+| 选题与洞察 | 选题雷达 · 对标分析 · 账号与策略 |
+| 内容生产 | 内容项目 · 素材库 · 内容日历 · 批量操作 · 起号计划 |
+| 数据与复盘 | 效果看板 · 成本看板 |
+| 系统管理 | 站点设置 · 用户与权限 · AI 与密钥 · 通知与告警 · 版本与运维 · 审计与回收站 |
+
+- **未登录先见首页**：`/` 是公开的能力介绍页，再进入登录 / 注册 / 找回密码，不再一打开就撞上登录框。
+- **系统管理二级页签**：六个分类共用统一页头与面包屑，不再是「一个长页面塞满所有设置」。
+- **密钥集中**：LLM API Key、公众号 AppID / AppSecret、通知渠道凭据统一在「系统管理 → AI 与密钥」维护与查看状态；`APP_MASTER_KEY` 为服务端只读环境变量。业务页只保留业务参数。
+- **统一浅色设计系统**：全局 CSS variables 覆盖原生控件与历史页面硬编码深色，表单、表格、卡片、语义色一致。
+
+想看界面还原，双击仓库根的 [`preview.html`](preview.html)——零外部依赖的离线快照，非实时、按钮不可提交。
 
 ---
 
@@ -64,14 +79,14 @@ cd /opt/media-workbench
 | 改对外端口 | `./deploy/bootstrap.sh --port 9000` |
 | 只生成配置自检，不启动 | `./deploy/bootstrap.sh --env-only` |
 | 已有镜像，快速重启 | `./deploy/bootstrap.sh --no-build` |
-| 更新版本（自动增量迁移） | 后台「系统设置 → 版本与更新 → 一键更新」；或命令行 `git pull && ./deploy/bootstrap.sh` |
+| 更新版本（自动增量迁移） | 后台「系统管理 → 版本与运维 → 一键更新」；或命令行 `git pull && ./deploy/bootstrap.sh` |
 | 完整备份（库 + 附件） | `./deploy/backup.sh` |
 
 > [!WARNING]
 > 默认绑 `0.0.0.0` 且是 **HTTP 明文**。公网部署请在前面挂反代并启用 HTTPS，防火墙 + 云安全组只开 80/443，勿暴露 8080 / 5432 / 6379。首次登录后**立即修改初始口令**，并离线备份 `.env`（`APP_MASTER_KEY` 丢失则已加密数据不可解密）。
 
 > [!TIP]
-> **后台一键在线更新**：部署完成后不必再登录服务器。用所有者账号进入「系统设置 → 版本与更新」，即可对比 GitHub 上的最新提交、一键拉取并重建 api / web，全程显示实时日志，更新前自动备份数据库与附件。实现原理、权限边界与关闭方式见 **[部署指南第八节](deploy/README.md)**。
+> **后台一键在线更新**：部署完成后不必再登录服务器。用所有者账号进入「系统管理 → 版本与运维」，即可对比 GitHub 上的最新提交、一键拉取并重建 api / web，全程显示实时日志，更新前自动备份数据库与附件。实现原理、权限边界与关闭方式见 **[部署指南第八节](deploy/README.md)**。
 
 完整步骤、宝塔面板逐步操作、首次上线 10 项核验清单、故障对照表与回滚见 **[`deploy/README.md`](deploy/README.md)**。
 
@@ -86,7 +101,7 @@ cd /opt/media-workbench
 | 内容项目 | 选题标题 → 创作上下文 → 版本链 → 审核状态机 → 合规预审 |
 | 起号计划 / 日历 / 素材库 / 批量操作 | 图片组拖拽、内容排期、素材沉淀、批量导入导出 |
 | 效果看板 / 成本看板 | 发布回写、指标回收、模型调用成本核算 |
-| 系统设置 | 站点设置、运营配置、供应商密钥（加密入库）、通知、备份 |
+| 系统管理（设置中心） | 站点设置 / 用户与权限 / AI 与密钥（加密入库）/ 通知与告警 / 版本与运维 / 审计与回收站，六个二级页 |
 
 ## 🧰 技术栈
 
@@ -128,7 +143,7 @@ npm run typecheck                    # 前后端类型检查
 npm run validate                     # prisma validate（同样需 DATABASE_URL）
 npm run trial                        # 纯函数端到端流水线自检
 npm run health                       # 需 API 已启动
-node --test server/test/*.test.mjs   # 332 个单测
+node --test server/test/*.test.mjs   # 388 个单测（31 个文件）
 ```
 
 </details>
@@ -139,14 +154,16 @@ node --test server/test/*.test.mjs   # 332 个单测
 | 项 | 结果 |
 | :--- | :--- |
 | `npm run build` / `npm run typecheck` | ✅ 通过 |
-| 单元测试 | ✅ 332 / 332（27 个文件） |
-| `prisma validate` / 迁移文件 | ✅ 22 个迁移目录均有 `migration.sql` |
+| 单元测试 | ✅ 388 / 388（31 个文件） |
+| `prisma validate` / 迁移文件 | ✅ 24 个迁移目录均有 `migration.sql` |
 | `preflight`（一键脚本生成的 `.env`） | ✅ PASS 25 / WARN 3 / FAIL 0，WARN 均为未配置 AI 密钥 |
 | shell 脚本 | ✅ `sh -n` 通过、LF 换行、无 BOM |
-| 真机 PostgreSQL / Redis / LLM 联调 | ⚠️ **待环境**，首次上线按核验清单逐条验证 |
-| Docker 镜像构建与 compose 启动 | ⚠️ **待环境**，本机无 Docker |
+| 前端界面（首页 / 分组侧栏 / 设置中心 / 登录注册找回） | ✅ 真实浏览器截图逐页自查通过（`vite preview` 静态前端） |
+| 真机 PostgreSQL / Redis / 登录 / 用户管理 / 在线更新 | ✅ 已在 Ubuntu + Docker Compose 生产环境端到端验证 |
+| 真实 LLM 供应商调用 / 搜狗微信反爬 / 长期定时调度 | ⚠️ 仍需业务侧 Key 或观察周期，未伪造通过 |
+| 本机 Docker | ⚠️ 开发机无 Docker（不影响生产部署，本机只跑静态自验） |
 
-暂无 CI，以上均为本机实跑结果，不是流水线徽章。
+暂无 CI，以上均为本机实跑 + 真机部署验证结果，不是流水线徽章。
 
 </details>
 
