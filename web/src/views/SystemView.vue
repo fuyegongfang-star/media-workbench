@@ -466,13 +466,13 @@
     <!-- 通知与告警 -->
     <section v-if="section === 'notifications'" class="card">
       <h2 class="card-title">通知与告警</h2>
-      <p class="hint">企业微信 / 钉钉 / 飞书 Webhook、Telegram Bot Token 与邮件 SMTP 凭据仅存于服务端（AES-256-GCM 加密入库），前端仅见脱敏。已保存的凭据不会回显，输入框留空即保持原值。任务成功/失败与备份失败/配额/存活告警将推送至启用的渠道。</p>
+      <p class="hint">企业微信 / 钉钉 / 飞书 Webhook、Telegram Bot Token 与邮件 SMTP 凭据仅存于服务端（AES-256-GCM 加密入库），前端仅见脱敏。输入框显示 <code>••••••••</code> 表示已保存，点进去清空后输入新值即可覆盖；留空保存则保持原值。右侧眼睛可切换明文/脱敏。任务成功/失败与备份失败/配额/存活告警将推送至启用的渠道。</p>
 
       <div class="notif-grid">
         <div class="notif-card">
           <div class="notif-head"><label class="check"><input type="checkbox" v-model="notifForm.wecom.enabled" /> 企业微信 Webhook</label></div>
           <div class="field"><label>Webhook 地址</label>
-            <input v-model="notifForm.wecom.webhookUrl" class="input wide mono" type="text" placeholder="https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=..." />
+            <SecretInput v-model="notifForm.wecom.webhookUrl" :configured="notifConfigured.wecom" placeholder="https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=..." />
           </div>
           <button class="btn" :disabled="busy==='wecom'" @click="test('wecom')">测试</button>
         </div>
@@ -480,10 +480,10 @@
         <div class="notif-card">
           <div class="notif-head"><label class="check"><input type="checkbox" v-model="notifForm.dingtalk.enabled" /> 钉钉 Webhook</label></div>
           <div class="field"><label>Webhook 地址</label>
-            <input v-model="notifForm.dingtalk.webhookUrl" class="input wide mono" type="text" placeholder="https://oapi.dingtalk.com/robot/send?access_token=..." />
+            <SecretInput v-model="notifForm.dingtalk.webhookUrl" :configured="notifConfigured.dingtalk" placeholder="https://oapi.dingtalk.com/robot/send?access_token=..." />
           </div>
           <div class="field"><label>加签密钥（可选）</label>
-            <input v-model="notifForm.dingtalk.secret" class="input wide mono" type="text" placeholder="SEC..." />
+            <SecretInput v-model="notifForm.dingtalk.secret" :configured="notifConfigured.dingtalkSecret" placeholder="SEC..." />
           </div>
           <button class="btn" :disabled="busy==='dingtalk'" @click="test('dingtalk')">测试</button>
         </div>
@@ -491,10 +491,10 @@
         <div class="notif-card">
           <div class="notif-head"><label class="check"><input type="checkbox" v-model="notifForm.feishu.enabled" /> 飞书机器人 Webhook</label></div>
           <div class="field"><label>Webhook 地址</label>
-            <input v-model="notifForm.feishu.webhookUrl" class="input wide mono" type="text" placeholder="https://open.feishu.cn/open-apis/bot/v2/hook/..." />
+            <SecretInput v-model="notifForm.feishu.webhookUrl" :configured="notifConfigured.feishu" placeholder="https://open.feishu.cn/open-apis/bot/v2/hook/..." />
           </div>
           <div class="field"><label>签名校验密钥（可选）</label>
-            <input v-model="notifForm.feishu.secret" class="input wide mono" type="text" placeholder="机器人在安全设置中启用签名校验后填写" />
+            <SecretInput v-model="notifForm.feishu.secret" :configured="notifConfigured.feishuSecret" placeholder="机器人在安全设置中启用签名校验后填写" />
           </div>
           <p class="hint">{{ notifConfigured.feishu ? '已配置（凭据留空将保持原值）' : '尚未配置' }}</p>
           <button class="btn" :disabled="busy==='feishu'" @click="test('feishu')">测试</button>
@@ -503,7 +503,7 @@
         <div class="notif-card">
           <div class="notif-head"><label class="check"><input type="checkbox" v-model="notifForm.telegram.enabled" /> Telegram 机器人</label></div>
           <div class="field"><label>Bot Token</label>
-            <input v-model="notifForm.telegram.botToken" class="input wide mono" type="password" placeholder="由 @BotFather 签发，如 123456:ABC-DEF" />
+            <SecretInput v-model="notifForm.telegram.botToken" :configured="notifConfigured.telegram" placeholder="由 @BotFather 签发，如 123456:ABC-DEF" />
           </div>
           <div class="field"><label>Chat ID</label>
             <input v-model="notifForm.telegram.chatId" class="input wide mono" type="text" placeholder="获取后自动填入，或手动填数字会话 ID" />
@@ -544,7 +544,7 @@
             <div class="field" style="flex:1;display:flex;align-items:center;gap:6px"><label style="margin:0">SSL(465)</label><input type="checkbox" v-model="notifForm.email.secure" /></div>
           </div>
           <div class="field"><label>用户名</label><input v-model="notifForm.email.smtpUser" class="input wide mono" type="text" /></div>
-          <div class="field"><label>密码</label><input v-model="notifForm.email.smtpPassword" class="input wide mono" type="password" placeholder="留空则不鉴权" /></div>
+          <div class="field"><label>密码</label><SecretInput v-model="notifForm.email.smtpPassword" :configured="notifConfigured.emailPassword" placeholder="留空则不鉴权" /></div>
           <div class="field"><label>发件人</label><input v-model="notifForm.email.from" class="input wide" type="text" /></div>
           <div class="field"><label>收件人（逗号分隔）</label><input v-model="notifForm.email.toText" class="input wide" type="text" placeholder="a@x.com,b@y.com" /></div>
           <button class="btn" :disabled="busy==='email'" @click="test('email')">测试</button>
@@ -641,6 +641,7 @@ import { computed, onMounted, onUnmounted, reactive, ref } from 'vue';
 import { useRoute } from 'vue-router';
 import { systemSections } from '../router';
 import SettingsHeader from '../components/SettingsHeader.vue';
+import SecretInput from '../components/SecretInput.vue';
 import {
   fetchSystemStatus,
   fetchSystemSettings,
@@ -760,7 +761,14 @@ const notifForm = reactive({
 });
 /** 服务端只回脱敏串；这里记录「是否已配置」，用于给用户明确的留空保持原值提示。 */
 const notifConfigured = reactive<Record<string, boolean>>({
-  wecom: false, dingtalk: false, feishu: false, telegram: false, email: false,
+  wecom: false,
+  dingtalk: false,
+  dingtalkSecret: false,
+  feishu: false,
+  feishuSecret: false,
+  telegram: false,
+  email: false,
+  emailPassword: false,
 });
 /** 脱敏占位 / 密文前缀一律不回填到输入框。 */
 function maskedOrEmpty(v: string | undefined): string {
@@ -1333,10 +1341,12 @@ function hydrateNotif(s: NotificationSettings) {
   notifForm.dingtalk.webhookUrl = maskedOrEmpty(map.dingtalk?.webhookUrl);
   notifForm.dingtalk.secret = maskedOrEmpty(map.dingtalk?.secret);
   notifConfigured.dingtalk = Boolean(map.dingtalk?.webhookUrl);
+  notifConfigured.dingtalkSecret = Boolean(map.dingtalk?.secret);
   notifForm.feishu.enabled = Boolean(map.feishu?.enabled);
   notifForm.feishu.webhookUrl = maskedOrEmpty(map.feishu?.webhookUrl);
   notifForm.feishu.secret = maskedOrEmpty(map.feishu?.secret);
   notifConfigured.feishu = Boolean(map.feishu?.webhookUrl);
+  notifConfigured.feishuSecret = Boolean(map.feishu?.secret);
   notifForm.telegram.enabled = Boolean(map.telegram?.enabled);
   notifForm.telegram.botToken = maskedOrEmpty(map.telegram?.botToken);
   notifForm.telegram.chatId = map.telegram?.chatId ?? '';
@@ -1347,6 +1357,7 @@ function hydrateNotif(s: NotificationSettings) {
   notifForm.email.smtpUser = map.email?.smtpUser ?? '';
   notifForm.email.smtpPassword = maskedOrEmpty(map.email?.smtpPassword);
   notifConfigured.email = Boolean(map.email?.smtpHost);
+  notifConfigured.emailPassword = Boolean(map.email?.smtpPassword);
   notifForm.email.secure = map.email?.secure ?? true;
   notifForm.email.from = map.email?.from ?? '';
   notifForm.email.toText = (map.email?.to ?? []).join(',');
