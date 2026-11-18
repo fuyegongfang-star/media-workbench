@@ -315,7 +315,7 @@
         <div class="section-title"><span class="bar"></span>关键指标</div>
         <div class="grid g4">
           <div class="kpi"><div class="num ok">34</div><div class="lbl">已完成功能项</div><div class="sub">T1.1–T1.10 / T2.1–T2.5 / T3.1–T3.11 / T4.1–T4.6 / T5.1–T5.2</div></div>
-          <div class="kpi"><div class="num blue">424</div><div class="lbl">单测全量通过</div><div class="sub">424 pass / 0 fail · 36 测试文件（11-18 新增 Worker 启动时序回归，任务卡 queued 根治）</div></div>
+          <div class="kpi"><div class="num blue">434</div><div class="lbl">单测全量通过</div><div class="sub">434 pass / 0 fail · 37 测试文件（11-18 新增雷达地区分栏+时效过滤 10 项单测）</div></div>
           <div class="kpi"><div class="num ok">T6.1</div><div class="lbl">选题雷达新增</div><div class="sub">11-16 手工开发：免费源采集 + 打分出标题 + 一键转选题 + LLM 供应商管理</div></div>
           <div class="kpi"><div class="num blue">T6.8</div><div class="lbl">投运整改 8 项</div><div class="sub">业务总览 · 使用教程 · 连通性测试 · 飞书/Telegram · 自定义数据源 · 正式文案</div></div>
         </div>
@@ -347,7 +347,7 @@
             <h3>构建与类型</h3>
             <div class="kv"><span>npm run typecheck（server + web tsc --noEmit）</span><b class="up">✓ 通过</b></div>
             <div class="kv"><span>npm run build（server tsc + web vite）</span><b class="up">✓ 通过 · vite 4.97s</b></div>
-            <div class="kv"><span>node --test server/test/*.test.mjs（36 文件）</span><b class="up">✓ 424/424 · 0 fail</b></div>
+            <div class="kv"><span>node --test server/test/*.test.mjs（37 文件）</span><b class="up">✓ 434/434 · 0 fail</b></div>
             <div class="kv"><span>prisma validate</span><b class="up">✓ schema valid</b></div>
             <div class="kv"><span>真实浏览器截图自查（T6.8 共 19 张）</span><b class="up">✓ 八项整改逐页 + 点击交互验证</b></div>
             <div class="kv"><span>web 产物</span><b>按路由懒加载拆分多 chunk + index</b></div>
@@ -366,6 +366,7 @@
 
         <div class="section-title"><span class="bar"></span>卡点与收尾说明</div>
         <div class="grid g3">
+          <div class="card"><h3>🌏 雷达地区分栏 + 时效过滤（11-18）</h3><p class="hint">数据源按地区自动归类：<b>国内</b>=头条/B站/公众号，<b>海外</b>=HN/X/YouTube，自定义源可选。简报按「国内主推/海外主推/国内备选/海外备选」四栏展示，每条带地区徽章与相对发布时间。配置新增时效窗（当天/3天/一周/半月），按发布时间过滤；热榜无精确时间则保留标「时间未知」，不会误删。迁移 <code>0024</code> 加 region/published_at 列。生产拉到 <code>da4c6ed</code> 后更新并重新采集。</p></div>
           <div class="card"><h3>🐛 采集无内容根因已修复（11-18）</h3><p class="hint">生产实测 8 个任务（含 TOPIC_GEN）<b>全部卡在 queued</b>，从无 running。双重根因：① NestJS 并发 <code>onModuleInit</code>，Worker 同步读到 Redis 探测未完成的 <code>available=false</code> → 永不启动；② 雷达调度 Worker 与业务共用 generation 队列并直接丢弃非调度 job。已改为 <code>await ready</code> 后启动 + 调度器独立 <code>radar-scheduler</code> 队列，补 3 项行为回归测试。生产拉到 <code>f6fd8d2</code> 后重新点一次「立即采集」即可。</p></div>
           <div class="card"><h3>👁 凭据输入统一脱敏（11-18）</h3><p class="hint">新增 <code>SecretInput.vue</code>：企业微信 / 钉钉 / 飞书 Webhook 与密钥、Telegram Bot Token、SMTP 密码全部改为密码型输入 + 眼睛开关；已保存但前端拿不到明文的字段显示 <code>••••••••</code>，点进去即清空可重填，留空保存保持原值。修复了「Telegram 保存后框里全空、其他渠道却明文」的不一致。</p></div>
           <div class="card"><h3>🟢 Telegram 400 根因已修复（11-18）</h3><p class="hint">不是 Token/Chat ID 问题：通知控制器把 DTO 写成 <code>import type</code>，编译后 <code>design:paramtypes=Function</code>，全局白名单把 <b>所有字段</b>都拒了。已改值导入 + 7 项回归测试 + 前端错误体透传；本地真发 Telegram 测试消息返回 <code>{"ok":true}</code>，会话列举也 201 成功。生产拉到 <code>6653864</code> 后点一次「一键更新」即可。</p></div>
@@ -1083,7 +1084,7 @@
           <div class="card"><h3>工程自验</h3>
             <div class="kv"><span>npm run typecheck（server + web）</span><b class="up">✓ exit 0</b></div>
             <div class="kv"><span>npm run build（server tsc + web vite 4.97s）</span><b class="up">✓ exit 0</b></div>
-            <div class="kv"><span>node --test server/test/*.test.mjs（36 文件）</span><b class="up">✓ 424/424 · 0 fail</b></div>
+            <div class="kv"><span>node --test server/test/*.test.mjs（37 文件）</span><b class="up">✓ 434/434 · 0 fail</b></div>
             <div class="kv"><span>prisma validate</span><b class="up">✓ schema valid（25 个迁移目录不变）</b></div>
             <div class="kv"><span>模板区开发态文案扫描</span><b class="up">✓ 0 命中</b></div>
           </div>
