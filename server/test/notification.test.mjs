@@ -19,6 +19,9 @@ const {
   dingtalkSign,
   feishuSign,
   telegramApiUrl,
+  telegramGetUpdatesUrl,
+  extractTelegramChats,
+  redactTelegramError,
   mergeSensitiveChannels,
   MASKED_SECRET,
   buildTaskNotifyText,
@@ -179,4 +182,42 @@ test('encryptChannels 幂等：已加密字段不会二次加密，botToken 往�
   assert.equal(twice[0].botToken, one[0].botToken);
   assert.equal(decryptChannels(twice, c)[0].botToken, '123:ABC');
   assert.equal(maskChannel(one[0]).botToken, MASKED_SECRET);
+});
+
+test('extractTelegramChats: 私聊/群/频道去重，取会话名不取消息正文', () => {
+  const updates = [
+    { update_id: 1, message: { chat: { id: 123456, type: 'private', first_name: '张三', username: 'zhangsan' }, text: '请勿回显这段正文' } },
+    { update_id: 2, message: { chat: { id: 123456, type: 'private', first_name: '张三' }, text: '重复会话' } },
+    { update_id: 3, my_chat_member: { chat: { id: -1009876543210, type: 'supergroup', title: '运营群' } } },
+    { update_id: 4, channel_post: { chat: { id: -100111, type: 'channel', title: '公告频道' } } },
+    { update_id: 5, message: { chat: { type: 'private' } } }, // 无 id → 跳过
+    { update_id: 6 }, // 无 message → 跳过
+  ];
+  const chats = extractTelegramChats(updates);
+  assert.equal(chats.length, 3);
+  assert.deepEqual(chats[0], { id: '123456', type: 'private', label: 'zhangsan' });
+  assert.deepEqual(chats[1], { id: '-1009876543210', type: 'supergroup', label: '运营群' });
+  assert.deepEqual(chats[2], { id: '-100111', type: 'channel', label: '公告频道' });
+  assert.ok(!JSON.stringify(chats).includes('请勿回显'));
+  assert.deepEqual(extractTelegramChats(null), []);
+  assert.equal(extractTelegramChats(updates, 2).length, 2);
+});
+
+test('telegramGetUpdatesUrl: 拼官方端点、保留 token 冒号、limit 限幅', () => {
+  assert.equal(
+    telegramGetUpdatesUrl('123:ABC-DEF', 50),
+    'https://api.telegram.org/bot123:ABC-DEF/getUpdates?limit=50',
+  );
+  assert.ok(telegramGetUpdatesUrl('t', 999).includes('limit=100'));
+  assert.ok(telegramGetUpdatesUrl('t', 0).includes('limit=1'));
+});
+
+test('redactTelegramError: token / webhook / 网络错误脱敏', () => {
+  const token = '123456:ABC-DEF';
+  assert.ok(!redactTelegramError(`bad token ${token}`, token).includes(token));
+  assert.match(
+    redactTelegramError('bot can’t use getUpdates while webhook is active', token),
+    /Webhook/,
+  );
+  assert.match(redactTelegramError('fetch failed', token), /网络代理/);
 });

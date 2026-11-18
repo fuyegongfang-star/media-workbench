@@ -110,6 +110,14 @@ export class SendTestDto {
   text?: string;
 }
 
+/** 获取当前机器人能收到的会话 ID；留空则使用服务端已保存并解密的 Token。 */
+export class TelegramChatsDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(512)
+  botToken?: string;
+}
+
 /** 手动触发一次监控告警（如备份脚本失败后置此端点）。 */
 export class SendAlertDto {
   @IsIn(ALERT_KINDS)

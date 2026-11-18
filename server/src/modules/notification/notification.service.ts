@@ -11,11 +11,13 @@ import {
   type NotificationAlertKind,
   type NotificationChannelType,
   type NotificationConfig,
+  MASKED_SECRET,
   buildAlertText,
   buildTaskNotifyText,
   decryptChannels,
   dingtalkSign,
   encryptChannels,
+  extractTelegramChats,
   feishuSign,
   formatDingtalkPayload,
   formatEmailSubject,
@@ -25,7 +27,10 @@ import {
   maskChannel,
   mergeNotifications,
   mergeSensitiveChannels,
+  redactTelegramError,
   telegramApiUrl,
+  telegramGetUpdatesUrl,
+  type TelegramChatCandidate,
 } from './notification.util';
 import { type UpsertNotificationChannelsDto } from './dto/notification.dto';
 
@@ -99,6 +104,73 @@ export class NotificationService implements OnModuleInit {
   private async findChannel(type: NotificationChannelType): Promise<ChannelConfig | null> {
     const cfg = await this.loadSendConfig();
     return cfg.channels.find((c) => c.type === type && c.enabled) ?? null;
+  }
+
+  /**
+   * 获取机器人当前能收到的会话 ID（Chat ID）。
+   * 用户只需先在 Telegram 里给机器人发一条消息 / 把它拉进群；Token 用表单明文或已保存的解密值。
+   * 不写库、不回显 Token、不返回消息正文；错误全部脱敏。
+   */
+  async listTelegramChats(plainToken?: string): Promise<{
+    ok: boolean;
+    chats: TelegramChatCandidate[];
+    error?: string;
+    hint?: string;
+  }> {
+    let token = String(plainToken ?? '').trim();
+    if (!token || token === MASKED_SECRET || token.startsWith('enc:')) {
+      const cfg = await this.loadSendConfig();
+      token = cfg.channels.find((c) => c.type === 'telegram')?.botToken ?? '';
+    }
+    token = token.trim();
+    if (!token) {
+      return {
+        ok: false,
+        chats: [],
+        error: '请先填写 Bot Token（或先在下方保存 Telegram 配置）再获取会话 ID。',
+      };
+    }
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 10_000);
+    try {
+      const res = await fetch(telegramGetUpdatesUrl(token), {
+        signal: controller.signal,
+        headers: { Accept: 'application/json' },
+      });
+      const body = (await res.text()).slice(0, 200_000);
+      if (!res.ok) {
+        let desc = `HTTP ${res.status}`;
+        try {
+          const parsed = JSON.parse(body) as { description?: string };
+          if (typeof parsed.description === 'string' && parsed.description) desc = parsed.description;
+        } catch {
+          // 非 JSON 响应则保留 HTTP 状态
+        }
+        return { ok: false, chats: [], error: redactTelegramError(desc, token) };
+      }
+      const json = JSON.parse(body) as { ok?: boolean; result?: unknown[]; description?: string };
+      if (!json.ok || !Array.isArray(json.result)) {
+        return {
+          ok: false,
+          chats: [],
+          error: redactTelegramError(json.description ?? 'Telegram 返回格式异常', token),
+        };
+      }
+      const chats = extractTelegramChats(json.result);
+      if (!chats.length) {
+        return {
+          ok: false,
+          chats: [],
+          error: '还没有检测到会话。',
+          hint: '先在 Telegram 里给机器人发一条消息（或把它拉进群），再点一次「获取会话 ID」。',
+        };
+      }
+      return { ok: true, chats };
+    } catch (e) {
+      return { ok: false, chats: [], error: redactTelegramError(e, token) };
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
   /** 向所有启用的渠道推送（按 forwardKinds 过滤告警类型）。 */

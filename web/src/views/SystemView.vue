@@ -506,7 +506,26 @@
             <input v-model="notifForm.telegram.botToken" class="input wide mono" type="password" placeholder="由 @BotFather 签发，如 123456:ABC-DEF" />
           </div>
           <div class="field"><label>Chat ID</label>
-            <input v-model="notifForm.telegram.chatId" class="input wide mono" type="text" placeholder="频道 / 群组 / 个人会话 ID" />
+            <input v-model="notifForm.telegram.chatId" class="input wide mono" type="text" placeholder="获取后自动填入，或手动填数字会话 ID" />
+            <p class="hint" style="margin-top:6px">不知道怎么拿？点下面「获取会话 ID」，或先看 <button type="button" class="link-btn" @click="showTgHelp = !showTgHelp">{{ showTgHelp ? '收起说明' : '三步说明' }}</button></p>
+          </div>
+          <div v-if="showTgHelp" class="tg-help">
+            <ol>
+              <li>在 Telegram 里搜到你的机器人（BotFather 给的 <code>t.me/用户名</code>），点开对话<strong>随便发一条消息</strong>；想收群通知就把它拉进群。</li>
+              <li>把 Bot Token 填到上面，点「获取会话 ID」——工作台会调 Telegram 官方 <code>getUpdates</code> 列出会话，Token 只在本次请求使用、不入库不回显。</li>
+              <li>在候选里点一下自动填入 Chat ID，再点本页「保存通知设置」，最后点「测试」确认收到消息。</li>
+            </ol>
+            <p>私聊 ID 是正数，群组 / 频道通常是 <code>-100</code> 开头的长数字。若提示 Webhook 模式，需先解除 Bot 的 Webhook。</p>
+          </div>
+          <div class="row" style="gap:8px;flex-wrap:wrap;margin:8px 0">
+            <button class="btn small" :disabled="tgChatBusy" @click="loadTgChats">{{ tgChatBusy ? '获取中…' : '获取会话 ID' }}</button>
+          </div>
+          <p v-if="tgChatError" class="hint" style="color:var(--danger)">{{ tgChatError }}{{ tgChatHint ? ` · ${tgChatHint}` : '' }}</p>
+          <div v-if="tgChats.length" class="tg-chats">
+            <button v-for="c in tgChats" :key="c.id" type="button" class="tg-chat" @click="pickTgChat(c)">
+              <span class="tg-chat-label">{{ c.label }}</span>
+              <span class="tg-chat-meta">{{ tgChatTypeLabel(c.type) }} · {{ c.id }}</span>
+            </button>
           </div>
           <p class="hint">{{ notifConfigured.telegram ? '已配置（Token 留空将保持原值）' : '尚未配置' }} · 机器人需先加入目标会话并具备发送权限</p>
           <button class="btn" :disabled="busy==='telegram'" @click="test('telegram')">测试</button>
@@ -625,7 +644,9 @@ import {
   fetchNotificationChannels,
   saveNotificationChannels,
   testNotification,
+  fetchTelegramChats,
   sendAlert,
+  type TelegramChatCandidate,
   type SiteSettingsView,
   type SystemStatus,
   type NotificationChannel,
@@ -751,6 +772,11 @@ const forwardKinds = reactive<Record<string, boolean>>({
 });
 const savingNotif = ref(false);
 const busy = ref('');
+const tgChats = ref<TelegramChatCandidate[]>([]);
+const tgChatError = ref('');
+const tgChatHint = ref('');
+const tgChatBusy = ref(false);
+const showTgHelp = ref(false);
 
 // ---- 用户管理（T6.4）----
 const users = ref<UserView[]>([]);
@@ -1357,6 +1383,33 @@ async function saveNotif() {
   }
 }
 
+function tgChatTypeLabel(type: TelegramChatCandidate['type']): string {
+  return type === 'private' ? '私聊' : type === 'channel' ? '频道' : '群组';
+}
+
+/** 调官方 getUpdates 列出机器人能收到的会话，用户点选后自动填入 Chat ID。 */
+async function loadTgChats() {
+  tgChatBusy.value = true;
+  tgChatError.value = '';
+  tgChatHint.value = '';
+  tgChats.value = [];
+  try {
+    const r = await fetchTelegramChats(notifForm.telegram.botToken);
+    tgChatError.value = r.error ?? '';
+    tgChatHint.value = r.hint ?? '';
+    tgChats.value = r.chats ?? [];
+  } catch (e) {
+    tgChatError.value = (e as Error).message;
+  } finally {
+    tgChatBusy.value = false;
+  }
+}
+
+function pickTgChat(chat: TelegramChatCandidate) {
+  notifForm.telegram.chatId = chat.id;
+  notifyOk(`已填入 Chat ID ${chat.id}（${tgChatTypeLabel(chat.type)}），请点击本页「保存通知设置」。`);
+}
+
 async function test(type: string) {
   busy.value = type;
   message.value = '';
@@ -1390,6 +1443,18 @@ async function sendTestAlert() {
 </script>
 
 <style scoped>
+/* Telegram 会话 ID 获取辅助 */
+.link-btn { border: 0; background: none; padding: 0; color: var(--brand, #2f6fed); cursor: pointer; font-size: 12px; text-decoration: underline; }
+.tg-help { margin: 8px 0; padding: 10px 12px; border: 1px solid var(--border, #e2e6ec); border-radius: 8px; background: var(--panel-soft, #f5f7fa); color: var(--text, #1f2733); font-size: 12px; line-height: 1.75; }
+.tg-help ol { margin: 0 0 6px; padding-left: 20px; }
+.tg-help p { margin: 4px 0 0; color: var(--muted, #5b6675); }
+.tg-help code { background: var(--panel, #fff); padding: 1px 4px; border-radius: 4px; font-size: 11px; }
+.tg-chats { display: flex; flex-direction: column; gap: 6px; margin: 8px 0; }
+.tg-chat { display: flex; justify-content: space-between; align-items: center; gap: 12px; width: 100%; padding: 8px 12px; border: 1px solid var(--border, #e2e6ec); border-radius: 8px; background: var(--panel, #fff); color: var(--text, #1f2733); cursor: pointer; text-align: left; font-size: 12px; }
+.tg-chat:hover { border-color: var(--brand, #2f6fed); background: var(--brand-soft, #eaf1ff); }
+.tg-chat-label { font-weight: 600; }
+.tg-chat-meta { color: var(--muted, #5b6675); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+
 /* 供应商连通性测试结果 */
 .provider-test { display: flex; flex-direction: column; gap: 4px; margin-top: 12px; padding: 10px 12px; border: 1px solid var(--border, #e2e6ec); border-radius: 8px; background: var(--panel-soft, #f5f7fa); font-size: 12px; }
 .provider-test.ok { border-color: #b9e2ce; background: var(--ok-soft, #eefaf3); }

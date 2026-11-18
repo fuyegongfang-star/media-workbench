@@ -4,6 +4,7 @@ import { NotificationService } from './notification.service';
 import {
   type SendAlertDto,
   type SendTestDto,
+  type TelegramChatsDto,
   type UpsertNotificationChannelsDto,
 } from './dto/notification.dto';
 
@@ -13,6 +14,7 @@ import {
  * - GET  /api/notification/channels  ：读取渠道配置（脱敏，需令牌）。
  * - PUT  /api/notification/channels  ：更新渠道配置（敏感字段加密入库，需令牌）。
  * - POST /api/notification/test      ：向某渠道发测试消息（需令牌）。
+ * - POST /api/notification/telegram/chats：列出机器人可发送的会话 ID（需令牌，Token 不入库不回显）。
  * - POST /api/notification/alert     ：手动触发一次监控告警（需令牌；备份脚本可调用此端点）。
  */
 @Controller('notification')
@@ -40,6 +42,12 @@ export class NotificationController {
   @UseGuards(AccessTokenGuard)
   test(@Body() dto: SendTestDto) {
     return this.svc.testChannel(dto.type, dto.text);
+  }
+
+  @Post('telegram/chats')
+  @UseGuards(AccessTokenGuard)
+  telegramChats(@Body() dto: TelegramChatsDto) {
+    return this.svc.listTelegramChats(dto.botToken);
   }
 
   @Post('alert')

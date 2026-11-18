@@ -234,6 +234,74 @@ export function telegramApiUrl(botToken: string): string {
   return `https://api.telegram.org/bot${encodeURI(botToken).replace(/%3A/gi, ':')}/sendMessage`;
 }
 
+/** 读取会话候选用的 getUpdates 地址；不带 offset，避免消费/确认服务端的更新队列。 */
+export function telegramGetUpdatesUrl(botToken: string, limit = 50): string {
+  const token = encodeURI(botToken).replace(/%3A/gi, ':');
+  return `https://api.telegram.org/bot${token}/getUpdates?limit=${Math.max(1, Math.min(100, Math.trunc(limit)))}`;
+}
+
+export interface TelegramChatCandidate {
+  id: string;
+  type: 'private' | 'group' | 'supergroup' | 'channel';
+  label: string;
+}
+
+const TG_CHAT_TYPES = ['private', 'group', 'supergroup', 'channel'] as const;
+
+/**
+ * 从 Telegram getUpdates 结果里提取可发送的会话 ID。
+ * 只回 id / 类型 / 展示名，绝不回消息正文，避免把用户聊天内容带进后台。
+ * 支持私聊文字、编辑消息、频道帖子，以及「把机器人拉进群」产生的 my_chat_member。
+ */
+export function extractTelegramChats(updates: unknown[], max = 20): TelegramChatCandidate[] {
+  if (!Array.isArray(updates)) return [];
+  const out: TelegramChatCandidate[] = [];
+  const seen = new Set<string>();
+  for (const raw of updates) {
+    if (!raw || typeof raw !== 'object') continue;
+    const update = raw as Record<string, unknown>;
+    const holders = [
+      update.message,
+      update.edited_message,
+      update.channel_post,
+      update.edited_channel_post,
+      update.my_chat_member,
+    ];
+    for (const holder of holders) {
+      if (!holder || typeof holder !== 'object') continue;
+      const chat = (holder as Record<string, unknown>).chat;
+      if (!chat || typeof chat !== 'object') continue;
+      const c = chat as Record<string, unknown>;
+      if (typeof c.id !== 'number' && typeof c.id !== 'string') continue;
+      const id = String(c.id);
+      if (!id || seen.has(id)) continue;
+      const type = TG_CHAT_TYPES.includes(c.type as (typeof TG_CHAT_TYPES)[number])
+        ? (c.type as TelegramChatCandidate['type'])
+        : 'private';
+      const name = [c.first_name, c.last_name].filter((v) => typeof v === 'string' && v).join(' ');
+      const label =
+        String(c.title ?? c.username ?? name ?? '').trim() || `会话 ${id}`;
+      seen.add(id);
+      out.push({ id, type, label });
+      if (out.length >= Math.max(1, max)) return out;
+    }
+  }
+  return out;
+}
+
+/** getUpdates 错误文案脱敏：token 与 URL 绝不外泄。 */
+export function redactTelegramError(error: unknown, token: string): string {
+  let msg = error instanceof Error ? error.message : String(error ?? '未知错误');
+  if (token) msg = msg.split(token).join('***');
+  msg = msg.replace(/bot\d+:[A-Za-z0-9_-]+/g, 'bot***:***');
+  if (/webhook/i.test(msg)) {
+    return '机器人处于 Webhook 模式，getUpdates 不可用。请先用 setWebhook 空参数解除 Webhook，或改用普通 Bot。';
+  }
+  if (/timed?\s*out|abort/i.test(msg)) return '请求 Telegram 超时，请稍后重试。';
+  if (/fetch failed|network|ENOTFOUND|ECONNRESET/i.test(msg)) return '无法连接 Telegram 服务，请检查服务器网络代理。';
+  return msg.slice(0, 300);
+}
+
 export function buildTaskNotifyText(
   status: string,
   opts: { id: string; taskType?: string | null; error?: string | null },

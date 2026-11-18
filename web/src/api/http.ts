@@ -443,6 +443,44 @@ export async function testNotification(
   }
 }
 
+export interface TelegramChatCandidate {
+  id: string;
+  type: 'private' | 'group' | 'supergroup' | 'channel';
+  label: string;
+}
+
+/** 获取 Telegram 机器人能收到的会话 ID（Token 仅本次请求使用，不入库不回显）。 */
+export async function fetchTelegramChats(
+  botToken?: string,
+  timeoutMs = 15_000,
+): Promise<{
+  ok: boolean;
+  chats: TelegramChatCandidate[];
+  error?: string;
+  hint?: string;
+}> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(`/${apiPrefix()}/notification/telegram/chats`, {
+      method: 'POST',
+      signal: controller.signal,
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...authHeader() },
+      body: JSON.stringify({ botToken: botToken || undefined }),
+    });
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return (await res.json()) as {
+      ok: boolean;
+      chats: TelegramChatCandidate[];
+      error?: string;
+      hint?: string;
+    };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /** 手动触发一次监控告警（需令牌）。 */
 export async function sendAlert(
   kind: NotificationAlertKind,
