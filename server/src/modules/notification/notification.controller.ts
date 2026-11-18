@@ -1,12 +1,14 @@
 import { Body, Controller, Get, Post, Put, UseGuards } from '@nestjs/common';
 import { AccessTokenGuard } from '../auth/guards/access-token.guard';
 import { NotificationService } from './notification.service';
+// 注意：DTO 必须做值导入（不能用 `import type`）。全局 ValidationPipe 依赖
+// design:paramtypes 拿到真实类；type-only 会被擦除成 Function，白名单会拒绝所有字段 → 400。
 import {
-  type SendAlertDto,
-  type SendTestDto,
-  type TelegramChatsDto,
-  type TelegramProbeDto,
-  type UpsertNotificationChannelsDto,
+  SendAlertDto,
+  SendTestDto,
+  TelegramChatsDto,
+  TelegramProbeDto,
+  UpsertNotificationChannelsDto,
 } from './dto/notification.dto';
 
 /**

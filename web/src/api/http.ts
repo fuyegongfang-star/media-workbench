@@ -107,6 +107,31 @@ function authHeader(): Record<string, string> {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
+/**
+ * 读取后端错误响应体并拼进错误信息。
+ * 背景：此前只抛 `HTTP 400`，NestJS ValidationPipe 的具体原因（如字段不在白名单）被吞掉，
+ * 导致 Telegram 配置保存/测试排障只能靠猜。这里只回显 message，不回显请求体中的密钥。
+ */
+async function apiError(res: Response): Promise<Error> {
+  let detail = '';
+  try {
+    const raw = await res.text();
+    if (raw) {
+      try {
+        const body = JSON.parse(raw) as { message?: string | string[]; error?: string };
+        const m = body?.message;
+        detail = Array.isArray(m) ? m.join('；') : typeof m === 'string' ? m : '';
+        if (!detail && body?.error) detail = String(body.error);
+      } catch {
+        detail = raw.slice(0, 300);
+      }
+    }
+  } catch {
+    // 响应体不可读时保留状态码
+  }
+  return new Error(`HTTP ${res.status}${detail ? ` · ${detail}` : ''}`);
+}
+
 /** 系统设置页状态总览（公开，只读非敏感信息）。 */
 export async function fetchSystemStatus(timeoutMs = 5000): Promise<SystemStatus> {
   const controller = new AbortController();
@@ -374,7 +399,7 @@ export async function fetchNotificationStatus(timeoutMs = 5000): Promise<Notific
       signal: controller.signal,
       headers: { Accept: 'application/json' },
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) throw await apiError(res);
     return (await res.json()) as NotificationStatus;
   } finally {
     clearTimeout(timer);
@@ -391,7 +416,7 @@ export async function fetchNotificationChannels(timeoutMs = 5000): Promise<Notif
       headers: { Accept: 'application/json', ...authHeader() },
     });
     if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) throw await apiError(res);
     return (await res.json()) as NotificationSettings;
   } finally {
     clearTimeout(timer);
@@ -413,7 +438,7 @@ export async function saveNotificationChannels(
       body: JSON.stringify(payload),
     });
     if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) throw await apiError(res);
     return (await res.json()) as NotificationSettings;
   } finally {
     clearTimeout(timer);
@@ -436,7 +461,7 @@ export async function testNotification(
       body: JSON.stringify({ type, text }),
     });
     if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) throw await apiError(res);
     return (await res.json()) as { type: string; ok: boolean; error?: string };
   } finally {
     clearTimeout(timer);
@@ -469,7 +494,7 @@ export async function fetchTelegramChats(
       body: JSON.stringify({ botToken: botToken || undefined }),
     });
     if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) throw await apiError(res);
     return (await res.json()) as {
       ok: boolean;
       chats: TelegramChatCandidate[];
@@ -496,7 +521,7 @@ export async function probeTelegram(
       body: JSON.stringify(input),
     });
     if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) throw await apiError(res);
     return (await res.json()) as { ok: boolean; error?: string };
   } finally {
     clearTimeout(timer);
@@ -519,7 +544,7 @@ export async function sendAlert(
       body: JSON.stringify({ kind, detail }),
     });
     if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) throw await apiError(res);
     return (await res.json()) as { type: string; ok: boolean; error?: string }[];
   } finally {
     clearTimeout(timer);
