@@ -255,7 +255,7 @@
       <span class="brand-sub">v0.1.0 · 重构中 · 离线快照</span>
     </div>
     <div class="nav-group">进展</div>
-    <div class="nav-item active" data-view="overview"><span class="nav-icon">▦</span><span class="nav-label">进展总览</span><span class="nav-phase">11-16</span></div>
+    <div class="nav-item active" data-view="overview"><span class="nav-icon">▦</span><span class="nav-label">进展总览</span><span class="nav-phase">11-18</span></div>
     <div class="nav-item" data-view="radar"><span class="nav-icon">⌖</span><span class="nav-label">选题雷达</span><span class="nav-phase">T6.1 新增</span></div>
     <div class="nav-group">业务界面（真实代码还原）</div>
     <div class="nav-item" data-view="dashboard"><span class="nav-icon">◧</span><span class="nav-label">工作台</span><span class="nav-phase">T1.1</span></div>
@@ -315,7 +315,7 @@
         <div class="section-title"><span class="bar"></span>关键指标</div>
         <div class="grid g4">
           <div class="kpi"><div class="num ok">34</div><div class="lbl">已完成功能项</div><div class="sub">T1.1–T1.10 / T2.1–T2.5 / T3.1–T3.11 / T4.1–T4.6 / T5.1–T5.2</div></div>
-          <div class="kpi"><div class="num blue">411</div><div class="lbl">单测全量通过</div><div class="sub">411 pass / 0 fail · 34 测试文件（T6.8 新增供应商测试 / 自定义源 / 通知渠道等）</div></div>
+          <div class="kpi"><div class="num blue">421</div><div class="lbl">单测全量通过</div><div class="sub">421 pass / 0 fail · 35 测试文件（11-18 新增 DTO 元数据回归，Telegram 400 根治）</div></div>
           <div class="kpi"><div class="num ok">T6.1</div><div class="lbl">选题雷达新增</div><div class="sub">11-16 手工开发：免费源采集 + 打分出标题 + 一键转选题 + LLM 供应商管理</div></div>
           <div class="kpi"><div class="num blue">T6.8</div><div class="lbl">投运整改 8 项</div><div class="sub">业务总览 · 使用教程 · 连通性测试 · 飞书/Telegram · 自定义数据源 · 正式文案</div></div>
         </div>
@@ -347,7 +347,7 @@
             <h3>构建与类型</h3>
             <div class="kv"><span>npm run typecheck（server + web tsc --noEmit）</span><b class="up">✓ 通过</b></div>
             <div class="kv"><span>npm run build（server tsc + web vite）</span><b class="up">✓ 通过 · vite 4.97s</b></div>
-            <div class="kv"><span>node --test server/test/*.test.mjs（34 文件）</span><b class="up">✓ 411/411 · 0 fail</b></div>
+            <div class="kv"><span>node --test server/test/*.test.mjs（35 文件）</span><b class="up">✓ 421/421 · 0 fail</b></div>
             <div class="kv"><span>prisma validate</span><b class="up">✓ schema valid</b></div>
             <div class="kv"><span>真实浏览器截图自查（T6.8 共 19 张）</span><b class="up">✓ 八项整改逐页 + 点击交互验证</b></div>
             <div class="kv"><span>web 产物</span><b>按路由懒加载拆分多 chunk + index</b></div>
@@ -366,6 +366,7 @@
 
         <div class="section-title"><span class="bar"></span>卡点与收尾说明</div>
         <div class="grid g3">
+          <div class="card"><h3>🟢 Telegram 400 根因已修复（11-18）</h3><p class="hint">不是 Token/Chat ID 问题：通知控制器把 DTO 写成 <code>import type</code>，编译后 <code>design:paramtypes=Function</code>，全局白名单把 <b>所有字段</b>都拒了。已改值导入 + 7 项回归测试 + 前端错误体透传；本地真发 Telegram 测试消息返回 <code>{"ok":true}</code>，会话列举也 201 成功。生产拉到 <code>6653864</code> 后点一次「一键更新」即可。</p></div>
           <div class="card"><h3>🟢 生产环境已就绪</h3><p class="hint">Ubuntu + Docker Compose 真机跑通：25 个迁移目录（含 0023 站点 SEO）、PG16 / Redis up、登录与用户管理端到端、镜像构建与健康检查。开发机仍无 Docker，本机只跑静态自验，不影响生产。</p></div>
           <div class="card"><h3>🟢 版本管理与在线更新</h3><p class="hint">GitHub 公开仓库 <code>fuyegongfang-star/media-workbench</code>，<code>main</code> + 基线 tag。后台「系统管理 → 版本与运维 → 一键更新」由独立 updater 容器拉代码、备份、重建 api/web，仅 owner 可触发。</p></div>
           <div class="card"><h3>🎨 T6.6 UI/UX 全盘梳理</h3><p class="hint">五类问题一次收敛：全局浅色设计系统、五组导航 + 系统管理二级菜单、设置中心六页分类、密钥集中到「AI 与密钥」、公开首页 + 注册 / 找回密码；清掉各业务页「开发/QA 访问令牌」面板。</p></div>
@@ -1080,7 +1081,7 @@
           <div class="card"><h3>工程自验</h3>
             <div class="kv"><span>npm run typecheck（server + web）</span><b class="up">✓ exit 0</b></div>
             <div class="kv"><span>npm run build（server tsc + web vite 4.97s）</span><b class="up">✓ exit 0</b></div>
-            <div class="kv"><span>node --test server/test/*.test.mjs（34 文件）</span><b class="up">✓ 411/411 · 0 fail</b></div>
+            <div class="kv"><span>node --test server/test/*.test.mjs（35 文件）</span><b class="up">✓ 421/421 · 0 fail</b></div>
             <div class="kv"><span>prisma validate</span><b class="up">✓ schema valid（25 个迁移目录不变）</b></div>
             <div class="kv"><span>模板区开发态文案扫描</span><b class="up">✓ 0 命中</b></div>
           </div>
