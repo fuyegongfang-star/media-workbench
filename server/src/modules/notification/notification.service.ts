@@ -24,9 +24,12 @@ import {
   formatFeishuPayload,
   formatTelegramPayload,
   formatWecomPayload,
+  isValidTelegramToken,
   maskChannel,
   mergeNotifications,
   mergeSensitiveChannels,
+  normalizeTelegramChatId,
+  normalizeTelegramToken,
   redactTelegramError,
   telegramApiUrl,
   telegramGetUpdatesUrl,
@@ -121,10 +124,16 @@ export class NotificationService implements OnModuleInit {
     chatId?: string;
     text?: string;
   }): Promise<{ ok: boolean; error?: string }> {
-    const token = String(input.botToken ?? '').trim();
-    const chatId = String(input.chatId ?? '').trim();
+    const token = normalizeTelegramToken(String(input.botToken ?? ''));
+    const chatId = normalizeTelegramChatId(String(input.chatId ?? ''));
     if (!token || !chatId) {
       return { ok: false, error: '请先填写 Bot Token 和 Chat ID 再测试。' };
+    }
+    if (!isValidTelegramToken(token)) {
+      return {
+        ok: false,
+        error: `Bot Token 格式不对：应为 <数字>:<35 位密钥>，当前密钥段 ${token.split(':')[1]?.length ?? 0} 位。请从 BotFather 完整重新复制。`,
+      };
     }
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 12_000);
@@ -145,7 +154,11 @@ export class NotificationService implements OnModuleInit {
         // 非 JSON 响应忽略
       }
       if (!res.ok || description) {
-        return { ok: false, error: `HTTP ${res.status}${description ? ` · ${description}` : ''}` };
+        const hint = this.telegramErrorHint(res.status, description);
+        return {
+          ok: false,
+          error: `HTTP ${res.status}${description ? ` · ${description}` : ''}${hint}`,
+        };
       }
       return { ok: true };
     } catch (e) {
@@ -235,6 +248,24 @@ export class NotificationService implements OnModuleInit {
     return results;
   }
 
+  /** 把 Telegram 官方错误码翻译成可操作的中文提示，避免用户只看到 400/401。 */
+  private telegramErrorHint(status: number, description: string): string {
+    const d = description.toLowerCase();
+    if (status === 401 || d.includes('unauthorized')) {
+      return '｜Token 无效：请从 BotFather 完整复制（密钥段固定 35 位），不要照截图手抄。';
+    }
+    if (d.includes('chat not found')) {
+      return '｜Chat ID 无效：先在 Telegram 给机器人发一条消息，再用「获取会话 ID」重新获取。';
+    }
+    if (d.includes('bot was blocked')) {
+      return '｜你已屏蔽机器人：在 Telegram 解除屏蔽后再试。';
+    }
+    if (status === 400) {
+      return '｜请求被官方拒绝：多为 Token 或 Chat ID 有误，请用「获取会话 ID」重新确认。';
+    }
+    return '';
+  }
+
   /** 单渠道发送（best-effort，异常计入 error，不抛出）。 */
   async sendChannel(ch: ChannelConfig, text: string): Promise<SendResult> {
     try {
@@ -297,16 +328,32 @@ export class NotificationService implements OnModuleInit {
         return { type: ch.type, ok: true };
       }
       if (ch.type === 'telegram') {
-        if (!ch.botToken || !ch.chatId) return { type: ch.type, ok: false, error: '缺少 Bot Token 或 Chat ID' };
-        const res = await fetch(telegramApiUrl(ch.botToken), {
+        const token = normalizeTelegramToken(ch.botToken ?? '');
+        const chatId = normalizeTelegramChatId(ch.chatId ?? '');
+        if (!token || !chatId) {
+          return { type: ch.type, ok: false, error: '缺少 Bot Token 或 Chat ID' };
+        }
+        if (!isValidTelegramToken(token)) {
+          return {
+            type: ch.type,
+            ok: false,
+            error: `Bot Token 格式不对（应为 <数字>:<35 位密钥>，当前密钥段 ${token.split(':')[1]?.length ?? 0} 位）。请从 BotFather 完整重新复制，不要照截图手抄。`,
+          };
+        }
+        const res = await fetch(telegramApiUrl(token), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(formatTelegramPayload(text, ch.chatId)),
+          body: JSON.stringify(formatTelegramPayload(text, chatId)),
         });
-        const data = (await res.json().catch(() => ({}))) as { ok?: boolean; description?: string };
+        const data = (await res.json().catch(() => ({}))) as {
+          ok?: boolean;
+          description?: string;
+          error_code?: number;
+        };
         if (!res.ok || data.ok === false) {
           const detail = data.description ? ` ${data.description}` : '';
-          return { type: ch.type, ok: false, error: `HTTP ${res.status}${detail}` };
+          const hint = this.telegramErrorHint(res.status, data.description ?? '');
+          return { type: ch.type, ok: false, error: `HTTP ${res.status}${detail}${hint}` };
         }
         return { type: ch.type, ok: true };
       }

@@ -229,9 +229,41 @@ export function formatTelegramPayload(text: string, chatId: string): Record<stri
   return { chat_id: chatId, text, disable_web_page_preview: true };
 }
 
+/**
+ * 清洗用户粘贴的 Telegram Bot Token。
+ * 常见误填：整段 getUpdates URL、bot 前缀、首尾空格。统一归一到 `<botId>:<35位密钥>`。
+ * 只做字符串变换，不校验真伪、不写日志。
+ */
+export function normalizeTelegramToken(input: string): string {
+  let s = String(input ?? '').trim();
+  // 情形：粘贴了整段 API URL，如 https://api.telegram.org/bot<token>/getUpdates
+  const fromUrl = s.match(/\/bot(\d{6,}:[A-Za-z0-9_-]{10,})/i);
+  if (fromUrl) s = fromUrl[1];
+  // 情形：手工补了 bot 前缀
+  if (/^bot\d+:/i.test(s)) s = s.slice(3);
+  return s.trim();
+}
+
+/** 标准 Telegram token 形态：数字 botId + 冒号 + 35 位密钥。 */
+export function isValidTelegramToken(input: string): boolean {
+  return /^\d{6,}:[A-Za-z0-9_-]{35}$/.test(normalizeTelegramToken(input));
+}
+
+/**
+ * 清洗 Chat ID：接受纯数字、@username、或误粘的 `chat.id=123` / JSON 片段。
+ * 数字会话（私聊 / 群组 / 频道）优先抽纯数字，避免带空格导致 400 chat not found。
+ */
+export function normalizeTelegramChatId(input: string): string {
+  const s = String(input ?? '').trim();
+  const numeric = s.match(/-?\d{5,}/);
+  if (numeric) return numeric[0];
+  return s.replace(/^@/, '').trim();
+}
+
 /** token 中可能含冒号，需原样拼进 URL path；只做基础合法性检查，不写日志。 */
 export function telegramApiUrl(botToken: string): string {
-  return `https://api.telegram.org/bot${encodeURI(botToken).replace(/%3A/gi, ':')}/sendMessage`;
+  const clean = normalizeTelegramToken(botToken);
+  return `https://api.telegram.org/bot${encodeURI(clean).replace(/%3A/gi, ':')}/sendMessage`;
 }
 
 /** 读取会话候选用的 getUpdates 地址；不带 offset，避免消费/确认服务端的更新队列。 */
