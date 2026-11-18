@@ -4,7 +4,13 @@ import { IsArray, IsIn, IsInt, IsObject, IsOptional, IsString, Max, MaxLength, M
 export class RadarConfigDto {
   @IsOptional()
   @IsArray()
-  niches?: Array<{ name: string; enabled?: boolean; keywords?: string[] }>;
+  niches?: Array<{
+    name: string;
+    enabled?: boolean;
+    /** 适用地区 domestic / overseas / both；服务层 normalizeNicheRegion 白名单清洗。 */
+    region?: string;
+    keywords?: string[];
+  }>;
 
   @IsOptional()
   @IsObject()

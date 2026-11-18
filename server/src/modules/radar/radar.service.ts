@@ -20,6 +20,8 @@ import {
   filterByFreshness,
   filterSeenAccounts,
   fingerprintOf,
+  keywordsByRegion,
+  nichesForRegion,
   normalizeHeat,
   parseRadarTitles,
   relevanceOf,
@@ -118,7 +120,8 @@ export class RadarService {
     if (Number.isNaN(runDate.getTime())) throw new Error(`非法采集日期：${dayKey}`);
 
     const cfg = await this.getConfig();
-    const keywords = cfg.niches.filter((n) => n.enabled).flatMap((n) => n.keywords);
+    // 按地区分发关键词：国内源只拿国内/通用赛道词，海外源只拿海外/通用赛道词。
+    const kwByRegion = keywordsByRegion(cfg.niches);
 
     // runDate 唯一 + 原子抢占：同日只允许一个执行实例（业务 worker 并发度 4，调度改时间也可能双触发）。
     // create 抢首次（并发下仅一个成功）；P2002 说明别人已建行 → success/running 都跳过，
@@ -158,7 +161,7 @@ export class RadarService {
       // 1) 采集：逐源降级（账号类采集器收到监控账号清单）
       const enabledCustom = cfg.customSources.filter((s) => s.enabled).length;
       const perSource = Math.max(20, Math.ceil(cfg.output.totalItems / Math.max(1, COLLECTOR_IDS.length + enabledCustom)));
-      const outcomes = await collectAll(cfg.sources, keywords, perSource, cfg.monitoredAccounts, cfg.customSources);
+      const outcomes = await collectAll(cfg.sources, kwByRegion, perSource, cfg.monitoredAccounts, cfg.customSources);
       const sourceStats: Record<string, { count: number; error?: string; deduped?: number; dropped?: number }> = {};
       const collected = outcomes.flatMap((o) => o.items);
 
@@ -202,25 +205,28 @@ export class RadarService {
       }
 
       // 2) 打分 + 去重（相关度为主，热度为辅）
+      // 每条先定地区，再只用「该地区 + 通用」赛道做归属与相关度计算：
+      // 国内中文赛道不会去抢 HN 英文条目，海外英文赛道也不会误配到头条中文热榜。
       const maxHeat = Math.max(1, ...raw.map((r) => Number(r.heat) || 0));
-      const nicheNames = cfg.niches.filter((n) => n.enabled);
       const customKeywords = new Map(cfg.customSources.map((s) => [`custom:${s.id}`, s.keywords]));
       const customRegion = new Map(cfg.customSources.map((s) => [`custom:${s.id}`, s.region]));
       const scored: ScoredCandidate[] = raw.map((r) => {
-        const niche = nicheNames.find((n) => n.keywords.some((k) => r.title.toLowerCase().includes(k.toLowerCase())));
+        const region = regionOfSource(r.sourceName, customRegion.get(r.sourceName));
+        const regionNiches = nichesForRegion(cfg.niches, region);
+        const regionKeywords = kwByRegion[region];
+        const niche = regionNiches.find((n) => n.keywords.some((k) => r.title.toLowerCase().includes(k.toLowerCase())));
         // 盯号与自定义源都是用户主动指定的来源，给 0.5 基础相关度，避免全部沉底；命中关键词仍按原逻辑加分。
         const isAccountSource = r.sourceName === 'x_account' || r.sourceName === 'youtube_account';
         const isCustomSource = r.sourceName.startsWith('custom:');
         const rawRelevance = relevanceOf(r.title, [
-          ...(niche?.keywords ?? keywords),
+          ...(niche?.keywords ?? regionKeywords),
           ...(customKeywords.get(r.sourceName) ?? []),
         ]);
         const relevance = isAccountSource || isCustomSource ? Math.max(0.5, rawRelevance) : rawRelevance;
         const heat01 = normalizeHeat(r.heat, maxHeat) / 100;
         return {
           ...r,
-          // 来源→地区自动归类：内置源查 SOURCE_REGION，自定义源取用户配置。
-          region: regionOfSource(r.sourceName, customRegion.get(r.sourceName)),
+          region,
           fingerprint: fingerprintOf(r.title),
           niche: niche?.name,
           relevance,

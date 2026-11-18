@@ -1,4 +1,4 @@
-import type { CollectorId, CustomSource, MonitoredAccounts, RadarCollector, RawCandidate } from '../radar.contract';
+import { SOURCE_REGION, type CollectorId, type CustomSource, type MonitoredAccounts, type RadarCollector, type RadarRegion, type RawCandidate } from '../radar.contract';
 import { collectCustomSources } from './custom-source.collector';
 import { BilibiliCollector, HnrssCollector, ToutiaoCollector } from './hotlist.collector';
 import { SogouWechatCollector } from './sogou-wechat.collector';
@@ -23,10 +23,14 @@ export interface CollectOutcome {
   error?: string;
 }
 
-/** 执行全部启用的采集器，逐源捕获错误并降级为 error 字段（单源失败不阻断整轮）。 */
+/**
+ * 执行全部启用的采集器，逐源捕获错误并降级为 error 字段（单源失败不阻断整轮）。
+ * keywordsByRegion：按内容地区分发的关键词表。国内源只拿国内/通用赛道词，
+ * 海外源只拿海外/通用赛道词，避免中文词去筛 HN 英文标题、英文词去筛头条中文热榜。
+ */
 export async function collectAll(
   enabled: Partial<Record<CollectorId, boolean>>,
-  keywords: string[],
+  keywordsByRegion: Record<RadarRegion, string[]>,
   perSourceLimit: number,
   accounts: MonitoredAccounts = { x: [], youtube: [] },
   customSources: CustomSource[] = [],
@@ -35,7 +39,7 @@ export async function collectAll(
   for (const id of COLLECTOR_IDS) {
     if (enabled[id] === false) continue;
     try {
-      const items = await COLLECTORS[id].collect(keywords, perSourceLimit, accounts);
+      const items = await COLLECTORS[id].collect(keywordsByRegion[SOURCE_REGION[id]] ?? [], perSourceLimit, accounts);
       const noAccounts = (id === 'x_account' && !accounts.x.length) || (id === 'youtube_account' && !accounts.youtube.length);
       results.push({
         source: id,

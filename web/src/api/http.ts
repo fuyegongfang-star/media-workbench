@@ -3474,6 +3474,8 @@ export async function getCostOverview(
 export interface RadarNiche {
   name: string;
   enabled: boolean;
+  /** 适用地区：domestic 国内源 / overseas 海外源 / both 通用（存量配置缺省值）。 */
+  region: 'domestic' | 'overseas' | 'both';
   keywords: string[];
 }
 

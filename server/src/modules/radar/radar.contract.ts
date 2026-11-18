@@ -11,6 +11,19 @@ export type CollectorId = 'toutiao' | 'bilibili' | 'hnrss' | 'sogou_wechat' | 'x
 export type RadarRegion = 'domestic' | 'overseas';
 
 /**
+ * 赛道适用地区：domestic 只服务国内源 / overseas 只服务海外源 / both 两边都参与。
+ * both 是存量赛道（没有 region 字段）的兼容值，保证升级后行为不变。
+ */
+export type NicheRegion = RadarRegion | 'both';
+
+/** 配置页下拉选项（与后端归一化白名单保持一致）。 */
+export const NICHE_REGION_OPTIONS = [
+  { value: 'domestic', label: '国内', hint: '只用于头条 / B站 / 公众号等国内源' },
+  { value: 'overseas', label: '海外', hint: '只用于 Hacker News / X / YouTube 等海外源' },
+  { value: 'both', label: '通用', hint: '国内外源都参与（存量赛道默认值）' },
+] as const;
+
+/**
  * 内置数据源 → 地区映射（单一事实源）。
  * 国内：头条 / B站 / 公众号搜狗；海外：Hacker News / X / YouTube。
  * 自定义源由用户在配置里指定 region（默认 domestic）。
@@ -93,6 +106,8 @@ export interface RadarCollector {
 export interface RadarNiche {
   name: string;
   enabled: boolean;
+  /** 适用地区；缺省/非法值由 sanitizeConfig 归一化为 both（兼容存量配置）。 */
+  region: NicheRegion;
   keywords: string[];
 }
 
@@ -119,11 +134,17 @@ export interface RadarConfig {
   customSources: CustomSource[];
 }
 
-/** 默认配置：与分享方案对齐，零 Key 可跑。 */
+/** 默认配置：与分享方案对齐，零 Key 可跑；赛道按国内/海外/通用分组，关键词各自语言匹配来源。 */
 export const DEFAULT_RADAR_CONFIG: RadarConfig = {
   niches: [
-    { name: '副业与网赚', enabled: true, keywords: ['副业', '网赚', '变现', '被动收入', '项目拆解', '私域', '引流'] },
-    { name: 'AI与效率工具', enabled: true, keywords: ['AI', 'AI工具', 'ChatGPT', '智能体', 'Agent', '自动化', 'AIGC', '提示词'] },
+    // 国内赛道：中文关键词，只喂给头条/B站/公众号
+    { name: '副业与网赚', enabled: true, region: 'domestic', keywords: ['副业', '网赚', '变现', '被动收入', '项目拆解', '私域', '引流'] },
+    { name: 'AI与效率工具', enabled: true, region: 'domestic', keywords: ['AI', 'AI工具', 'ChatGPT', '智能体', '自动化', 'AIGC', '提示词'] },
+    // 海外赛道：英文关键词，只喂给 Hacker News / X / YouTube
+    { name: 'Indie Hacker / 独立开发', enabled: true, region: 'overseas', keywords: ['indie hacker', 'side project', 'SaaS', 'bootstrapped', 'MRR', 'build in public', 'solopreneur'] },
+    { name: 'AI & Dev Tools', enabled: true, region: 'overseas', keywords: ['AI', 'LLM', 'open source', 'developer tools', 'agent', 'coding', 'startup'] },
+    // 通用赛道：两边都参与（示例，默认关闭）
+    { name: '重大产品发布（通用）', enabled: false, region: 'both', keywords: ['launch', '发布', 'release', '上线'] },
   ],
   sources: { toutiao: true, bilibili: true, hnrss: true, sogou_wechat: true, x_account: true, youtube_account: true },
   output: { totalItems: 20, featuredItems: 5, titlesPerItem: 3, saveToLibrary: true },

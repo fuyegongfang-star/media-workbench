@@ -126,27 +126,47 @@
       </p>
       <div class="config-grid">
         <div class="config-card">
-          <h3 class="config-title">赛道词库</h3>
-          <p class="hint">雷达拿这些词去各平台捞内容；可随时增删改，保存后下次采集生效。</p>
-          <div v-for="(n, ni) in config.niches" :key="ni" class="niche-block">
-            <div class="niche-head">
-              <input v-model="n.name" class="input" placeholder="赛道名" />
-              <label class="check"><input type="checkbox" v-model="n.enabled" /> 启用</label>
-              <button class="btn small ghost" @click="config.niches.splice(ni, 1)">删除</button>
+          <h3 class="config-title">赛道词库 <span class="pill">按国内外归集</span></h3>
+          <p class="hint">
+            国内赛道的关键词只用于国内源（头条/B站/公众号），海外赛道只用于海外源（HN/X/YouTube），
+            「通用」两边都参与。中文词筛不出英文标题，请按目标平台语言分别填词；存量赛道默认「通用」，可随时切换。
+          </p>
+          <div v-for="g in NICHE_GROUPS" :key="g.value" class="region-group niche-group">
+            <div class="region-label" :class="g.value">
+              {{ g.icon }} {{ g.label }}赛道
+              <span class="muted">· {{ nicheGroupKeywords(g.value).length }} 个关键词 · {{ nichesOf(g.value).length }} 个赛道</span>
             </div>
-            <input
-              :value="n.keywords.join(', ')"
-              class="input wide"
-              placeholder="关键词，逗号分隔"
-              @input="n.keywords = ($event.target as HTMLInputElement).value.split(',').map(s => s.trim()).filter(Boolean)"
-            />
+            <p class="hint" style="margin:0 0 8px">{{ g.hint }}</p>
+            <div v-for="n in nichesOf(g.value)" :key="n.key" class="niche-block">
+              <div class="niche-head">
+                <input v-model="n.name" class="input" placeholder="赛道名" style="flex:1;min-width:100px" />
+                <select v-model="n.region" class="input" style="width:92px" title="切换赛道适用地区">
+                  <option v-for="opt in NICHE_GROUPS" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+                </select>
+                <label class="check"><input type="checkbox" v-model="n.enabled" /> 启用</label>
+                <button class="btn small ghost" @click="removeNiche(n.key)">删除</button>
+              </div>
+              <input
+                :value="n.keywords.join(', ')"
+                class="input wide"
+                placeholder="关键词，逗号分隔（建议用目标平台语言）"
+                @input="n.keywords = ($event.target as HTMLInputElement).value.split(',').map(s => s.trim()).filter(Boolean)"
+              />
+            </div>
+            <p v-if="!nichesOf(g.value).length" class="hint muted" style="margin:0 0 8px">暂无该地区的赛道，可点击下方按钮添加。</p>
+            <button class="btn small" @click="addNiche(g.value)">+ 添加{{ g.label }}赛道</button>
           </div>
-          <button class="btn small" @click="config.niches.push({ name: '', enabled: true, keywords: [] })">+ 添加赛道</button>
+          <div class="niche-actions">
+            <button class="btn small ghost" :disabled="applyingPreset" @click="applyPreset">
+              {{ applyingPreset ? '应用中…' : '一键套用推荐词库（国内 2 组 + 海外 2 组 + 通用 1 组）' }}
+            </button>
+            <span class="hint">会替换当前赛道列表，套用后请点「保存配置」；适合快速起步或恢复默认。</span>
+          </div>
         </div>
 
         <div class="config-card">
           <h3 class="config-title">数据源 <span class="pill">按地区自动归类</span></h3>
-          <p class="hint">国内源进「国内赛道」，海外源进「海外赛道」，简报分栏展示。</p>
+          <p class="hint">国内源只用「国内 + 通用」赛道词采集，海外源只用「海外 + 通用」赛道词采集；简报按国内/海外分栏展示。</p>
           <div class="region-group">
             <div class="region-label domestic">🇨🇳 国内</div>
             <div class="checks">
@@ -259,7 +279,7 @@ import { computed, onMounted, reactive, ref } from 'vue';
 import {
   fetchRadarConfig, saveRadarConfig, triggerRadarCollect, fetchRadarBriefs, fetchRadarBrief,
   convertRadarItem, fetchRadarStatus, testRadarCustomSource,
-  type RadarConfig, type RadarBriefSummary, type RadarBriefDetail, type RadarItemView, type RadarStatus,
+  type RadarConfig, type RadarNiche, type RadarBriefSummary, type RadarBriefDetail, type RadarItemView, type RadarStatus,
   type RadarCustomSource,
 } from '../api/http';
 
@@ -270,6 +290,22 @@ const SOURCE_LABEL: Record<string, string> = {
 /** 内置源按地区分组（与后端 SOURCE_REGION 一致）。 */
 const DOMESTIC_SOURCES = ['toutiao', 'bilibili', 'sogou_wechat'];
 const OVERSEAS_SOURCES = ['hnrss', 'x_account', 'youtube_account'];
+
+type NicheRegion = RadarNiche['region'];
+/** 赛道按地区分组（与后端 NicheRegion / NICHE_REGION_OPTIONS 一致）。 */
+const NICHE_GROUPS: Array<{ value: NicheRegion; label: string; icon: string; hint: string }> = [
+  { value: 'domestic', label: '国内', icon: '🇨🇳', hint: '中文关键词 → 今日头条 / B站 / 公众号（搜狗）' },
+  { value: 'overseas', label: '海外', icon: '🌍', hint: '英文关键词 → Hacker News / X / YouTube' },
+  { value: 'both', label: '通用', icon: '🌐', hint: '两边源都参与；存量赛道升级后默认归到这里，可随时切换' },
+];
+/** 推荐词库：与后端 DEFAULT_RADAR_CONFIG.niches 保持一致，供「一键套用」。 */
+const PRESET_NICHES: RadarNiche[] = [
+  { name: '副业与网赚', enabled: true, region: 'domestic', keywords: ['副业', '网赚', '变现', '被动收入', '项目拆解', '私域', '引流'] },
+  { name: 'AI与效率工具', enabled: true, region: 'domestic', keywords: ['AI', 'AI工具', 'ChatGPT', '智能体', '自动化', 'AIGC', '提示词'] },
+  { name: 'Indie Hacker / 独立开发', enabled: true, region: 'overseas', keywords: ['indie hacker', 'side project', 'SaaS', 'bootstrapped', 'MRR', 'build in public', 'solopreneur'] },
+  { name: 'AI & Dev Tools', enabled: true, region: 'overseas', keywords: ['AI', 'LLM', 'open source', 'developer tools', 'agent', 'coding', 'startup'] },
+  { name: '重大产品发布（通用）', enabled: false, region: 'both', keywords: ['launch', '发布', 'release', '上线'] },
+];
 
 /** 相对时间：「刚刚 / N 分钟前 / N 小时前 / N 天前 / 具体日期」。 */
 function relativeTime(iso: string): string {
@@ -324,7 +360,12 @@ function groupByRegion(list: RadarItemView[]) {
 const featuredGroups = computed(() => groupByRegion(featured.value));
 const candidateGroups = computed(() => groupByRegion(candidates.value));
 
-const config = reactive<RadarConfig>({
+/** 赛道行附加一个纯前端的稳定 key（不入库，保存时剥离），保证切换地区/删除时渲染不错乱。 */
+type NicheRow = RadarNiche & { key: string };
+let nicheKeySeq = 0;
+const newNicheKey = () => `niche-${++nicheKeySeq}`;
+
+const config = reactive<Omit<RadarConfig, 'niches'> & { niches: NicheRow[] }>({
   niches: [],
   sources: {},
   output: { totalItems: 20, featuredItems: 5, titlesPerItem: 3, saveToLibrary: true },
@@ -334,6 +375,38 @@ const config = reactive<RadarConfig>({
   freshnessDays: 0,
   customSources: [],
 });
+const applyingPreset = ref(false);
+
+/** 取某地区的赛道（存量缺 region 时按 both 兼容）。 */
+function nichesOf(region: NicheRegion): NicheRow[] {
+  return config.niches.filter((n) => (n.region || 'both') === region);
+}
+/** 某地区已启用赛道的去重关键词，用于分组标题上的统计。 */
+function nicheGroupKeywords(region: NicheRegion): string[] {
+  const set = new Set<string>();
+  for (const n of nichesOf(region)) {
+    if (!n.enabled) continue;
+    for (const k of n.keywords) {
+      const kw = k.trim();
+      if (kw) set.add(kw.toLowerCase());
+    }
+  }
+  return [...set];
+}
+function addNiche(region: NicheRegion) {
+  config.niches.push({ key: newNicheKey(), name: '', enabled: true, region, keywords: [] });
+}
+function removeNiche(key: string) {
+  const i = config.niches.findIndex((n) => n.key === key);
+  if (i >= 0) config.niches.splice(i, 1);
+}
+function applyPreset() {
+  applyingPreset.value = true;
+  try {
+    config.niches = PRESET_NICHES.map((n) => ({ ...n, keywords: [...n.keywords], key: newNicheKey() }));
+    notify('已套用推荐词库（国内 2 组 + 海外 2 组 + 通用 1 组），请点「保存配置」生效');
+  } finally { applyingPreset.value = false; }
+}
 
 const testingSource = ref<number | null>(null);
 const sourceTest = reactive<Record<number, { ok: boolean; message: string }>>({});
@@ -388,9 +461,16 @@ async function loadConfig() {
     Object.assign(config, c);
     // 兼容旧实例：配置里还没有 customSources 时补空数组，避免模板 v-for 报错。
     if (!Array.isArray(config.customSources)) config.customSources = [];
-    // 兼容旧实例：自定义源缺 region / 配置缺 freshnessDays 时补默认值。
+    // 兼容旧实例：自定义源缺 region / 配置缺 freshnessDays / 赛道缺 region 时补默认值。
     for (const s of config.customSources) if (s.region !== 'overseas') s.region = 'domestic';
     if (config.freshnessDays === undefined || config.freshnessDays === null) config.freshnessDays = 0;
+    // 存量赛道没有 region（升级前存的），一律按「通用」兼容，行为不变；同时补前端稳定 key。
+    config.niches = (config.niches || []).map((n) => ({
+      ...n,
+      region: n.region === 'domestic' || n.region === 'overseas' || n.region === 'both' ? n.region : 'both',
+      keywords: Array.isArray(n.keywords) ? n.keywords : [],
+      key: newNicheKey(),
+    }));
   } catch (e) { notify(`配置加载失败：${(e as Error).message}`, true); }
 }
 
@@ -434,7 +514,13 @@ async function convert(item: RadarItemView) {
 async function saveConfig() {
   savingConfig.value = true;
   try {
-    const r = await saveRadarConfig(JSON.parse(JSON.stringify(config)) as RadarConfig);
+    // 深拷贝并剥离纯前端的 key 字段，只提交后端契约字段。
+    const cloned = JSON.parse(JSON.stringify(config)) as Omit<RadarConfig, 'niches'> & { niches: NicheRow[] };
+    const payload: RadarConfig = {
+      ...cloned,
+      niches: cloned.niches.map(({ key: _key, ...n }) => n),
+    };
+    const r = await saveRadarConfig(payload);
     scheduler.value = r.scheduler;
     notify('雷达配置已保存' + (r.scheduler.available ? '（定时已按新配置生效）' : '（队列未就绪，定时未生效）'));
   } catch (e) { notify(`保存失败：${(e as Error).message}`, true); }
@@ -510,7 +596,10 @@ onMounted(async () => {
 .test-ok { color: var(--ok, #16794b); }
 .test-err { color: var(--danger, #c0392b); }
 .niche-block { background: var(--panel, #1e2030); border: 1px solid var(--border, #2a2c3a); border-radius: 6px; padding: 10px; margin-bottom: 10px; }
-.niche-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.niche-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+.niche-group { border: 1px dashed var(--border, #2a2c3a); border-radius: 8px; padding: 10px; margin-bottom: 12px; }
+.niche-group .region-label.both { color: #7fb0ff; }
+.niche-actions { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; padding-top: 10px; border-top: 1px solid var(--border, #2a2c3a); }
 .input { background: var(--panel, #1e2030); border: 1px solid var(--border, #2a2c3a); color: var(--text, #e6e8ef); border-radius: 6px; padding: 7px 9px; font-size: 12px; outline: none; }
 .input:focus { border-color: var(--brand, #4f8cff); }
 .input.wide { width: 100%; }

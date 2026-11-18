@@ -3,7 +3,9 @@ import {
   FRESHNESS_OPTIONS,
   type CustomSource,
   type FreshnessDays,
+  type NicheRegion,
   type RadarConfig,
+  type RadarNiche,
   type RadarRegion,
   type ScoredCandidate,
 } from './radar.contract';
@@ -60,13 +62,60 @@ export function sanitizeCustomSources(input: unknown, max = 20): CustomSource[] 
   return out;
 }
 
+/**
+ * 赛道地区归一化：只接受 domestic / overseas / both，其余（含存量配置缺失该字段）一律 both。
+ * both 保证老配置升级后关键词仍同时服务国内外源，行为不变。
+ */
+export function normalizeNicheRegion(input: unknown): NicheRegion {
+  return input === 'domestic' || input === 'overseas' ? input : 'both';
+}
+
+/**
+ * 取适用于某个内容地区的赛道（已启用 + 地区匹配/通用）。
+ * 用于打分归属：国内条目只在国内/通用赛道里找，避免海外赛道串进来。
+ */
+export function nichesForRegion(niches: RadarNiche[], region: RadarRegion): RadarNiche[] {
+  return niches.filter((n) => n.enabled && (n.region === 'both' || n.region === region));
+}
+
+/**
+ * 汇总适用于某个内容地区的关键词（保序去重、去空）。
+ * 用于采集预筛：国内源只拿中文词，海外源只拿英文词，互不污染。
+ */
+export function keywordsForRegion(niches: RadarNiche[], region: RadarRegion): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const n of nichesForRegion(niches, region)) {
+    for (const k of n.keywords) {
+      const kw = String(k ?? '').trim();
+      if (!kw) continue;
+      const key = kw.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(kw);
+    }
+  }
+  return out;
+}
+
+/** 一次性构造两个地区的关键词表，供 collectAll 按源分发。 */
+export function keywordsByRegion(niches: RadarNiche[]): Record<RadarRegion, string[]> {
+  return {
+    domestic: keywordsForRegion(niches, 'domestic'),
+    overseas: keywordsForRegion(niches, 'overseas'),
+  };
+}
+
 /** 配置清洗：限制数组长度、过滤空串、条数夹在合理区间，防异常输入撑爆采集。 */
 export function sanitizeConfig(input: unknown): RadarConfig {
   const raw = (input && typeof input === 'object' ? input : {}) as Record<string, unknown>;
   const fallback = {
     niches: [
-      { name: '副业与网赚', enabled: true, keywords: ['副业', '网赚', '变现', '被动收入', '项目拆解', '私域', '引流'] },
-      { name: 'AI与效率工具', enabled: true, keywords: ['AI', 'AI工具', 'ChatGPT', '智能体', 'Agent', '自动化', 'AIGC', '提示词'] },
+      { name: '副业与网赚', enabled: true, region: 'domestic', keywords: ['副业', '网赚', '变现', '被动收入', '项目拆解', '私域', '引流'] },
+      { name: 'AI与效率工具', enabled: true, region: 'domestic', keywords: ['AI', 'AI工具', 'ChatGPT', '智能体', '自动化', 'AIGC', '提示词'] },
+      { name: 'Indie Hacker / 独立开发', enabled: true, region: 'overseas', keywords: ['indie hacker', 'side project', 'SaaS', 'bootstrapped', 'MRR', 'build in public', 'solopreneur'] },
+      { name: 'AI & Dev Tools', enabled: true, region: 'overseas', keywords: ['AI', 'LLM', 'open source', 'developer tools', 'agent', 'coding', 'startup'] },
+      { name: '重大产品发布（通用）', enabled: false, region: 'both', keywords: ['launch', '发布', 'release', '上线'] },
     ],
     sources: { toutiao: true, bilibili: true, hnrss: true, sogou_wechat: true, x_account: true, youtube_account: true },
     output: { totalItems: 20, featuredItems: 5, titlesPerItem: 3, saveToLibrary: true },
@@ -88,7 +137,12 @@ export function sanitizeConfig(input: unknown): RadarConfig {
         const o = n as Record<string, unknown>;
         const name = typeof o.name === 'string' ? o.name.trim().slice(0, 60) : '';
         if (!name) return [];
-        return [{ name, enabled: o.enabled !== false, keywords: strArray(o.keywords, 40) }];
+        return [{
+          name,
+          enabled: o.enabled !== false,
+          region: normalizeNicheRegion(o.region),
+          keywords: strArray(o.keywords, 40),
+        }];
       })
     : fallback.niches;
 
