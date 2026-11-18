@@ -21,7 +21,10 @@ export class TaskWorkerService implements OnModuleInit, OnModuleDestroy {
     private readonly handlers: TaskHandlerRegistry,
   ) {}
 
-  onModuleInit(): void {
+  async onModuleInit(): Promise<void> {
+    // 必须等队列探测完成再判断：NestJS 并发调用同模块各 provider 的 onModuleInit，
+    // 同步读取 available 会早于 probe 完成拿到 false，导致 Worker 永不启动、任务全堆积在 queued。
+    await this.queue.ready;
     if (!this.queue.available || !this.queue.connection) {
       this.logger.warn('Worker 未启动（Redis 不可用，待环境）');
       return;

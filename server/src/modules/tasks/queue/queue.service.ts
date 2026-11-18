@@ -20,26 +20,42 @@ export class TaskQueueService implements OnModuleInit, OnModuleDestroy {
   /** 队列是否可用（Redis 在线且队列已建）。 */
   available = false;
 
+  /**
+   * 队列探测完成的信号（无论成功或失败都 resolve）。
+   * 关键：NestJS 对同一模块内所有 provider 的 onModuleInit 用 Promise.all **并发**调用，
+   * TaskWorkerService 若在 onModuleInit 里同步读 available，会早于本探测完成而拿到 false，
+   * 导致 Worker 永不启动、所有任务堆积在 queued。改为 await 本 Promise 后再判断。
+   */
+  private readyResolve: () => void = () => {};
+  readonly ready = new Promise<void>((resolve) => {
+    this.readyResolve = resolve;
+  });
+
   constructor(private readonly config: ConfigService) {}
 
   async onModuleInit(): Promise<void> {
-    this.prefixValue = this.config.get<string>('BULLMQ_PREFIX') ?? 'media-workbench';
-    const connection = this.buildConnection();
-    this.connectionOptions = connection;
     try {
-      this.queue = new Queue(TASK_QUEUE_NAME, {
-        connection,
-        prefix: this.prefixValue,
-      });
-    } catch (error: unknown) {
-      this.available = false;
-      const msg = error instanceof Error ? error.message.split('\n')[0] : String(error);
-      this.logger.warn(`BullMQ 队列未就绪（待环境，不伪造通过）：${msg}`);
-      return;
+      this.prefixValue = this.config.get<string>('BULLMQ_PREFIX') ?? 'media-workbench';
+      const connection = this.buildConnection();
+      this.connectionOptions = connection;
+      try {
+        this.queue = new Queue(TASK_QUEUE_NAME, {
+          connection,
+          prefix: this.prefixValue,
+        });
+      } catch (error: unknown) {
+        this.available = false;
+        const msg = error instanceof Error ? error.message.split('\n')[0] : String(error);
+        this.logger.warn(`BullMQ 队列未就绪（待环境，不伪造通过）：${msg}`);
+        return;
+      }
+      // 真实连通性探测：BullMQ 构造是惰性连接，必须探测才能确认 Redis 在线（护栏：不伪造通过）。
+      // 用超时兜底，避免 Redis 缺失时无限重连阻塞启动。Nest 会 await 本钩子，确保 Worker 启动时 available 已确证。
+      await this.probe();
+    } finally {
+      // 无论成功/失败都放行等待者；Worker 依 available 自行决定是否启动。
+      this.readyResolve();
     }
-    // 真实连通性探测：BullMQ 构造是惰性连接，必须探测才能确认 Redis 在线（护栏：不伪造通过）。
-    // 用超时兜底，避免 Redis 缺失时无限重连阻塞启动。Nest 会 await 本钩子，确保 Worker 启动时 available 已确证。
-    await this.probe();
   }
 
   /** 探测 Redis 连通性，结果写入 available。非阻塞，结果稍后生效。 */

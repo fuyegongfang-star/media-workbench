@@ -1,9 +1,14 @@
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Queue, type Job } from 'bullmq';
-import { TASK_QUEUE_NAME } from '../tasks/queue/queue.service';
 import { RadarService } from './radar.service';
 
+/**
+ * 调度器专用队列：必须与业务任务队列 generation 物理隔离。
+ * 历史缺陷：调度 Worker 曾监听业务队列 generation，其 processor 对非 radar-trigger 的
+ * job 直接 return，导致用户点「立即采集」等所有业务 job 被吞、任务永远停在 queued。
+ */
+const SCHEDULER_QUEUE_NAME = 'radar-scheduler';
 /** 调度器专用 job（与业务任务 job 区分：jobId 固定，重复调度只保留一个）。 */
 const SCHEDULER_JOB_ID = 'radar-daily-schedule';
 const SCHEDULER_JOB_NAME = 'radar-trigger';
@@ -44,7 +49,7 @@ export class RadarSchedulerService implements OnModuleInit, OnModuleDestroy {
     } as import('bullmq').ConnectionOptions;
 
     try {
-      this.queue = new Queue(TASK_QUEUE_NAME, { connection, prefix });
+      this.queue = new Queue(SCHEDULER_QUEUE_NAME, { connection, prefix });
       await Promise.race([
         this.queue.waitUntilReady(),
         new Promise<never>((_, reject) => setTimeout(() => reject(new Error('redis probe timeout')), 2500)),
@@ -62,9 +67,9 @@ export class RadarSchedulerService implements OnModuleInit, OnModuleDestroy {
       // 消费调度 job：它只负责「触发」，真正的采集走 RADAR_COLLECT 任务链
       const { Worker } = await import('bullmq');
       this.worker = new Worker(
-        TASK_QUEUE_NAME,
+        SCHEDULER_QUEUE_NAME,
         async (job: Job) => {
-          if (job.name !== SCHEDULER_JOB_NAME) return; // 业务任务由 TaskWorkerService 处理
+          if (job.name !== SCHEDULER_JOB_NAME) return; // 本队列仅调度 job；业务任务走 generation 队列
           const payload = job.data as RadarSchedulePayload;
           this.logger.log(`雷达定时触发：${payload?.runDate ?? 'today'}`);
           await this.radar.triggerCollect();
