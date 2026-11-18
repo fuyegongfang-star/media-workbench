@@ -519,7 +519,12 @@
           </div>
           <div class="row" style="gap:8px;flex-wrap:wrap;margin:8px 0">
             <button class="btn small" :disabled="tgChatBusy" @click="loadTgChats">{{ tgChatBusy ? '获取中…' : '获取会话 ID' }}</button>
+            <button class="btn small ghost" :disabled="tgProbeBusy" @click="probeTgNow">{{ tgProbeBusy ? '发送中…' : '用上方值测试' }}</button>
           </div>
+          <p class="hint">「用上方值测试」直接拿当前输入框的 Token / Chat ID 发一条消息，不经保存，能看到 Telegram 原始报错。</p>
+          <p v-if="tgProbeResult" class="hint" :style="tgProbeResult.ok ? 'color:var(--ok,#16a34a)' : 'color:var(--danger)'">
+            {{ tgProbeResult.ok ? '✓' : '✕' }} {{ tgProbeResult.text }}
+          </p>
           <p v-if="tgChatError" class="hint" style="color:var(--danger)">{{ tgChatError }}{{ tgChatHint ? ` · ${tgChatHint}` : '' }}</p>
           <div v-if="tgChats.length" class="tg-chats">
             <button v-for="c in tgChats" :key="c.id" type="button" class="tg-chat" @click="pickTgChat(c)">
@@ -645,6 +650,7 @@ import {
   saveNotificationChannels,
   testNotification,
   fetchTelegramChats,
+  probeTelegram,
   sendAlert,
   type TelegramChatCandidate,
   type SiteSettingsView,
@@ -777,6 +783,8 @@ const tgChatError = ref('');
 const tgChatHint = ref('');
 const tgChatBusy = ref(false);
 const showTgHelp = ref(false);
+const tgProbeBusy = ref(false);
+const tgProbeResult = ref<{ ok: boolean; text: string } | null>(null);
 
 // ---- 用户管理（T6.4）----
 const users = ref<UserView[]>([]);
@@ -1408,6 +1416,25 @@ async function loadTgChats() {
 function pickTgChat(chat: TelegramChatCandidate) {
   notifForm.telegram.chatId = chat.id;
   notifyOk(`已填入 Chat ID ${chat.id}（${tgChatTypeLabel(chat.type)}），请点击本页「保存通知设置」。`);
+}
+
+/** 用上方当前填写的 Token/Chat ID 直发，暴露 Telegram 官方原始错误，便于定位保存后测试 400。 */
+async function probeTgNow() {
+  tgProbeBusy.value = true;
+  tgProbeResult.value = null;
+  try {
+    const r = await probeTelegram({
+      botToken: notifForm.telegram.botToken,
+      chatId: notifForm.telegram.chatId,
+    });
+    tgProbeResult.value = r.ok
+      ? { ok: true, text: '发送成功，Telegram 已收到测试消息。' }
+      : { ok: false, text: r.error ?? '未知错误' };
+  } catch (e) {
+    tgProbeResult.value = { ok: false, text: (e as Error).message };
+  } finally {
+    tgProbeBusy.value = false;
+  }
 }
 
 async function test(type: string) {

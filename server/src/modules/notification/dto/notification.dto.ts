@@ -118,6 +118,24 @@ export class TelegramChatsDto {
   botToken?: string;
 }
 
+/** 用表单当前填写的 Token/Chat ID 直发一条测试消息（不经已保存配置，便于定位）。 */
+export class TelegramProbeDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(512)
+  botToken?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(128)
+  chatId?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  text?: string;
+}
+
 /** 手动触发一次监控告警（如备份脚本失败后置此端点）。 */
 export class SendAlertDto {
   @IsIn(ALERT_KINDS)

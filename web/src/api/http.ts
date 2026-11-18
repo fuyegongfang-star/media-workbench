@@ -481,6 +481,28 @@ export async function fetchTelegramChats(
   }
 }
 
+/** 用表单当前 Token/Chat ID 直发测试消息，返回 Telegram 官方错误原文（需令牌）。 */
+export async function probeTelegram(
+  input: { botToken?: string; chatId?: string; text?: string },
+  timeoutMs = 15_000,
+): Promise<{ ok: boolean; error?: string }> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(`/${apiPrefix()}/notification/telegram/probe`, {
+      method: 'POST',
+      signal: controller.signal,
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...authHeader() },
+      body: JSON.stringify(input),
+    });
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return (await res.json()) as { ok: boolean; error?: string };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /** 手动触发一次监控告警（需令牌）。 */
 export async function sendAlert(
   kind: NotificationAlertKind,

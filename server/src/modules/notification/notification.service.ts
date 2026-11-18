@@ -111,6 +111,50 @@ export class NotificationService implements OnModuleInit {
    * 用户只需先在 Telegram 里给机器人发一条消息 / 把它拉进群；Token 用表单明文或已保存的解密值。
    * 不写库、不回显 Token、不返回消息正文；错误全部脱敏。
    */
+  /**
+   * 用表单当前填写的 Token/Chat ID 直发一条测试消息，绕过「已保存→解密」链路。
+   * 目的：当用户保存后测试报 400 时，能直接暴露 Telegram 官方原始 description，快速定位。
+   * Token 仅在本次请求内存使用，错误与日志均脱敏。
+   */
+  async probeTelegram(input: {
+    botToken?: string;
+    chatId?: string;
+    text?: string;
+  }): Promise<{ ok: boolean; error?: string }> {
+    const token = String(input.botToken ?? '').trim();
+    const chatId = String(input.chatId ?? '').trim();
+    if (!token || !chatId) {
+      return { ok: false, error: '请先填写 Bot Token 和 Chat ID 再测试。' };
+    }
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 12_000);
+    try {
+      const text = String(input.text ?? '').trim() || `[自媒体工作台] 连通性测试 @ ${new Date().toISOString()}`;
+      const res = await fetch(telegramApiUrl(token), {
+        method: 'POST',
+        signal: controller.signal,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formatTelegramPayload(text, chatId)),
+      });
+      const body = (await res.text()).slice(0, 20_000);
+      let description = '';
+      try {
+        const parsed = JSON.parse(body) as { description?: string };
+        if (typeof parsed.description === 'string') description = parsed.description;
+      } catch {
+        // 非 JSON 响应忽略
+      }
+      if (!res.ok || description) {
+        return { ok: false, error: `HTTP ${res.status}${description ? ` · ${description}` : ''}` };
+      }
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, error: redactTelegramError(e, token) };
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
   async listTelegramChats(plainToken?: string): Promise<{
     ok: boolean;
     chats: TelegramChatCandidate[];
