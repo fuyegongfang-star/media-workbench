@@ -69,7 +69,19 @@ export class HnrssCollector extends BaseHotCollector {
       const title = decodeEntities(block.match(/<title>([\s\S]*?)<\/title>/)?.[1] ?? '');
       const url = decodeEntities(block.match(/<link>([\s\S]*?)<\/link>/)?.[1] ?? '');
       const pts = Number(decodeEntities(block.match(/<score>([\s\S]*?)<\/score>/)?.[1] ?? '')) || 0;
-      return title ? [{ title, url: url || undefined, heat: pts, sourceName: this.id, sourceType: 'rss' as const }] : [];
+      // HN RSS 带 pubDate（如 "Wed, 18 Nov 2026 07:10:46 +0000"），供时效过滤使用。
+      const pubRaw = decodeEntities(block.match(/<pubDate>([\s\S]*?)<\/pubDate>/)?.[1] ?? '');
+      const pubMs = pubRaw ? Date.parse(pubRaw) : NaN;
+      return title
+        ? [{
+            title,
+            url: url || undefined,
+            heat: pts,
+            sourceName: this.id,
+            sourceType: 'rss' as const,
+            ...(Number.isFinite(pubMs) ? { publishedAt: new Date(pubMs).toISOString() } : {}),
+          }]
+        : [];
     });
   }
 }

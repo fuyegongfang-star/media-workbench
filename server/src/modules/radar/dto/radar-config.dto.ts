@@ -37,6 +37,13 @@ export class RadarConfigDto {
   @Max(90)
   accountDedupeDays?: number;
 
+  /** 时效窗口（天）：0/1/3/7/15；服务层只接受预设档位。 */
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(15)
+  freshnessDays?: number;
+
   /** 自定义 RSS / JSON 数据源；服务层 sanitizeCustomSources 会再次白名单清洗。 */
   @IsOptional()
   @IsArray()
@@ -47,6 +54,7 @@ export class RadarConfigDto {
     format?: string;
     enabled?: boolean;
     keywords?: string[];
+    region?: string;
   }>;
 }
 

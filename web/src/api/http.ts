@@ -3484,6 +3484,7 @@ export interface RadarCustomSource {
   format: 'rss' | 'json';
   enabled: boolean;
   keywords: string[];
+  region: 'domestic' | 'overseas';
 }
 
 export interface RadarConfig {
@@ -3493,6 +3494,7 @@ export interface RadarConfig {
   schedule: { enabled: boolean; time: string; timezone: string };
   monitoredAccounts: { x: string[]; youtube: string[] };
   accountDedupeDays: number;
+  freshnessDays: number;
   customSources: RadarCustomSource[];
 }
 
@@ -3518,6 +3520,8 @@ export interface RadarItemView {
   angle: string | null;
   sourceUrl: string | null;
   sourceName: string;
+  region: 'domestic' | 'overseas';
+  publishedAt: string | null;
   niche: string | null;
   score: number | null;
   relevance: number | null;

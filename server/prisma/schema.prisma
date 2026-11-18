@@ -712,12 +712,17 @@ model RadarItem {
   relevance   Float?    // 赛道相关度（0-1）
   score       Float?    // 综合排序分
   tier        String    @default("candidate") // featured / candidate
+  /** 内容地区：domestic 国内 / overseas 海外，按数据源自动归类，供简报分栏。 */
+  region      String    @default("domestic") @map("region")
+  /** 来源发布时间（ISO 字符串解析后的 UTC 时间）；热榜类无精确时间则为空。 */
+  publishedAt DateTime? @map("published_at")
   titles      Json      @default("[]") // LLM 生成的候选标题 [{text,basis,score}]
   rank        Int       @default(0) // 简报内序号
   convertedTopicId String? @map("converted_topic_id") // 一键转选题后的 Topic.id
   createdAt   DateTime  @default(now()) @map("created_at")
 
   @@index([runId, tier, rank])
+  @@index([runId, region])
   @@index([fingerprint])
   @@map("radar_items")
 }

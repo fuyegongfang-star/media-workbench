@@ -7,7 +7,9 @@ import { LlmProviderService } from '../generation/llm-provider.service';
 import { COLLECTOR_IDS, collectAll } from './collectors';
 import {
   DEFAULT_RADAR_CONFIG,
+  regionOfSource,
   type RadarConfig,
+  type RadarRegion,
   type RadarTitle,
   type ScoredCandidate,
 } from './radar.contract';
@@ -15,6 +17,7 @@ import {
   accountDedupeKey,
   dedupeAndRank,
   fallbackTitles,
+  filterByFreshness,
   filterSeenAccounts,
   fingerprintOf,
   normalizeHeat,
@@ -42,6 +45,8 @@ export interface RadarBriefDetail extends RadarBriefSummary {
     angle: string | null;
     sourceUrl: string | null;
     sourceName: string;
+    region: RadarRegion;
+    publishedAt: string | null;
     niche: string | null;
     score: number | null;
     relevance: number | null;
@@ -154,7 +159,7 @@ export class RadarService {
       const enabledCustom = cfg.customSources.filter((s) => s.enabled).length;
       const perSource = Math.max(20, Math.ceil(cfg.output.totalItems / Math.max(1, COLLECTOR_IDS.length + enabledCustom)));
       const outcomes = await collectAll(cfg.sources, keywords, perSource, cfg.monitoredAccounts, cfg.customSources);
-      const sourceStats: Record<string, { count: number; error?: string; deduped?: number }> = {};
+      const sourceStats: Record<string, { count: number; error?: string; deduped?: number; dropped?: number }> = {};
       const collected = outcomes.flatMap((o) => o.items);
 
       // 1.5) 盯号跨轮增量去重：查窗口内历史条目的去重键，只保留未推送过的盯号内容。
@@ -175,6 +180,15 @@ export class RadarService {
         }
         this.logger.log(`盯号增量去重：窗口 ${cfg.accountDedupeDays} 天，历史键 ${seen.size} 个，过滤 ${before - raw.length} 条`);
       }
+
+      // 1.6) 时效过滤：按来源发布时间窗口裁剪（配置 freshnessDays）。
+      //      无发布时间的条目（热榜类）保留并标「时间未知」，避免国内源被清空。
+      const freshness = filterByFreshness(raw, cfg.freshnessDays);
+      raw = freshness.kept;
+      if (cfg.freshnessDays > 0) {
+        this.logger.log(`时效过滤：窗口 ${cfg.freshnessDays} 天，剔除过期 ${freshness.droppedByTime} 条，保留 ${raw.length} 条（含时间未知项）`);
+      }
+
       for (const o of outcomes) {
         const afterCount = raw.filter((it) => it.sourceName === o.source).length;
         sourceStats[o.source] = {
@@ -183,11 +197,15 @@ export class RadarService {
           ...(dedupedCount[o.source] ? { deduped: dedupedCount[o.source] } : {}),
         };
       }
+      if (cfg.freshnessDays > 0 && freshness.droppedByTime > 0) {
+        sourceStats['_freshness'] = { count: 0, dropped: freshness.droppedByTime };
+      }
 
       // 2) 打分 + 去重（相关度为主，热度为辅）
       const maxHeat = Math.max(1, ...raw.map((r) => Number(r.heat) || 0));
       const nicheNames = cfg.niches.filter((n) => n.enabled);
       const customKeywords = new Map(cfg.customSources.map((s) => [`custom:${s.id}`, s.keywords]));
+      const customRegion = new Map(cfg.customSources.map((s) => [`custom:${s.id}`, s.region]));
       const scored: ScoredCandidate[] = raw.map((r) => {
         const niche = nicheNames.find((n) => n.keywords.some((k) => r.title.toLowerCase().includes(k.toLowerCase())));
         // 盯号与自定义源都是用户主动指定的来源，给 0.5 基础相关度，避免全部沉底；命中关键词仍按原逻辑加分。
@@ -201,6 +219,8 @@ export class RadarService {
         const heat01 = normalizeHeat(r.heat, maxHeat) / 100;
         return {
           ...r,
+          // 来源→地区自动归类：内置源查 SOURCE_REGION，自定义源取用户配置。
+          region: regionOfSource(r.sourceName, customRegion.get(r.sourceName)),
           fingerprint: fingerprintOf(r.title),
           niche: niche?.name,
           relevance,
@@ -242,6 +262,11 @@ export class RadarService {
             sourceUrl: item.url ?? null,
             sourceName: item.sourceName,
             sourceType: item.sourceType,
+            region: item.region,
+            publishedAt: item.publishedAt ? (() => {
+              const ms = Date.parse(item.publishedAt as string);
+              return Number.isFinite(ms) ? new Date(ms) : null;
+            })() : null,
             niche: item.niche ?? null,
             heat: item.heat ?? null,
             relevance: item.relevance,
@@ -303,6 +328,8 @@ export class RadarService {
         angle: i.angle,
         sourceUrl: i.sourceUrl,
         sourceName: i.sourceName,
+        region: (i.region as RadarRegion) ?? 'domestic',
+        publishedAt: i.publishedAt ? i.publishedAt.toISOString() : null,
         niche: i.niche,
         score: i.score,
         relevance: i.relevance,

@@ -39,43 +39,58 @@
           </div>
         </div>
 
-        <div v-if="featured.length" class="section-title">🔥 今日主推（{{ featured.length }}）</div>
-        <article v-for="item in featured" :key="item.id" class="item featured">
-          <div class="item-top">
-            <span class="rank">#{{ item.rank }}</span>
-            <a v-if="item.sourceUrl" :href="item.sourceUrl" target="_blank" rel="noopener" class="item-title link">{{ item.title }}</a>
-            <span v-else class="item-title">{{ item.title }}</span>
-            <span class="score">相关度 {{ Math.round((item.relevance || 0) * 100) }}%</span>
+        <!-- 主推：按国内 / 海外分栏 -->
+        <template v-for="g in featuredGroups" :key="'f-' + g.region">
+          <div v-if="g.items.length" class="section-title">
+            {{ g.region === 'domestic' ? '🇨🇳 国内主推' : '🌍 海外主推' }}（{{ g.items.length }}）
           </div>
-          <p class="angle">{{ item.angle }}</p>
-          <div class="title-list">
-            <div v-for="(t, i) in item.titles" :key="i" class="title-line">
-              <span class="title-text">{{ t.text }}</span>
-              <span v-if="t.basis" class="basis">{{ t.basis }}</span>
+          <article v-for="item in g.items" :key="item.id" class="item featured">
+            <div class="item-top">
+              <span class="rank">#{{ item.rank }}</span>
+              <a v-if="item.sourceUrl" :href="item.sourceUrl" target="_blank" rel="noopener" class="item-title link">{{ item.title }}</a>
+              <span v-else class="item-title">{{ item.title }}</span>
+              <span class="score">相关度 {{ Math.round((item.relevance || 0) * 100) }}%</span>
             </div>
-          </div>
-          <div class="item-foot">
-            <span class="src-tag">{{ SOURCE_LABEL[item.sourceName] || item.sourceName }}</span>
-            <span v-if="item.niche" class="niche-tag">{{ item.niche }}</span>
-            <button class="btn small" :disabled="!!item.convertedTopicId || converting === item.id" @click="convert(item)">
-              {{ item.convertedTopicId ? '已转选题' : converting === item.id ? '转换中…' : '一键转选题' }}
-            </button>
-          </div>
-        </article>
-
-        <div v-if="candidates.length" class="section-title">📦 备选池（{{ candidates.length }}）</div>
-        <div class="candidate-grid">
-          <article v-for="item in candidates" :key="item.id" class="item candidate">
-            <a v-if="item.sourceUrl" :href="item.sourceUrl" target="_blank" rel="noopener" class="item-title link">{{ item.title }}</a>
-            <span v-else class="item-title">{{ item.title }}</span>
-            <div class="candidate-foot">
+            <p class="angle">{{ item.angle }}</p>
+            <div class="title-list">
+              <div v-for="(t, i) in item.titles" :key="i" class="title-line">
+                <span class="title-text">{{ t.text }}</span>
+                <span v-if="t.basis" class="basis">{{ t.basis }}</span>
+              </div>
+            </div>
+            <div class="item-foot">
+              <span class="region-tag" :class="item.region">{{ item.region === 'domestic' ? '国内' : '海外' }}</span>
+              <span v-if="item.publishedAt" class="time-tag" :title="fullTime(item.publishedAt)">🕒 {{ relativeTime(item.publishedAt) }}</span>
+              <span v-else class="time-tag muted">时间未知</span>
               <span class="src-tag">{{ SOURCE_LABEL[item.sourceName] || item.sourceName }}</span>
-              <button class="btn small ghost" :disabled="!!item.convertedTopicId || converting === item.id" @click="convert(item)">
-                {{ item.convertedTopicId ? '已转' : '转选题' }}
+              <span v-if="item.niche" class="niche-tag">{{ item.niche }}</span>
+              <button class="btn small" :disabled="!!item.convertedTopicId || converting === item.id" @click="convert(item)">
+                {{ item.convertedTopicId ? '已转选题' : converting === item.id ? '转换中…' : '一键转选题' }}
               </button>
             </div>
           </article>
-        </div>
+        </template>
+
+        <!-- 备选池：按国内 / 海外分栏 -->
+        <template v-for="g in candidateGroups" :key="'c-' + g.region">
+          <div v-if="g.items.length" class="section-title">
+            {{ g.region === 'domestic' ? '🇨🇳 国内备选' : '🌍 海外备选' }}（{{ g.items.length }}）
+          </div>
+          <div class="candidate-grid">
+            <article v-for="item in g.items" :key="item.id" class="item candidate">
+              <a v-if="item.sourceUrl" :href="item.sourceUrl" target="_blank" rel="noopener" class="item-title link">{{ item.title }}</a>
+              <span v-else class="item-title">{{ item.title }}</span>
+              <div class="candidate-foot">
+                <span class="region-tag small" :class="item.region">{{ item.region === 'domestic' ? '国内' : '海外' }}</span>
+                <span v-if="item.publishedAt" class="time-tag muted" :title="fullTime(item.publishedAt)">{{ relativeTime(item.publishedAt) }}</span>
+                <span class="src-tag">{{ SOURCE_LABEL[item.sourceName] || item.sourceName }}</span>
+                <button class="btn small ghost" :disabled="!!item.convertedTopicId || converting === item.id" @click="convert(item)">
+                  {{ item.convertedTopicId ? '已转' : '转选题' }}
+                </button>
+              </div>
+            </article>
+          </div>
+        </template>
       </template>
       <div v-else class="empty">
         <p>还没有简报。点右上角「立即采集」跑一次，或到「雷达配置」开启定时。</p>
@@ -130,12 +145,38 @@
         </div>
 
         <div class="config-card">
-          <h3 class="config-title">数据源</h3>
-          <div class="checks">
-            <label v-for="(label, key) in SOURCE_LABEL" :key="key" class="check">
-              <input type="checkbox" v-model="config.sources[key]" /> {{ label }}
-            </label>
+          <h3 class="config-title">数据源 <span class="pill">按地区自动归类</span></h3>
+          <p class="hint">国内源进「国内赛道」，海外源进「海外赛道」，简报分栏展示。</p>
+          <div class="region-group">
+            <div class="region-label domestic">🇨🇳 国内</div>
+            <div class="checks">
+              <label v-for="key in DOMESTIC_SOURCES" :key="key" class="check">
+                <input type="checkbox" v-model="config.sources[key]" /> {{ SOURCE_LABEL[key] }}
+              </label>
+            </div>
           </div>
+          <div class="region-group">
+            <div class="region-label overseas">🌍 海外</div>
+            <div class="checks">
+              <label v-for="key in OVERSEAS_SOURCES" :key="key" class="check">
+                <input type="checkbox" v-model="config.sources[key]" /> {{ SOURCE_LABEL[key] }}
+              </label>
+            </div>
+          </div>
+
+          <h3 class="config-title" style="margin-top:18px">内容时效</h3>
+          <div class="field">
+            <label>只采集发布时间在</label>
+            <select v-model.number="config.freshnessDays" class="input">
+              <option :value="0">不限时间</option>
+              <option :value="1">当天</option>
+              <option :value="3">三天内</option>
+              <option :value="7">一周内</option>
+              <option :value="15">半个月内</option>
+            </select>
+          </div>
+          <p class="hint">按来源发布时间过滤；头条/B站等热榜无精确时间，会保留并标注「时间未知」，不会被误删。</p>
+
           <h3 class="config-title" style="margin-top:18px">输出</h3>
           <div class="field"><label>每日总条数</label><input v-model.number="config.output.totalItems" class="input" type="number" min="5" max="100" /></div>
           <div class="field"><label>其中主推条数</label><input v-model.number="config.output.featuredItems" class="input" type="number" min="1" max="20" /></div>
@@ -181,6 +222,10 @@
               <option value="rss">RSS / Atom</option>
               <option value="json">JSON</option>
             </select>
+            <select v-model="s.region" class="input" style="width:110px" title="该地区的内容在简报里归入对应分栏">
+              <option value="domestic">国内</option>
+              <option value="overseas">海外</option>
+            </select>
             <button class="btn small ghost" :disabled="testingSource === si" @click="testSource(s, si)">
               {{ testingSource === si ? '测试中…' : '测试' }}
             </button>
@@ -222,6 +267,33 @@ const SOURCE_LABEL: Record<string, string> = {
   toutiao: '今日头条', bilibili: 'B站', hnrss: 'Hacker News', sogou_wechat: '公众号(搜狗)',
   x_account: 'X 监控账号', youtube_account: 'YouTube 监控频道',
 };
+/** 内置源按地区分组（与后端 SOURCE_REGION 一致）。 */
+const DOMESTIC_SOURCES = ['toutiao', 'bilibili', 'sogou_wechat'];
+const OVERSEAS_SOURCES = ['hnrss', 'x_account', 'youtube_account'];
+
+/** 相对时间：「刚刚 / N 分钟前 / N 小时前 / N 天前 / 具体日期」。 */
+function relativeTime(iso: string): string {
+  const ms = Date.parse(iso);
+  if (!Number.isFinite(ms)) return '时间未知';
+  const diff = Date.now() - ms;
+  if (diff < 0) return '刚刚';
+  const min = Math.floor(diff / 60000);
+  if (min < 1) return '刚刚';
+  if (min < 60) return `${min} 分钟前`;
+  const hour = Math.floor(min / 60);
+  if (hour < 24) return `${hour} 小时前`;
+  const day = Math.floor(hour / 24);
+  if (day < 30) return `${day} 天前`;
+  return new Date(ms).toISOString().slice(0, 10);
+}
+/** 完整时间（title 悬浮提示），显示到分钟，按本地时区。 */
+function fullTime(iso: string): string {
+  const ms = Date.parse(iso);
+  if (!Number.isFinite(ms)) return '';
+  const d = new Date(ms);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
 
 const tabs = [
   { key: 'today', label: '今日简报' },
@@ -242,6 +314,15 @@ const briefs = ref<RadarBriefSummary[]>([]);
 const brief = ref<RadarBriefDetail | null>(null);
 const featured = computed(() => (brief.value?.items || []).filter((i) => i.tier === 'featured'));
 const candidates = computed(() => (brief.value?.items || []).filter((i) => i.tier !== 'featured'));
+/** 按地区分栏：国内在前、海外在后，空组不渲染（模板里用 v-if 控制）。 */
+function groupByRegion(list: RadarItemView[]) {
+  return (['domestic', 'overseas'] as const).map((region) => ({
+    region,
+    items: list.filter((i) => (i.region || 'domestic') === region),
+  }));
+}
+const featuredGroups = computed(() => groupByRegion(featured.value));
+const candidateGroups = computed(() => groupByRegion(candidates.value));
 
 const config = reactive<RadarConfig>({
   niches: [],
@@ -250,6 +331,7 @@ const config = reactive<RadarConfig>({
   schedule: { enabled: false, time: '08:00', timezone: 'Asia/Shanghai' },
   monitoredAccounts: { x: [], youtube: [] },
   accountDedupeDays: 7,
+  freshnessDays: 0,
   customSources: [],
 });
 
@@ -264,6 +346,7 @@ function addCustomSource() {
     format: 'rss',
     enabled: true,
     keywords: [],
+    region: 'domestic',
   } as RadarCustomSource);
 }
 
@@ -305,6 +388,9 @@ async function loadConfig() {
     Object.assign(config, c);
     // 兼容旧实例：配置里还没有 customSources 时补空数组，避免模板 v-for 报错。
     if (!Array.isArray(config.customSources)) config.customSources = [];
+    // 兼容旧实例：自定义源缺 region / 配置缺 freshnessDays 时补默认值。
+    for (const s of config.customSources) if (s.region !== 'overseas') s.region = 'domestic';
+    if (config.freshnessDays === undefined || config.freshnessDays === null) config.freshnessDays = 0;
   } catch (e) { notify(`配置加载失败：${(e as Error).message}`, true); }
 }
 
@@ -392,6 +478,12 @@ onMounted(async () => {
 .item-foot, .candidate-foot { display: flex; align-items: center; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
 .src-tag, .niche-tag { font-size: 11px; padding: 2px 8px; border-radius: 4px; background: var(--border, #2a2c3a); color: var(--side-text, #9aa3b2); }
 .niche-tag { background: rgba(79, 140, 255, 0.16); color: #7fb0ff; }
+.region-tag { font-size: 11px; padding: 2px 8px; border-radius: 4px; font-weight: 600; }
+.region-tag.domestic { background: rgba(231, 76, 60, 0.16); color: #ff8b7a; }
+.region-tag.overseas { background: rgba(46, 204, 113, 0.14); color: #5fd39a; }
+.region-tag.small { font-size: 10px; padding: 1px 6px; }
+.time-tag { font-size: 11px; color: var(--side-text, #9aa3b2); }
+.time-tag.muted { opacity: 0.75; }
 .candidate-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px; }
 .item.candidate { margin-bottom: 0; }
 .btn { background: var(--panel, #1e2030); border: 1px solid var(--border, #2a2c3a); color: var(--text, #e6e8ef); border-radius: 6px; padding: 7px 12px; cursor: pointer; font-size: 12px; }
@@ -425,6 +517,10 @@ onMounted(async () => {
 .field { margin-bottom: 10px; }
 .field label { display: block; font-size: 11px; color: var(--side-text, #9aa3b2); margin-bottom: 4px; }
 .checks { display: flex; flex-direction: column; gap: 7px; }
+.region-group { margin-bottom: 12px; }
+.region-label { font-size: 12px; font-weight: 600; margin-bottom: 6px; padding-left: 2px; }
+.region-label.domestic { color: #ff8b7a; }
+.region-label.overseas { color: #5fd39a; }
 .check { font-size: 12px; color: var(--text, #e6e8ef); display: flex; align-items: center; gap: 6px; }
 .hint { font-size: 11px; color: var(--side-text, #9aa3b2); line-height: 1.6; margin: 6px 0; }
 .row { display: flex; gap: 10px; flex-wrap: wrap; }

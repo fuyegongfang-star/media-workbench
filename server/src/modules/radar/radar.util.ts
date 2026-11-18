@@ -1,5 +1,12 @@
 import { createHash } from 'node:crypto';
-import type { CustomSource, RadarConfig, ScoredCandidate } from './radar.contract';
+import {
+  FRESHNESS_OPTIONS,
+  type CustomSource,
+  type FreshnessDays,
+  type RadarConfig,
+  type RadarRegion,
+  type ScoredCandidate,
+} from './radar.contract';
 
 /**
  * 雷达纯函数集合：无 I/O、可单测。
@@ -47,6 +54,7 @@ export function sanitizeCustomSources(input: unknown, max = 20): CustomSource[] 
       format: o.format === 'json' ? 'json' : 'rss',
       enabled: o.enabled !== false,
       keywords: strArray(o.keywords, 20),
+      region: (o.region === 'overseas' ? 'overseas' : 'domestic') as RadarRegion,
     });
   }
   return out;
@@ -65,6 +73,7 @@ export function sanitizeConfig(input: unknown): RadarConfig {
     schedule: { enabled: false, time: '08:00', timezone: 'Asia/Shanghai' },
     monitoredAccounts: { x: [], youtube: [] },
     accountDedupeDays: 7,
+    freshnessDays: 0,
     customSources: [],
   } as RadarConfig;
 
@@ -125,6 +134,11 @@ export function sanitizeConfig(input: unknown): RadarConfig {
     ? Math.max(0, Math.min(90, Math.floor(dedupeRaw)))
     : 7;
 
+  // 时效窗口：仅接受预设档位 0/1/3/7/15，其它值回落 0（不限），防止异常输入。
+  const allowedFreshness = FRESHNESS_OPTIONS.map((o) => o.days) as readonly number[];
+  const freshnessRaw = Number(raw.freshnessDays);
+  const freshnessDays = (allowedFreshness.includes(freshnessRaw) ? freshnessRaw : 0) as FreshnessDays;
+
   return {
     niches: niches.length ? niches : fallback.niches,
     sources,
@@ -132,6 +146,7 @@ export function sanitizeConfig(input: unknown): RadarConfig {
     schedule,
     monitoredAccounts,
     accountDedupeDays,
+    freshnessDays,
     customSources: sanitizeCustomSources(raw.customSources),
   };
 }
@@ -151,6 +166,35 @@ export function filterSeenAccounts<T extends { sourceName: string; url?: string;
   if (windowDays <= 0 || !seen.size) return items;
   const accountSources = new Set(['x_account', 'youtube_account']);
   return items.filter((it) => !accountSources.has(it.sourceName) || !seen.has(accountDedupeKey(it.url, it.title)));
+}
+
+/**
+ * 时效过滤：按来源发布时间窗口裁剪候选。
+ * - days<=0：不限，原样返回；
+ * - 有 publishedAt 且可解析：只保留 [now - days, now + 1天容差] 内的条目（未来时间容错 1 天）；
+ * - 无 publishedAt 或解析失败：视为「时间未知」，一律保留（热榜类没有精确时间，硬过滤会导致国内源全空）。
+ * 返回 { kept, droppedByTime } 便于 sourceStats 记录过滤效果。
+ */
+export function filterByFreshness<T extends { publishedAt?: string }>(
+  items: T[],
+  days: number,
+  now: Date = new Date(),
+): { kept: T[]; droppedByTime: number } {
+  if (!Number.isFinite(days) || days <= 0) return { kept: items, droppedByTime: 0 };
+  const cutoff = now.getTime() - days * 24 * 60 * 60 * 1000;
+  const futureTolerance = now.getTime() + 24 * 60 * 60 * 1000;
+  const kept: T[] = [];
+  let droppedByTime = 0;
+  for (const it of items) {
+    const ms = it.publishedAt ? Date.parse(it.publishedAt) : NaN;
+    if (!Number.isFinite(ms)) {
+      kept.push(it); // 时间未知：保留
+      continue;
+    }
+    if (ms >= cutoff && ms <= futureTolerance) kept.push(it);
+    else droppedByTime += 1;
+  }
+  return { kept, droppedByTime };
 }
 
 /** 赛道相关度：标题命中任一关键词即为相关，命中越多分越高（0-1）。 */
