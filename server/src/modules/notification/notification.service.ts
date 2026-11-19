@@ -76,7 +76,7 @@ export class NotificationService implements OnModuleInit {
         ),
       );
     });
-    this.logger.log('通知服务已挂载任务事件总线（任务成功/失败将触发渠道推送）');
+    this.logger.log('通知服务已挂载任务事件总线（开始/成功/失败按订阅类型触发渠道推送）');
   }
 
   /** 读取并解密渠道配置（无 DB / 无主密钥时安全降级为默认空配置）。 */
@@ -454,22 +454,209 @@ export class NotificationService implements OnModuleInit {
     }
   }
 
-  /** 任务中心事件 → 通知（仅 success/failed 触发；DB 可用时附带任务类型与错误）。 */
+  /**
+   * 按任务类型关联查询业务对象名与执行结果摘要（best-effort：任一查询失败都不阻断通知）。
+   * 目的：把「任务ID + 枚举」升级为「第几步 · 环节 · 什么对象 · 干了多少」，一眼看清进度。
+   */
+  private async describeTaskContext(task: {
+    id: string;
+    taskType: string;
+    objectId: string;
+    payload: unknown;
+    createdAt: unknown;
+  }): Promise<{ subject?: string; result?: string }> {
+    if (!this.prisma.isConnected) return {};
+    const db = this.prisma.client;
+    const p = (task.payload && typeof task.payload === 'object' ? task.payload : {}) as Record<string, unknown>;
+    const safe = async <T>(fn: () => Promise<T>): Promise<T | undefined> => {
+      try {
+        return await fn();
+      } catch {
+        return undefined;
+      }
+    };
+    const short = (v: unknown, max = 40): string => {
+      const s = String(v ?? '').trim();
+      return s.length > max ? `${s.slice(0, max)}…` : s;
+    };
+    const iso = (v: unknown): Date | undefined =>
+      v instanceof Date ? v : typeof v === 'string' && v ? new Date(v) : undefined;
+    const since = iso(task.createdAt);
+    const stageResult: Record<string, string> = {
+      draft: '初稿', continue: '续写', rewrite: '改写', compress: '压缩', expand: '扩写',
+    };
+    const nameOf = async (projectId: string): Promise<string> => {
+      const proj = await safe(() =>
+        db.contentProject.findUnique({
+          where: { id: projectId },
+          select: {
+            platform: true,
+            topic: { select: { title: true } },
+            selectedTitle: { select: { text: true } },
+          },
+        }),
+      );
+      const title = proj?.selectedTitle?.text ?? proj?.topic?.title;
+      return title ? `${proj?.platform ?? ''} 项目《${short(title)}》` : `内容项目 ${short(projectId, 8)}`;
+    };
+
+    switch (task.taskType) {
+      case 'RADAR_COLLECT': {
+        const day = typeof p.runDate === 'string' ? p.runDate : task.objectId;
+        const run = await safe(() => db.radarRun.findFirst({ where: { taskId: task.id } }));
+        return {
+          subject: `选题雷达 · ${short(day, 24)}`,
+          result: run ? `采集 ${run.itemCount} 条 · 主推 ${run.featuredCount} 条` : undefined,
+        };
+      }
+      case 'ANALYSIS_SINGLE': {
+        const materialId = typeof p.materialId === 'string' ? p.materialId : task.objectId;
+        const m = await safe(() =>
+          db.sourceMaterial.findUnique({ where: { id: materialId }, select: { title: true } }),
+        );
+        return { subject: m ? `爆款素材《${short(m.title)}》` : `素材 ${short(materialId, 8)}` };
+      }
+      case 'ANALYSIS_ACCOUNT_SUMMARY': {
+        const accId = typeof p.ownedAccountId === 'string' ? p.ownedAccountId : task.objectId;
+        const acc = await safe(() =>
+          db.ownedAccount.findUnique({ where: { id: accId }, select: { name: true, platform: true } }),
+        );
+        const n = Array.isArray(p.analysisIds) ? p.analysisIds.length : 0;
+        return {
+          subject: acc ? `${acc.platform} 账号「${short(acc.name, 30)}」` : `账号 ${short(accId, 8)}`,
+          result: n ? `汇总 ${n} 条拆解` : undefined,
+        };
+      }
+      case 'TOPIC_GEN': {
+        const want = typeof p.count === 'number' ? p.count : 0;
+        const where =
+          typeof p.strategyId === 'string'
+            ? { strategyId: p.strategyId }
+            : typeof p.analysisId === 'string'
+              ? { analysisId: p.analysisId }
+              : undefined;
+        const got = since
+          ? await safe(() =>
+              db.topic.count({
+                where: { ...(where ?? {}), createdAt: { gte: since }, deletedAt: null },
+              }),
+            )
+          : undefined;
+        const base = typeof p.strategyId === 'string' ? '账号策略' : typeof p.analysisId === 'string' ? '爆款拆解' : '自定义';
+        return {
+          subject: `${base} · 选题生成`,
+          result: got !== undefined ? `新增 ${got} 个选题${want ? `（计划 ${want}）` : ''}` : undefined,
+        };
+      }
+      case 'TITLE_GEN': {
+        const topicId = typeof p.topicId === 'string' ? p.topicId : task.objectId;
+        const topic = await safe(() =>
+          db.topic.findUnique({ where: { id: topicId }, select: { title: true } }),
+        );
+        const want = typeof p.count === 'number' ? p.count : 0;
+        const got = since
+          ? await safe(() =>
+              db.titleCandidate.count({ where: { topicId, createdAt: { gte: since } } }),
+            )
+          : undefined;
+        return {
+          subject: topic ? `选题《${short(topic.title)}》` : `选题 ${short(topicId, 8)}`,
+          result: got !== undefined ? `新增 ${got} 个标题${want ? `（计划 ${want}）` : ''}` : undefined,
+        };
+      }
+      case 'ARTICLE_GEN': {
+        const projectId = typeof p.projectId === 'string' ? p.projectId : task.objectId;
+        const stage = typeof p.stage === 'string' ? (stageResult[p.stage] ?? p.stage) : '';
+        const run = since
+          ? await safe(() =>
+              db.generationRun.findFirst({
+                where: { projectId, createdAt: { gte: since } },
+                orderBy: { createdAt: 'desc' },
+                select: { status: true },
+              }),
+            )
+          : undefined;
+        return {
+          subject: await nameOf(projectId),
+          result: `${stage ? `${stage} · ` : ''}${run ? (run.status === 'success' ? '已生成新版本' : run.status) : '正文生成'}`,
+        };
+      }
+      case 'TEXT_DETECT': {
+        const projectId = typeof p.projectId === 'string' ? p.projectId : task.objectId;
+        const run = since
+          ? await safe(() =>
+              db.textReviewRun.findFirst({
+                where: { projectId, createdAt: { gte: since } },
+                orderBy: { createdAt: 'desc' },
+                select: { summary: true, status: true },
+              }),
+            )
+          : undefined;
+        return {
+          subject: await nameOf(projectId),
+          result: run?.summary ? `检测摘要：${short(run.summary, 90)}` : `检测服务：${short(p.service ?? '默认')}`,
+        };
+      }
+      case 'TEXT_POLISH': {
+        const projectId = typeof p.projectId === 'string' ? p.projectId : task.objectId;
+        return {
+          subject: await nameOf(projectId),
+          result: typeof p.tone === 'string' && p.tone ? `润色语气：${short(p.tone, 30)}` : '已生成润色版本',
+        };
+      }
+      default:
+        return {};
+    }
+  }
+
+  /** 任务中心事件 → 通知（running/success/failed 按订阅类型推送；DB 可用时附带业务上下文）。 */
   async handleTaskEvent(e: { id: string; status: string; at: string }): Promise<void> {
-    if (e.status !== 'success' && e.status !== 'failed') return;
+    const isStart = e.status === 'running';
+    const isSuccess = e.status === 'success';
+    const isFailed = e.status === 'failed';
+    if (!isStart && !isSuccess && !isFailed) return;
+
     let taskType: string | null = null;
+    let subject: string | null = null;
+    let result: string | null = null;
+    let startedAt: string | null = null;
+    let retryCount = 0;
     let error: string | null = null;
     if (this.prisma.isConnected) {
       try {
         const task = await this.prisma.client.task.findUnique({ where: { id: e.id } });
-        taskType = task?.taskType ?? null;
-        error = task?.error ?? null;
+        if (task) {
+          taskType = task.taskType;
+          startedAt = task.createdAt instanceof Date ? task.createdAt.toISOString() : null;
+          retryCount = task.retryCount;
+          error = isFailed ? task.error : null;
+          // 开始事件无需查结果表（尚未产出），成功/失败才关联业务上下文。
+          if (!isStart) {
+            const ctx = await this.describeTaskContext(task);
+            subject = ctx.subject ?? null;
+            result = ctx.result ?? null;
+          }
+        }
       } catch {
-        /* 降级：仅用 id 通知 */
+        /* 降级：仅用 id + 事件状态通知 */
       }
     }
-    const text = buildTaskNotifyText(e.status, { id: e.id, taskType, error });
-    await this.notifyAll(text, e.status === 'success' ? 'task_success' : 'task_failed');
+    const text = buildTaskNotifyText(e.status, {
+      id: e.id,
+      taskType,
+      subject,
+      result,
+      startedAt,
+      finishedAt: e.at,
+      retryCount,
+      error,
+    });
+    const kind: NotificationAlertKind = isStart
+      ? 'task_started'
+      : isSuccess
+        ? 'task_success'
+        : 'task_failed';
+    await this.notifyAll(text, kind);
   }
 
   /** 监控告警入口（备份失败 / 配额 / 存活等）。 */
@@ -571,7 +758,7 @@ export class NotificationService implements OnModuleInit {
       forwardKinds: cfg.forwardKinds,
       note:
         enabled > 0
-          ? '已配置通知渠道，任务成功/失败与监控告警将推送。'
+          ? '已配置通知渠道，任务开始/成功/失败（按勾选）与监控告警将推送，任务消息含业务环节摘要。'
           : '尚未配置启用任何通知渠道；企业微信/钉钉 Webhook 与邮件 SMTP 均经 AES 加密入库。',
     };
   }

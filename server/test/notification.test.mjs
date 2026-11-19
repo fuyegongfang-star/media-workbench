@@ -36,6 +36,10 @@ const {
   buildAlertText,
   countEnabledChannels,
   defaultNotifications,
+  taskStageLabel,
+  taskStageDetail,
+  formatDuration,
+  TASK_STAGES,
   CHANNEL_TYPES,
   ALERT_KINDS,
 } = util;
@@ -123,6 +127,75 @@ test('buildTaskNotifyText: 成功/失败文案含 ID 与错误', () => {
   assert.ok(fail.includes('t2') && fail.includes('boom'));
 });
 
+test('TASK_STAGES: 8 类任务全覆盖，阶段序号连续、中文环节名可读', () => {
+  const types = [
+    'RADAR_COLLECT', 'ANALYSIS_SINGLE', 'ANALYSIS_ACCOUNT_SUMMARY', 'TOPIC_GEN',
+    'TITLE_GEN', 'ARTICLE_GEN', 'TEXT_DETECT', 'TEXT_POLISH',
+  ];
+  assert.deepEqual(Object.keys(TASK_STAGES).sort(), [...types].sort());
+  const steps = types.map((t) => TASK_STAGES[t].step).sort((a, b) => a - b);
+  assert.deepEqual(steps, [1, 2, 3, 4, 5, 6, 7, 8]);
+  for (const t of types) {
+    assert.ok(TASK_STAGES[t].name.length >= 3 && TASK_STAGES[t].icon, `${t} 缺少中文名/图标`);
+  }
+});
+
+test('taskStageLabel / taskStageDetail: 已知环节可读，未知枚举回落原值', () => {
+  assert.equal(taskStageLabel('TITLE_GEN'), '⑤ 标题生成');
+  assert.match(taskStageDetail('TITLE_GEN'), /内容创作.*标题生成.*TITLE_GEN/);
+  assert.equal(taskStageLabel('SOME_NEW_TYPE'), 'SOME_NEW_TYPE');
+  assert.equal(taskStageLabel(null), '未分类任务');
+});
+
+test('formatDuration: 秒/分/小时与非法值', () => {
+  assert.equal(formatDuration(500), '不足 1 秒');
+  assert.equal(formatDuration(12_000), '12 秒');
+  assert.equal(formatDuration(65_000), '1 分 05 秒');
+  assert.equal(formatDuration(3_600_000), '1 小时');
+  assert.equal(formatDuration(null), '');
+  assert.equal(formatDuration(-1), '');
+});
+
+test('buildTaskNotifyText: 富化文案含环节/对象/结果/耗时，首行即可辨识环节', () => {
+  const text = buildTaskNotifyText('success', {
+    id: 'a9800d04-7716-4947-add5-2376b80fe392',
+    taskType: 'TITLE_GEN',
+    subject: '选题《AI 写作是否值得做》',
+    result: '新增 8 个标题（计划 8）',
+    startedAt: '2026-11-19T07:10:00.000Z',
+    finishedAt: '2026-11-19T07:11:05.000Z',
+  });
+  const first = text.split('\n')[0];
+  assert.match(first, /^✍️/);
+  assert.match(first, /任务完成.*⑤ 标题生成.*TITLE_GEN/);
+  assert.ok(text.includes('所属阶段：内容创作'));
+  assert.ok(text.includes('业务对象：选题《AI 写作是否值得做》'));
+  assert.ok(text.includes('执行结果：新增 8 个标题'));
+  assert.ok(text.includes('耗时：1 分 05 秒'));
+  assert.ok(text.includes('任务ID：a9800d04-7716-4947-add5-2376b80fe392'));
+  assert.ok(!text.includes('undefined') && !text.includes('null'));
+});
+
+test('buildTaskNotifyText: running 显示「任务开始」与「已等待」，不误报耗时', () => {
+  const text = buildTaskNotifyText('running', {
+    id: 't3',
+    taskType: 'RADAR_COLLECT',
+    startedAt: '2026-11-19T07:10:00.000Z',
+    finishedAt: '2026-11-19T07:12:00.000Z',
+  });
+  assert.match(text.split('\n')[0], /任务开始.*① 选题雷达采集/);
+  assert.ok(text.includes('已等待：2 分'));
+  assert.ok(!text.includes('耗时：'));
+});
+
+test('buildTaskNotifyText: 失败含重试次数与错误', () => {
+  const text = buildTaskNotifyText('failed', {
+    id: 't4', taskType: 'ARTICLE_GEN', subject: '内容项目', retryCount: 2, error: '模型超时',
+  });
+  assert.ok(text.includes('重试次数：2') && text.includes('错误：模型超时'));
+  assert.match(text.split('\n')[0], /任务失败.*⑥ 正文生成/);
+});
+
 test('buildAlertText: 含标题与详情', () => {
   const t = buildAlertText('backup_failed', 'pg_dump 退出码 1');
   assert.ok(t.includes('备份失败') && t.includes('pg_dump 退出码 1'));
@@ -141,6 +214,14 @@ test('countEnabledChannels: 仅统计启用', () => {
 test('CHANNEL_TYPES / ALERT_KINDS 枚举完整', () => {
   assert.deepEqual(CHANNEL_TYPES, ['wecom', 'dingtalk', 'email', 'feishu', 'telegram']);
   assert.ok(ALERT_KINDS.includes('liveness') && ALERT_KINDS.includes('quota'));
+  assert.ok(ALERT_KINDS.includes('task_started') && ALERT_KINDS.includes('task_success') && ALERT_KINDS.includes('task_failed'));
+  assert.equal(ALERT_KINDS.filter((k) => k.startsWith('task_')).length, 3);
+});
+
+test('defaultNotifications: 任务开始默认关闭，避免噪声', () => {
+  const d = defaultNotifications();
+  assert.ok(!d.forwardKinds.includes('task_started'));
+  assert.ok(d.forwardKinds.includes('task_failed'));
 });
 
 test('飞书 / Telegram payload 与签名结构正确', () => {

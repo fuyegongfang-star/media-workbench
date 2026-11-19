@@ -10,6 +10,7 @@ import { getSecretCrypto, SecretCrypto } from '../system/crypto.util';
 
 export type NotificationChannelType = 'wecom' | 'dingtalk' | 'email' | 'feishu' | 'telegram';
 export type NotificationAlertKind =
+  | 'task_started'
   | 'task_success'
   | 'task_failed'
   | 'backup_failed'
@@ -21,6 +22,7 @@ export const CHANNEL_TYPES: NotificationChannelType[] = ['wecom', 'dingtalk', 'e
 /** 前端回填给输入框的脱敏占位；保存时视为「保持原值」，绝不把占位串写进库。 */
 export const MASKED_SECRET = '***';
 export const ALERT_KINDS: NotificationAlertKind[] = [
+  'task_started',
   'task_success',
   'task_failed',
   'backup_failed',
@@ -28,6 +30,75 @@ export const ALERT_KINDS: NotificationAlertKind[] = [
   'liveness',
   'generic',
 ];
+
+/**
+ * 业务流程环节表：把内部 TaskType 枚举翻译成「第几步 · 业务环节」，让推送一眼看清是哪个工作流。
+ * 顺序即内容生产主链路：采集 → 拆解 → 策略 → 选题 → 标题 → 正文 → 检测 → 润色。
+ */
+export interface TaskStageMeta {
+  /** 流程阶段序号（1 起）。 */
+  step: number;
+  /** 所属大阶段，如「选题调研」「内容创作」。 */
+  phase: string;
+  /** 环节中文名。 */
+  name: string;
+  /** 推送用的图标（纯文本渠道同样可读）。 */
+  icon: string;
+}
+
+export const TASK_STAGES: Record<string, TaskStageMeta> = {
+  RADAR_COLLECT: { step: 1, phase: '选题调研', name: '选题雷达采集', icon: '🔍' },
+  ANALYSIS_SINGLE: { step: 2, phase: '选题调研', name: '爆款素材拆解', icon: '📊' },
+  ANALYSIS_ACCOUNT_SUMMARY: { step: 3, phase: '选题调研', name: '账号策略汇总', icon: '🎯' },
+  TOPIC_GEN: { step: 4, phase: '内容创作', name: '选题生成', icon: '💡' },
+  TITLE_GEN: { step: 5, phase: '内容创作', name: '标题生成', icon: '✍️' },
+  ARTICLE_GEN: { step: 6, phase: '内容创作', name: '正文生成', icon: '📝' },
+  TEXT_DETECT: { step: 7, phase: '质检优化', name: 'AI 文本检测', icon: '🛡️' },
+  TEXT_POLISH: { step: 8, phase: '质检优化', name: '文本润色', icon: '✨' },
+};
+
+const STEP_LABELS = ['①', '②', '③', '④', '⑤', '⑥', '⑦', '⑧', '⑨', '⑩'];
+
+/** 环节展示名：已知枚举返回「⑤ 标题生成」，未知枚举回落为原值（不吞信息）。 */
+export function taskStageLabel(taskType?: string | null): string {
+  if (!taskType) return '未分类任务';
+  const meta = TASK_STAGES[taskType];
+  if (!meta) return taskType;
+  return `${STEP_LABELS[meta.step - 1] ?? `${meta.step}.`} ${meta.name}`;
+}
+
+/** 环节完整描述：阶段 + 序号 + 名称 + 原枚举，供日志与详情查看。 */
+export function taskStageDetail(taskType?: string | null): string {
+  if (!taskType) return '未分类任务';
+  const meta = TASK_STAGES[taskType];
+  if (!meta) return taskType;
+  return `${meta.phase} · ${taskStageLabel(taskType)}（${taskType}）`;
+}
+
+/** 毫秒耗时格式化：秒级任务显示「12 秒」，长任务显示「1 分 05 秒 / 2 小时 3 分」。 */
+export function formatDuration(ms?: number | null): string {
+  if (typeof ms !== 'number' || !Number.isFinite(ms) || ms < 0) return '';
+  if (ms < 1000) return '不足 1 秒';
+  const totalSec = Math.floor(ms / 1000);
+  if (totalSec < 60) return `${totalSec} 秒`;
+  const min = Math.floor(totalSec / 60);
+  const sec = totalSec % 60;
+  if (min < 60) return sec ? `${min} 分 ${String(sec).padStart(2, '0')} 秒` : `${min} 分`;
+  const hour = Math.floor(min / 60);
+  return min % 60 ? `${hour} 小时 ${min % 60} 分` : `${hour} 小时`;
+}
+
+/** 上海时区时间串（与前端简报一致），无效输入返回空串。 */
+export function formatChinaTime(iso?: string | null): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  try {
+    return d.toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false });
+  } catch {
+    return d.toISOString();
+  }
+}
 
 export interface ChannelConfig {
   type: NotificationChannelType;
@@ -389,19 +460,62 @@ export function redactTelegramError(error: unknown, token: string): string {
   return msg.slice(0, 300);
 }
 
-export function buildTaskNotifyText(
-  status: string,
-  opts: { id: string; taskType?: string | null; error?: string | null },
-): string {
-  const label =
-    status === 'success' ? '任务完成' : status === 'failed' ? '任务失败' : `状态变更：${status}`;
+/** 任务通知的业务上下文（均由通知服务从 DB 关联查出，纯函数只做格式化）。 */
+export interface TaskNotifyContext {
+  id: string;
+  taskType?: string | null;
+  /** 业务对象名，如「选题：AI 写作是否值得做」「账号：张三的公众号」。 */
+  subject?: string | null;
+  /** 结果摘要，如「新增 12 条选题」「采集 38 条 / 主推 6 条」。 */
+  result?: string | null;
+  /** 任务进入 running 的时间（ISO）。 */
+  startedAt?: string | null;
+  /** 任务终态时间（ISO）。 */
+  finishedAt?: string | null;
+  /** 重试次数。 */
+  retryCount?: number;
+  error?: string | null;
+}
+
+/**
+ * 构造任务状态推送文案：首行即「状态 + 第几步 + 环节名 + 原枚举」，一眼看清是哪个业务环节。
+ * 兼容旧签名（只有 id/taskType/error），新增字段缺省时自动省略，绝不输出空标签行。
+ */
+export function buildTaskNotifyText(status: string, opts: TaskNotifyContext): string {
+  const meta = opts.taskType ? TASK_STAGES[opts.taskType] : undefined;
+  const icon = meta?.icon ?? '🔔';
+  const stage = taskStageLabel(opts.taskType);
   const type = opts.taskType ? `（${opts.taskType}）` : '';
-  let msg = `[自媒体工作台] ${label}${type}\n任务ID：${opts.id}`;
-  if (opts.error) msg += `\n错误：${String(opts.error).slice(0, 300)}`;
-  return msg;
+  const label =
+    status === 'success'
+      ? '任务完成'
+      : status === 'failed'
+        ? '任务失败'
+        : status === 'running'
+          ? '任务开始'
+          : `状态变更：${status}`;
+
+  // 首行：状态 + 阶段序号 + 中文环节名 + 内部枚举（保留枚举便于按任务类型筛选/检索）
+  const lines = [`${icon} [自媒体工作台] ${label} · ${stage}${type}`];
+  if (meta) lines.push(`所属阶段：${meta.phase}`);
+  if (opts.subject) lines.push(`业务对象：${String(opts.subject).slice(0, 120)}`);
+  if (opts.result) lines.push(`执行结果：${String(opts.result).slice(0, 200)}`);
+  if (opts.retryCount && opts.retryCount > 0) lines.push(`重试次数：${opts.retryCount}`);
+  const duration = formatDuration(
+    opts.startedAt && opts.finishedAt
+      ? new Date(opts.finishedAt).getTime() - new Date(opts.startedAt).getTime()
+      : null,
+  );
+  if (duration) lines.push(`${status === 'running' ? '已等待' : '耗时'}：${duration}`);
+  const at = formatChinaTime(opts.finishedAt);
+  if (at) lines.push(`时间：${at}`);
+  lines.push(`任务ID：${opts.id}`);
+  if (opts.error) lines.push(`错误：${String(opts.error).slice(0, 300)}`);
+  return lines.join('\n');
 }
 
 const ALERT_TITLES: Record<string, string> = {
+  task_started: '任务开始',
   task_success: '任务完成',
   task_failed: '任务失败',
   backup_failed: '备份失败',

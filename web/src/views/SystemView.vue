@@ -559,13 +559,15 @@
       <div class="field" style="margin-top:14px">
         <label>转发以下告警类型</label>
         <div class="checks">
+          <label class="check"><input type="checkbox" v-model="forwardKinds.task_started" /> 任务开始</label>
+          <label class="check"><input type="checkbox" v-model="forwardKinds.task_success" /> 任务成功</label>
           <label class="check"><input type="checkbox" v-model="forwardKinds.task_failed" /> 任务失败</label>
           <label class="check"><input type="checkbox" v-model="forwardKinds.backup_failed" /> 备份失败</label>
           <label class="check"><input type="checkbox" v-model="forwardKinds.liveness" /> 服务存活</label>
           <label class="check"><input type="checkbox" v-model="forwardKinds.quota" /> 配额预警</label>
-          <label class="check"><input type="checkbox" v-model="forwardKinds.task_success" /> 任务成功</label>
           <label class="check"><input type="checkbox" v-model="forwardKinds.generic" /> 通用通知</label>
         </div>
+        <p class="hint" style="margin-top:6px">任务类通知会写明「第几步 · 业务环节 · 业务对象 · 执行结果 · 耗时」，例如「⑤ 标题生成 · 选题《AI 写作》· 新增 8 个标题」。「任务开始」默认关闭，需要排队进度时再勾选。</p>
       </div>
 
       <div class="row" style="margin-top:12px">
@@ -785,11 +787,12 @@ function maskedOrEmpty(v: string | undefined): string {
 }
 
 const forwardKinds = reactive<Record<string, boolean>>({
+  task_started: false,
+  task_success: false,
   task_failed: true,
   backup_failed: true,
   liveness: true,
   quota: true,
-  task_success: false,
   generic: false,
 });
 const savingNotif = ref(false);

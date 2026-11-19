@@ -355,6 +355,7 @@ export async function runBatch(params: BatchParams, timeoutMs = 15000): Promise<
 
 export type NotificationChannelType = 'wecom' | 'dingtalk' | 'email' | 'feishu' | 'telegram';
 export type NotificationAlertKind =
+  | 'task_started'
   | 'task_success'
   | 'task_failed'
   | 'backup_failed'
