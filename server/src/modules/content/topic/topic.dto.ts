@@ -34,9 +34,9 @@ export class CreateTopicDto {
   @IsPrismaJson()
   tags?: unknown;
 
-  /** 来源类型：manual（人工）/ ai_gen（AI 生成）/ derived（从分析派生）。 */
-  @IsIn(['manual', 'ai_gen', 'derived'])
-  sourceType!: 'manual' | 'ai_gen' | 'derived';
+  /** 来源类型：manual（人工）/ ai_gen（AI 生成）/ derived（从分析派生）/ radar（选题雷达转出）。 */
+  @IsIn(['manual', 'ai_gen', 'derived', 'radar'])
+  sourceType!: 'manual' | 'ai_gen' | 'derived' | 'radar';
 
   /** T4.4 内容日历：计划推进/发布日期（YYYY-MM-DD，本地日；可选，空表示未排期）。 */
   @IsOptional()
@@ -46,6 +46,18 @@ export class CreateTopicDto {
 
 /** 更新选题（T3.1）。 */
 export class UpdateTopicDto {
+  /**
+   * 归属策略（可绑定/解绑）：给「选题雷达转出」等无策略选题补绑账号风格基线。
+   * 传空串表示解绑（置 null）；服务端会校验策略存在且归属可见。
+   */
+  @IsOptional()
+  @IsString()
+  strategyId?: string;
+
+  @IsOptional()
+  @IsString()
+  analysisId?: string;
+
   @IsOptional()
   @IsString()
   @MaxLength(300)
@@ -69,9 +81,9 @@ export class UpdateTopicDto {
   @IsPrismaJson()
   tags?: unknown;
 
-  @IsIn(['manual', 'ai_gen', 'derived'])
+  @IsIn(['manual', 'ai_gen', 'derived', 'radar'])
   @IsOptional()
-  sourceType?: 'manual' | 'ai_gen' | 'derived';
+  sourceType?: 'manual' | 'ai_gen' | 'derived' | 'radar';
 
   /** T4.4 内容日历：计划推进/发布日期（YYYY-MM-DD，本地日；可选，空表示未排期）。 */
   @IsOptional()

@@ -26,7 +26,7 @@ export class ContentProjectController {
   /** T3.2：选中标题一键建内容项目（自动继承账号/策略/选题/标题 + 快照分析摘要与提示词模板版本）。 */
   @Post()
   createFromTitle(@Body() dto: CreateFromTitleDto, @CurrentUser() user: AuthTokenPayload) {
-    return this.svc.createFromTitle(dto.titleCandidateId, user?.sub, dto.platform);
+    return this.svc.createFromTitle(dto.titleCandidateId, user?.sub, dto.platform, dto.ownedAccountId);
   }
 
   /** 内容项目列表（可按 ownedAccountId / status 过滤）。 */

@@ -19,15 +19,23 @@ export interface ContentProjectTarget {
   ownedAccountId: string | null;
   strategyVersionId: string | null;
   ok: boolean;
+  /** 归属来源：strategy=选题绑定的策略；account=账号兜底（用户指定或默认账号）。 */
+  source?: 'strategy' | 'account';
 }
 
 /**
- * 由选题关联的策略解析内容项目的归属账号与策略版本。
- * 规则：选题 strategyId 必须能解析到一条具备 ownedAccountId 的 AccountStrategy，否则无法继承账号。
+ * 解析内容项目的归属账号与策略版本（两级）：
+ * 1) 选题绑定的策略可解析到账号 → 沿用（原行为，保证从策略生成的选题继承风格基线）；
+ * 2) 否则用兜底账号（用户建项目时指定 / 当前用户默认账号），常见于「选题雷达一键转选题」——
+ *    这类选题天生没有 strategyId，不应因此无法立项（ContentProject.ownedAccountId 必填）。
+ *    兜底账号的默认策略版本若有，一并继承为 strategyVersionId。
+ * accountId 必须已由调用方校验归属（防止把项目建到别人的账号下）。
  */
 export function resolveProjectTarget(input: {
   topicStrategyId: string | null;
   strategy?: { id: string; ownedAccountId: string } | null;
+  accountId?: string | null;
+  accountDefaultStrategyId?: string | null;
 }): ContentProjectTarget {
   if (
     input.topicStrategyId &&
@@ -39,6 +47,15 @@ export function resolveProjectTarget(input: {
       ownedAccountId: input.strategy.ownedAccountId,
       strategyVersionId: input.strategy.id,
       ok: true,
+      source: 'strategy',
+    };
+  }
+  if (input.accountId) {
+    return {
+      ownedAccountId: input.accountId,
+      strategyVersionId: input.accountDefaultStrategyId ?? null,
+      ok: true,
+      source: 'account',
     };
   }
   return { ownedAccountId: null, strategyVersionId: null, ok: false };

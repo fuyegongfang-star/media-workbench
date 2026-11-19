@@ -506,7 +506,7 @@ async function convert(item: RadarItemView) {
   try {
     const r = await convertRadarItem(item.id);
     item.convertedTopicId = r.topicId;
-    notify(`已转为选题（${r.topicId}），可在「内容项目 → 选题管理」查看`);
+    notify(`✓ 已转为选题。下一步：到「内容项目 → 选题管理」点该选题的「标题」→ 生成/选标题 → 建内容项目（无策略时在标题页选归属账号即可）`);
   } catch (e) { notify(`转选题失败：${(e as Error).message}`, true); }
   finally { converting.value = ''; }
 }

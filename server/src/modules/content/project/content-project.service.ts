@@ -53,11 +53,57 @@ export class ContentProjectService {
   ) {}
 
   /**
+   * 解析建项目的兜底归属账号（针对无策略的选题，如选题雷达一键转选题）。
+   * - 用户显式指定 ownedAccountId：校验存在且归属当前用户，防越权建到别人账号下。
+   * - 未指定：当前用户仅 1 个账号时自动归属；0 个 / 多个时给出可操作提示，不瞎猜。
+   */
+  private async resolveFallbackAccount(userId: string | undefined, requestedId?: string) {
+    if (requestedId) {
+      const where: Prisma.OwnedAccountWhereInput = { id: requestedId, deletedAt: null };
+      if (userId) where.userId = userId;
+      const acc = await this.prisma.client.ownedAccount.findFirst({ where });
+      if (!acc) {
+        throw new BadRequestException(
+          '指定的归属账号不存在或不属于当前用户，请到「账号与策略 → 自有账号」重新选择',
+        );
+      }
+      return acc;
+    }
+    if (!userId) {
+      throw new BadRequestException(
+        '该选题未绑定策略，建项目需归属账号；请在「账号与策略」创建自有账号后重试',
+      );
+    }
+    const accounts = await this.prisma.client.ownedAccount.findMany({
+      where: { userId, deletedAt: null, status: 'active' },
+      orderBy: { createdAt: 'asc' },
+      take: 2,
+    });
+    if (accounts.length === 0) {
+      throw new BadRequestException(
+        '该选题来自选题雷达、未绑定策略，且你还没有可用的自有账号。请先到「账号与策略 → 自有账号」创建一个账号，再回来建内容项目',
+      );
+    }
+    if (accounts.length > 1) {
+      throw new BadRequestException(
+        '该选题未绑定策略，且你有多个自有账号。请在建项目时指定归属账号（选择后本提示消失）',
+      );
+    }
+    return accounts[0];
+  }
+
+  /**
    * T3.2 核心：选中标题一键建内容项目。
    * 继承链：TitleCandidate → Topic（strategyId / analysisId）→ AccountStrategy（ownedAccountId）。
+   * 无策略选题（如选题雷达转出）：走兜底账号（指定 / 唯一账号 / 账号默认策略），不再 400 断路。
    * T5.2 起 platform 可指定（默认 wechat），提示词模板按平台解析，预留多平台模板占位。
    */
-  async createFromTitle(titleCandidateId: string, userId?: string, platform?: string) {
+  async createFromTitle(
+    titleCandidateId: string,
+    userId?: string,
+    platform?: string,
+    ownedAccountId?: string,
+  ) {
     const title = await this.prisma.client.titleCandidate.findUnique({
       where: { id: titleCandidateId },
     });
@@ -81,13 +127,35 @@ export class ContentProjectService {
       }
     }
 
+    // 无策略选题（典型：选题雷达一键转选题）走兜底账号：指定 > 用户唯一账号。
+    // 兜底账号的默认策略若存在，一并继承为 strategySummary / strategyVersionId，风格基线不丢。
+    let fallbackAccountId: string | null = null;
+    let accountDefaultStrategyId: string | null = null;
+    if (!topic.strategyId || !strategy) {
+      const acc = await this.resolveFallbackAccount(userId, ownedAccountId);
+      fallbackAccountId = acc.id;
+      accountDefaultStrategyId = acc.defaultStrategyVersionId ?? null;
+      if (accountDefaultStrategyId) {
+        const def = await this.prisma.client.accountStrategy.findUnique({
+          where: { id: accountDefaultStrategyId },
+        });
+        if (def && def.ownedAccountId === acc.id && !def.deletedAt) {
+          strategySummary = summarizeStrategy(def);
+        } else {
+          accountDefaultStrategyId = null; // 默认策略失效则不继承，避免张冠李戴
+        }
+      }
+    }
+
     const target = resolveProjectTarget({
       topicStrategyId: topic.strategyId,
       strategy,
+      accountId: fallbackAccountId,
+      accountDefaultStrategyId,
     });
     if (!target.ok) {
       throw new BadRequestException(
-        '该选题未绑定有效的策略/账号，无法确定归属账号（请先在选题上关联策略并完成账号绑定）',
+        '无法确定内容项目的归属账号。请在「账号与策略」创建自有账号并绑定默认策略后重试',
       );
     }
 

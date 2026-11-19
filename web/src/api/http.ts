@@ -1147,7 +1147,7 @@ export async function bindStrategy(
 // ============ 选题 / 标题管理（T3.1）============
 
 export type TopicStatus = 'draft' | 'active' | 'archived';
-export type TopicSourceType = 'manual' | 'ai_gen' | 'derived';
+export type TopicSourceType = 'manual' | 'ai_gen' | 'derived' | 'radar';
 export type TitleStatus = 'draft' | 'selected' | 'rejected';
 
 export interface TopicItem {
@@ -1248,6 +1248,8 @@ export async function updateTopic(
     status: TopicStatus;
     sourceType: TopicSourceType;
     tags: unknown;
+    strategyId: string;
+    analysisId: string;
   }>,
   timeoutMs = 8000,
 ): Promise<TopicItem> {
@@ -1520,6 +1522,7 @@ export interface CreateProjectResult {
 /** 选中标题一键建内容项目（自动继承账号/策略/选题/标题，需令牌）。 */
 export async function createContentProjectFromTitle(
   titleCandidateId: string,
+  opts: { ownedAccountId?: string; platform?: string } = {},
   timeoutMs = 8000,
 ): Promise<CreateProjectResult> {
   const controller = new AbortController();
@@ -1529,10 +1532,14 @@ export async function createContentProjectFromTitle(
       method: 'POST',
       signal: controller.signal,
       headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...authHeader() },
-      body: JSON.stringify({ titleCandidateId }),
+      body: JSON.stringify({
+        titleCandidateId,
+        ...(opts.ownedAccountId ? { ownedAccountId: opts.ownedAccountId } : {}),
+        ...(opts.platform ? { platform: opts.platform } : {}),
+      }),
     });
     if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) throw await apiError(res); // 透传后端可操作提示（如「请先创建自有账号」），不再裸 HTTP 400
     return (await res.json()) as CreateProjectResult;
   } finally {
     clearTimeout(timer);

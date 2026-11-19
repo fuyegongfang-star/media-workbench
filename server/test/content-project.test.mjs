@@ -38,6 +38,44 @@ test('resolveProjectTarget: 策略存在但无归属账号 → ok=false', () => 
   assert.equal(r.ok, false);
 });
 
+test('resolveProjectTarget: 无策略选题 + 兜底账号 → ok，归到指定账号并继承默认策略', () => {
+  const r = resolveProjectTarget({
+    topicStrategyId: null,
+    strategy: null,
+    accountId: 'acc-radar',
+    accountDefaultStrategyId: 's-default',
+  });
+  assert.equal(r.ok, true);
+  assert.equal(r.ownedAccountId, 'acc-radar');
+  assert.equal(r.strategyVersionId, 's-default');
+  assert.equal(r.source, 'account');
+});
+
+test('resolveProjectTarget: 无策略 + 账号无默认策略 → ok，strategyVersionId 为 null', () => {
+  const r = resolveProjectTarget({ topicStrategyId: null, accountId: 'acc-2' });
+  assert.equal(r.ok, true);
+  assert.equal(r.ownedAccountId, 'acc-2');
+  assert.equal(r.strategyVersionId, null);
+});
+
+test('resolveProjectTarget: 无策略也无兜底账号 → ok=false（后端再给可操作提示）', () => {
+  const r = resolveProjectTarget({ topicStrategyId: null, accountId: null });
+  assert.equal(r.ok, false);
+});
+
+test('resolveProjectTarget: 已绑定策略优先于兜底账号（风格基线不丢）', () => {
+  const r = resolveProjectTarget({
+    topicStrategyId: 's1',
+    strategy: { id: 's1', ownedAccountId: 'acc1' },
+    accountId: 'acc-other',
+    accountDefaultStrategyId: 's-other',
+  });
+  assert.equal(r.ok, true);
+  assert.equal(r.ownedAccountId, 'acc1');
+  assert.equal(r.strategyVersionId, 's1');
+  assert.equal(r.source, 'strategy');
+});
+
 test('buildContentContext: 含标题/选题/摘要且为空时兜底空串', () => {
   const ctx = buildContentContext({
     titleText: '标题A',

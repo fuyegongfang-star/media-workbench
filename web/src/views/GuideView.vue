@@ -251,7 +251,7 @@
               <path class="dg-arrow-head" d="M 418 42 L 428 48 L 418 54 Z" />
               <rect class="dg-node" x="430" y="24" width="196" height="48" rx="10" />
               <text class="dg-title t-mid" x="528" y="41">一键转选题</text>
-              <text class="dg-sub t-mid" x="528" y="59">进入内容项目</text>
+              <text class="dg-sub t-mid" x="528" y="59">→ 标题 → 建项目</text>
             </svg>
             <figcaption>多路数据源汇总为今日简报，有价值的条目可一键转为选题。</figcaption>
           </figure>
@@ -312,7 +312,7 @@
           <div class="sub-grid">
             <div class="sub-card">
               <h3>内容项目</h3>
-              <p>按「选题 → 标题 → 建项目」立项。项目创建时会快照当前策略版本与提示词模板版本，后续改动不影响已有项目的基线。</p>
+              <p>按「选题 → 标题 → 建项目」立项。项目创建时会快照当前策略版本与提示词模板版本，后续改动不影响已有项目的基线。选题若来自「选题雷达」（未绑定策略），可在选题列表的「归属策略」下拉补绑，或在标题页选「归属账号」直接立项（自动用该账号默认策略）。</p>
             </div>
             <div class="sub-card">
               <h3>编辑器与版本历史</h3>

@@ -120,8 +120,10 @@
             </button>
           </div>
         </div>
-        <p class="hint">账号级汇总（对标分析页）会产出草稿版本；此处可手动新建、编辑七字段卡、设为账号默认或解绑。默认策略会被内容项目继承。</p>
+        <p class="hint">策略 = 账号的「写作风格基线」（定位/受众/栏目支柱/标题偏好/结构/调性/边界）。账号级汇总（对标分析页）会产出草稿版本；此处可手动新建、编辑七字段卡、设为账号默认或解绑。</p>
+        <p class="hint" style="color:var(--accent)">怎么用：① 先在「自有账号」建一个账号 → ② 在这里新建/编辑一个策略版本并「设为默认」→ ③ 用「AI 生成选题」时填该策略 ID，生成的选题会绑定它 → ④ 从选题建内容项目时自动继承风格。若选题来自「选题雷达」（无策略），建项目时选归属账号即可，会自动用该账号的默认策略。</p>
         <p v-if="strategyError" class="message err">{{ strategyError }}</p>
+        <p v-if="strategyNotice" class="message" :class="strategyNoticeType">{{ strategyNotice }}</p>
         <table v-if="strategies.length" class="tbl">
           <thead>
             <tr><th>版本</th><th>状态</th><th>账号默认</th><th>来源拆解</th><th>更新时间</th><th></th></tr>
@@ -423,6 +425,14 @@ const strategyAccountId = ref('');
 const strategies = ref<StrategyItem[]>([]);
 const strategyLoading = ref(false);
 const strategyError = ref('');
+/** 策略区就地反馈（原先只有页底 message，用户在表格里点了看不到响应，误以为按钮没反应）。 */
+const strategyNotice = ref('');
+const strategyNoticeType = ref<'ok' | 'err'>('ok');
+function noticeStrategy(msg: string, type: 'ok' | 'err' = 'ok') {
+  strategyNotice.value = msg;
+  strategyNoticeType.value = type;
+  flash(msg, type);
+}
 const creatingStrategy = ref(false);
 const binding = ref(false);
 const deletingStrategyId = ref('');
@@ -483,10 +493,10 @@ async function createBlankStrategy() {
       boundaries: [],
       sourceAnalysisIds: [],
     });
-    flash(`已创建策略 v${created.version}（草稿）`);
+    noticeStrategy(`已创建策略 v${created.version}（草稿），点「设为默认」后新项目会继承它`);
     await loadStrategies();
   } catch (e) {
-    flash(errMsg(e), 'err');
+    noticeStrategy(errMsg(e), 'err');
   } finally {
     creatingStrategy.value = false;
   }
@@ -545,10 +555,10 @@ async function bindAsDefault(s: StrategyItem) {
   binding.value = true;
   try {
     await bindStrategy(strategyAccountId.value, s.id);
-    flash(`已将策略 v${s.version} 绑定为账号默认`);
+    noticeStrategy(`✓ 已将策略 v${s.version} 绑定为账号默认，之后建内容项目会自动继承`);
     await Promise.all([loadStrategies(), loadOwnedAccounts()]);
   } catch (e) {
-    flash(errMsg(e), 'err');
+    noticeStrategy(errMsg(e), 'err');
   } finally {
     binding.value = false;
   }
@@ -559,10 +569,10 @@ async function unbindStrategy() {
   binding.value = true;
   try {
     await bindStrategy(strategyAccountId.value, null);
-    flash('已解除账号默认策略绑定');
+    noticeStrategy('✓ 已解除账号默认策略绑定');
     await Promise.all([loadStrategies(), loadOwnedAccounts()]);
   } catch (e) {
-    flash(errMsg(e), 'err');
+    noticeStrategy(errMsg(e), 'err');
   } finally {
     binding.value = false;
   }
@@ -573,11 +583,11 @@ async function removeStrategy(s: StrategyItem) {
   deletingStrategyId.value = s.id;
   try {
     await deleteStrategy(s.id);
-    flash(`策略 v${s.version} 已删除`);
+    noticeStrategy(`策略 v${s.version} 已删除`);
     if (activeStrategy.value?.id === s.id) activeStrategy.value = null;
     await Promise.all([loadStrategies(), loadOwnedAccounts()]);
   } catch (e) {
-    flash(errMsg(e), 'err');
+    noticeStrategy(errMsg(e), 'err');
   } finally {
     deletingStrategyId.value = '';
   }
@@ -601,7 +611,15 @@ async function loadReferenceAccounts() {
 }
 
 onMounted(() => {
-  void loadOwnedAccounts();
+  // 自动选中第一个自有账号并加载其策略：否则「刷新/新建版本」因 strategyAccountId 为空而禁用，
+  // 表格也不渲染，用户会以为按钮「点了没反应」。
+  void loadOwnedAccounts().then(() => {
+    const first = ownedAccounts.value.find((a) => a.status === 'active') ?? ownedAccounts.value[0];
+    if (first && !strategyAccountId.value) {
+      strategyAccountId.value = first.id;
+      void loadStrategies();
+    }
+  });
   void loadReferenceAccounts();
 });
 </script>

@@ -7,7 +7,8 @@
       <button :class="['tab', { active: tab === 'projects' }]" @click="openProjects">内容项目</button>
     </div>
 
-    <p v-if="error" class="message err">{{ error }}</p>
+      <p v-if="error" class="message err">{{ error }}</p>
+      <p v-if="flowMsg" class="message" :class="flowMsgType">{{ flowMsg }}</p>
 
     <!-- 选题管理 -->
     <section v-if="tab === 'topics'" class="card">
@@ -15,11 +16,12 @@
         <h2 class="card-title" style="margin: 0">选题（Topic）</h2>
         <button class="btn" :disabled="loading" @click="loadTopics">刷新</button>
       </div>
+      <p class="hint" style="color:var(--accent)">完整链路：点「标题」→ 生成/选标题 → 建内容项目 → 打开项目写正文。「归属策略」决定写作风格；选题雷达转来的选题默认未绑定，建项目时在标题页顶部选归属账号即可（会自动用该账号的默认策略）。</p>
 
       <table v-if="topics.length" class="tbl">
         <thead>
           <tr>
-            <th>标题</th><th>来源</th><th>状态</th><th>受众</th><th>角度</th><th>标签</th><th></th>
+            <th>标题</th><th>来源</th><th>状态</th><th>归属策略</th><th>受众</th><th>角度</th><th>标签</th><th></th>
           </tr>
         </thead>
         <tbody>
@@ -27,6 +29,19 @@
             <td>{{ t.title }}</td>
             <td><span class="pill">{{ t.sourceType }}</span></td>
             <td><span class="pill" :class="statusClass(t.status)">{{ t.status }}</span></td>
+            <td class="sm">
+              <select
+                class="input sm"
+                :value="t.strategyId || ''"
+                :disabled="bindingTopicId === t.id"
+                @change="bindTopicStrategy(t, ($event.target as HTMLSelectElement).value)"
+              >
+                <option value="">— 未绑定（建项目时选账号）—</option>
+                <option v-for="s in allStrategies" :key="s.id" :value="s.id">
+                  {{ strategyLabel(s) }}
+                </option>
+              </select>
+            </td>
             <td class="sm">{{ t.audience || '—' }}</td>
             <td class="sm">{{ t.angle || '—' }}</td>
             <td class="sm">{{ formatTags(t.tags) }}</td>
@@ -83,6 +98,16 @@
       <p v-if="!activeTopic" class="hint">请先在「选题管理」中点击某选题的「标题」按钮，进入其标题候选管理。</p>
 
       <template v-else>
+        <div class="row" style="gap:12px;flex-wrap:wrap;margin-bottom:10px">
+          <label class="hint" style="display:flex;align-items:center;gap:8px">
+            建项目归属账号
+            <select v-model="projectAccountId" class="input sm" style="min-width:180px">
+              <option value="">{{ activeTopic.strategyId ? '按选题策略自动归属' : '选择自有账号（无策略选题）' }}</option>
+              <option v-for="a in ownedAccounts" :key="a.id" :value="a.id">{{ a.name }}（{{ a.platform }}）</option>
+            </select>
+          </label>
+          <span class="hint">{{ activeTopic.strategyId ? '该选题已绑定策略，默认按策略归属；选账号可覆盖。' : '该选题未绑定策略，请选一个归属账号（有多个账号时必须选）。' }}</span>
+        </div>
         <table v-if="titles.length" class="tbl">
           <thead>
             <tr><th>标题文案</th><th>评分</th><th>依据</th><th>标签</th><th>选中</th><th>状态</th><th></th></tr>
@@ -156,7 +181,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue';
+import { ref, reactive, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import {
   listTopics,
@@ -170,16 +195,27 @@ import {
   generateTitles,
   createContentProjectFromTitle,
   listContentProjects,
+  listOwnedAccounts,
+  listStrategies,
+  updateTopic,
   type TopicItem,
   type TitleCandidateItem,
   type TopicSourceType,
   type ContentProjectItem,
+  type OwnedAccountItem,
+  type StrategyItem,
 } from '../api/http';
 
 const router = useRouter();
 
 const tab = ref<'topics' | 'titles' | 'projects'>('topics');
 const error = ref('');
+const flowMsg = ref('');
+const flowMsgType = ref<'ok' | 'err'>('ok');
+function notifyFlow(msg: string, type: 'ok' | 'err' = 'ok') {
+  flowMsg.value = msg;
+  flowMsgType.value = type;
+}
 
 const topics = ref<TopicItem[]>([]);
 const titles = ref<TitleCandidateItem[]>([]);
@@ -201,6 +237,46 @@ const topicForm = reactive({ title: '', sourceType: 'manual' as TopicSourceType,
 const genTopicForm = reactive({ strategyId: '', analysisId: '', count: 5 });
 const titleForm = reactive({ text: '', basis: '', score: null as number | null, tags: '' });
 const genTitleForm = reactive({ count: 8 });
+
+// 自有账号 + 全部策略（供「归属策略」下拉与无策略选题的归属账号选择）
+const ownedAccounts = ref<OwnedAccountItem[]>([]);
+const allStrategies = ref<StrategyItem[]>([]);
+const bindingTopicId = ref('');
+const projectAccountId = ref('');
+
+async function loadAccountsAndStrategies() {
+  try {
+    ownedAccounts.value = await listOwnedAccounts();
+    const groups = await Promise.all(ownedAccounts.value.map((a) => listStrategies(a.id).catch(() => [] as StrategyItem[])));
+    allStrategies.value = groups.flat().sort((a, b) => b.version - a.version);
+  } catch (e) {
+    // 账号/策略加载失败不阻断选题主流程，只在建无策略项目时由后端给出明确提示
+    ownedAccounts.value = [];
+    allStrategies.value = [];
+    void e;
+  }
+}
+
+const accountName = (id: string): string => ownedAccounts.value.find((a) => a.id === id)?.name ?? id.slice(0, 8);
+function strategyLabel(s: StrategyItem): string {
+  return `${accountName(s.ownedAccountId)} · 策略 v${s.version}${s.isDefault ? '（默认）' : ''}`;
+}
+
+/** 给选题补绑/解绑策略：选题雷达转出的选题由此 Joined 到账号风格基线。 */
+async function bindTopicStrategy(t: TopicItem, strategyId: string) {
+  if (bindingTopicId.value) return;
+  bindingTopicId.value = t.id;
+  try {
+    const updated = await updateTopic(t.id, { strategyId });
+    t.strategyId = updated.strategyId;
+    notifyFlow(strategyId ? `✓ 选题「${t.title.slice(0, 20)}」已绑定 ${strategyLabel(allStrategies.value.find((s) => s.id === strategyId)!)}` : '✓ 已解绑归属策略');
+  } catch (e) {
+    notifyFlow(`绑定失败：${(e as Error).message}`, 'err');
+    await loadTopics(); // 回滚下拉显示
+  } finally {
+    bindingTopicId.value = '';
+  }
+}
 
 function statusClass(s: string): string {
   if (s === 'active' || s === 'selected' || s === 'success') return 'ok';
@@ -301,6 +377,7 @@ async function openTitles(t: TopicItem) {
   tab.value = 'titles';
   error.value = '';
   genTitleMsg.value = '';
+  projectAccountId.value = ''; // 切换选题时清空上次选的归属账号，避免建错项目
   await loadTitles(t.id);
 }
 async function loadTitles(topicId: string) {
@@ -397,8 +474,9 @@ async function createProject(c: TitleCandidateItem) {
   projMsg.value = '';
   creatingP.value = true;
   try {
-    const r = await createContentProjectFromTitle(c.id);
-    projMsg.value = `已创建内容项目 ${r.id.slice(0, 8)}（状态 ${r.status}）。可在「内容项目」页签查看继承的上下文。`;
+    const r = await createContentProjectFromTitle(c.id, { ownedAccountId: projectAccountId.value || undefined });
+    projMsg.value = `已创建内容项目 ${r.id.slice(0, 8)}（状态 ${r.status}）。已自动切到「内容项目」页签，可打开继续创作。`;
+    tab.value = 'projects'; // 立项成功后直接带到下一步，不再让用户自己找页签
     await loadProjects();
   } catch (e) {
     error.value = (e as Error).message;
@@ -406,6 +484,11 @@ async function createProject(c: TitleCandidateItem) {
     creatingP.value = false;
   }
 }
+
+onMounted(() => {
+  void loadTopics();
+  void loadAccountsAndStrategies();
+});
 
 async function loadProjects() {
   error.value = '';

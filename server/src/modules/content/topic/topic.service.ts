@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { CreateTopicDto, UpdateTopicDto } from './topic.dto';
@@ -62,9 +62,34 @@ export class TopicService {
 
   async update(id: string, dto: UpdateTopicDto) {
     await this.get(id); // 404 守卫
+    // 归属策略/分析补绑：空串 = 解绑；非空须存在，避免留下悬空外键式脏数据。
+    let strategyId: string | null | undefined;
+    if (dto.strategyId !== undefined) {
+      const value = dto.strategyId.trim();
+      if (!value) {
+        strategyId = null;
+      } else {
+        const s = await this.prisma.client.accountStrategy.findUnique({ where: { id: value } });
+        if (!s || s.deletedAt) throw new BadRequestException(`关联策略不存在：${value}`);
+        strategyId = value;
+      }
+    }
+    let analysisId: string | null | undefined;
+    if (dto.analysisId !== undefined) {
+      const value = dto.analysisId.trim();
+      if (!value) {
+        analysisId = null;
+      } else {
+        const a = await this.prisma.client.analysis.findUnique({ where: { id: value } });
+        if (!a) throw new BadRequestException(`关联分析不存在：${value}`);
+        analysisId = value;
+      }
+    }
     return this.prisma.client.topic.update({
       where: { id },
       data: {
+        ...(strategyId !== undefined ? { strategyId } : {}),
+        ...(analysisId !== undefined ? { analysisId } : {}),
         ...(dto.title !== undefined ? { title: dto.title } : {}),
         ...(dto.audience !== undefined ? { audience: dto.audience } : {}),
         ...(dto.angle !== undefined ? { angle: dto.angle } : {}),

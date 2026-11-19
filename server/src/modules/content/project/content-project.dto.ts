@@ -11,6 +11,14 @@ export class CreateFromTitleDto {
   @IsOptional()
   @IsIn(SUPPORTED_PLATFORMS as readonly string[])
   platform?: string;
+
+  /**
+   * 归属账号（可选）：选题未绑定策略时的兜底。选题雷达转出的选题没有 strategyId，
+   * 用户可在这里指定归到哪个自有账号。服务端会校验账号归属当前用户，防越权。
+   */
+  @IsOptional()
+  @IsString()
+  ownedAccountId?: string;
 }
 
 /** T3.3 创作上下文面板的 AI 操作入口：触发生成/续写/改写/压缩/扩写（ARTICLE_GEN 任务）。 */
