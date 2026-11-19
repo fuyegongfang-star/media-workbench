@@ -11,6 +11,7 @@
     "install:all": "npm --prefix server install && npm --prefix web install",
     "build": "npm --prefix server run build && npm --prefix web run build",
     "typecheck": "npm --prefix server run typecheck && npm --prefix web run typecheck",
+    "test:web": "node --experimental-strip-types --test web/test/*.test.mjs",
     "validate": "npx --prefix server prisma validate --schema server/prisma/schema.prisma",
     "prisma:generate": "npm --prefix server run prisma:generate",
     "start": "npm --prefix server run start",

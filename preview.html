@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8" />
@@ -366,6 +366,7 @@
 
         <div class="section-title"><span class="bar"></span>卡点与收尾说明</div>
         <div class="grid g3">
+          <div class="card"><h3>📐 正文编辑器排版工具栏 + 关联模板库（11-19）</h3><p class="hint">用户反馈：AI 生成的正文落在纯 <code>textarea</code> 里，只有源码没有排版按钮，一键复制与排版模板也缺失。<b>本次补齐</b>：① 编辑区顶部工具栏（H1–H3 / 加粗 / 斜体 / 删除线 / 引用 / 代码块 / 行内代码 / 链接 / 图片 / 有序无序列表 / 表格 / 分割线），支持选中文本包裹、整行前缀切换与 <code>Ctrl+B/I/K</code>；② 一键复制三种形态：Markdown 源码、带内联样式的富文本（可直接粘公众号）、去记号纯文本；③ 关联预设排版模板库：7 套内置模板（长文/快讯/测评/观点/教程/清单/短笔记）+ 自定义模板（可限定到当前账号，存 localStorage），自动代入标题/选题/账号/日期，「套用并保留正文」绝不静默覆盖原文；④ 预览新增表格 / 有序列表 / 删除线 / 图片 / 分割线渲染，全部先转义 HTML 防注入。纯逻辑抽到 <code>web/src/utils/markdown-editor.ts</code>，新增 <code>npm run test:web</code> 14/14；typecheck/build 通过，真实浏览器验证加粗、套模板、预览表格与复制反馈。</p></div>
           <div class="card"><h3>✨ 正文创作 AI 一键生成前置到首屏（11-19）</h3><p class="hint">后端 <code>ARTICLE_GEN</code> 生成链路本就完整（真实调 LLM + 写待采纳版本），但生成按钮全埋在右侧栏最底部、视口外，且点完无进度/成败反馈、错误被吞成裸 <code>HTTP 400</code>，看起来像「没有 AI 生成功能」。<b>修复</b>：① 正文编辑器顶部新增醒目「✨ AI 一键创作」区（生成初稿/续写/改写/压缩/扩写），首屏可见；② 生成后自动轮询 <code>GenerationRun</code>，成功即露出「立即采纳并写入编辑器」，失败显示后端真实错误（如未配置模型/配额）；③ 进入页面即环境自检，灰条提示已配置模型或未启用 LLM；④ 生成/检测/润色/保存版本 API 全部透传后端中文错误。已用真实浏览器截图自证首屏效果。</p></div>
           <div class="card"><h3>🔗 打通「雷达→选题→立项」断链（11-19）</h3><p class="hint">修复从雷达一键转选题、生成标题、选中后「建内容项目」报 <code>HTTP 400</code>：根因是雷达选题天生没有 <code>strategyId</code>，而立项强制要「策略→账号」链。<b>修复</b>：① 立项支持指定归属账号（校验归属防越权），无账号时自动归属用户唯一账号，多个账号时明确提示选择；有默认策略则一并继承风格基线。② 选题列表新增「归属策略」下拉，可给雷达选题补绑/解绑策略。③ 前端不再吞后端错误，原样显示「请先创建自有账号」等可操作提示。④ 账号策略页自动选中首个账号、按钮就地反馈，解决「按钮没反应」错觉。⑤ 立项后自动切到「内容项目」页签，雷达转出提示写明下一步。全量 466/466 单测通过。</p></div>
           <div class="card"><h3>🔔 任务推送富化为业务环节（11-19）</h3><p class="hint">此前只推「任务完成（RADAR_COLLECT）+ 任务ID」，看不出是哪个环节。现把 8 类任务映射成主链路环节：<b>①选题采集 → ②爆款拆解 → ③账号策略 → ④选题生成 → ⑤标题生成 → ⑥正文生成 → ⑦AI检测 → ⑧文本润色</b>，首行即「状态 + 环节 + 图标」。消息再按任务类型关联业务对象名与结果摘要（如「选题《AI 写作》· 新增 8 个标题」「采集 38 条 · 主推 6 条」），并附阶段、耗时与上海时间；查询失败自动降级、绝不阻断推送。配置页新增可勾选「任务开始」（默认关），开启后可看排队→开始→完成全程；成功/失败仍各自订阅。全量 462/462 单测通过。</p></div>
@@ -608,7 +609,7 @@
             <div class="lm-step">选题与洞察</div><div class="lm-step">内容生产</div><div class="lm-step">数据与复盘</div><div class="lm-step">密钥集中管理</div>
             <div class="lm-step">用户与权限</div><div class="lm-step">后台一键更新</div><div class="lm-step">审计与回收站</div><div class="lm-step">备份与恢复</div>
           </div>
-          <div style="border-top:1px solid #e2e6ec;background:#fff;padding:16px 22px;display:grid;grid-template-columns:1.6fr 1fr 1fr 1.2fr;gap:16px;font-size:11px;color:#5b6675">
+          <div style="border-top:1px solid #e2e6ec;background:var(--panel);padding:16px 22px;display:grid;grid-template-columns:1.6fr 1fr 1fr 1.2fr;gap:16px;font-size:11px;color:#5b6675">
             <div><b style="color:#1f2733">✦ 自媒体工作台</b><p>把选题到发布收进一条内容生产流水线。<br />页面信息由站点所有者维护，保留所有权利。</p></div>
             <div><b style="color:#1f2733">产品</b><p>功能模块<br />工作流<br />隐私与数据<br />登录工作台</p></div>
             <div><b style="color:#1f2733">资源</b><p>源码仓库<br />部署文档<br />更新记录<br />MIT 许可证</p></div>
@@ -783,16 +784,32 @@
 
       <!-- ============ 创作上下文 ============ -->
       <section class="view" id="project">
-        <div class="note">按 <code>ContentProjectView.vue</code> 还原（T3.3 + T3.4 + T3.6）。两栏布局：左为正文 Markdown 编辑器与版本历史（T3.4 已落地：自动保存 workingContent + 显式保存版本 + 版本恢复/预览），以及审核状态机（T3.6 已落地）；右为创作上下文侧栏与 AI 操作入口。</div>
+        <div class="note">按 <code>ContentProjectView.vue</code> 还原。两栏布局：左为正文编辑器（AI 一键创作 + Markdown 排版工具栏 + 关联模板库 + 三种一键复制）与版本历史、审核状态机；右为创作上下文侧栏与 AI 操作入口。下方为离线快照，按钮不可提交。</div>
         <div class="row" style="justify-content:space-between;margin-bottom:16px">
           <div class="row"><button class="btn ghost">← 返回内容项目</button><h3 style="margin:0">内容项目详情</h3></div>
           <span class="pill ok">已加载继承上下文（快照）</span>
         </div>
         <div style="display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:16px;align-items:start" class="proj-grid">
           <div>
-            <div class="card" style="margin-bottom:16px"><h3>正文编辑区 <span class="pill ok">T3.4 ✓</span></h3>
-              <p class="hint">Markdown 编辑器已落地：自动保存 workingContent（不入版本）+ 显式「保存版本」落 ContentVersion + 版本历史/恢复/预览。创作上下文可在右侧面板查看。</p>
-              <div class="ph">📝 Markdown 编辑器（自动保存 / 版本历史 / 恢复）· 离线快照</div>
+            <div class="card" style="margin-bottom:16px"><h3>正文编辑区 <span class="pill ok">排版工具栏 ✓</span> <span class="pill blue">模板库 ✓</span></h3>
+              <p class="hint">键入 2 秒自动保存 workingContent（不入版本），「保存版本」才落 ContentVersion。工具栏支持 H1–H3 / 加粗 / 斜体 / 删除线 / 引用 / 代码块 / 链接 / 图片 / 列表 / 表格 / 分割线；Ctrl+B / I / K 快捷键；「📋 MD / 📄 富文本 / Aa」一键复制。模板库内置 7 套排版，可存自定义模板并限定到当前账号。</p>
+              <div style="border:1px solid var(--border);border-radius:8px;overflow:hidden">
+                <div style="padding:10px 12px;background:var(--panel-2);border-bottom:1px solid var(--border)"><b style="color:#7cb0ff">✨ AI 一键创作</b> <span class="hint">生成初稿 / 续写 / 改写 / 压缩 / 扩写</span>
+                  <div class="row" style="margin-top:8px"><button class="btn primary">🚀 生成初稿</button><button class="btn">续写</button><button class="btn">改写</button><button class="btn">压缩</button><button class="btn">扩写</button></div>
+                </div>
+                <div class="row" style="padding:7px 9px;background:var(--bg-soft);border-bottom:1px solid var(--border);flex-wrap:wrap;gap:4px">
+                  <button class="btn ghost">H1</button><button class="btn ghost">H2</button><button class="btn ghost">H3</button><button class="btn ghost"><b>B</b></button><button class="btn ghost"><i>I</i></button><button class="btn ghost"><s>S</s></button><button class="btn ghost">❝</button><button class="btn ghost">&lt;/&gt;</button><button class="btn ghost">🔗</button><button class="btn ghost">🖼</button><button class="btn ghost">• 列表</button><button class="btn ghost">1. 列表</button><button class="btn ghost">表格</button><button class="btn ghost">—</button><button class="btn primary">📐 排版模板</button><button class="btn ghost">📋 MD</button><button class="btn ghost">📄 富文本</button><button class="btn ghost">Aa</button>
+                </div>
+                <div style="padding:10px 12px;background:var(--bg-soft);border-bottom:1px solid var(--border)">
+                  <div class="row" style="justify-content:space-between"><b>预设排版模板库</b><span class="hint">「套用并保留正文」不覆盖原文 · 自动代入标题/选题/账号/日期</span></div>
+                  <div class="grid g3" style="margin-top:8px">
+                    <div style="border:1px solid var(--border);border-radius:6px;padding:8px;background:var(--panel)"><b>公众号深度长文</b><div class="hint">导读 + 正文 + 结语</div><div class="row" style="margin-top:6px"><button class="btn primary">套用并保留正文</button><button class="btn ghost">仅插入骨架</button></div></div>
+                    <div style="border:1px solid var(--border);border-radius:6px;padding:8px;background:var(--panel)"><b>热点快讯</b><div class="hint">导语 + 三条速览 + 信息源</div><div class="row" style="margin-top:6px"><button class="btn primary">套用并保留正文</button><button class="btn ghost">仅插入骨架</button></div></div>
+                    <div style="border:1px solid var(--border);border-radius:6px;padding:8px;background:var(--panel)"><b>测评种草</b><div class="hint">结论 + 优缺点表格 + 建议</div><div class="row" style="margin-top:6px"><button class="btn primary">套用并保留正文</button><button class="btn ghost">仅插入骨架</button></div></div>
+                  </div>
+                </div>
+                <div class="ph" style="border:none;border-radius:0">📝 Markdown 正文（支持表格 / 列表 / 引用 / 分割线预览）· 离线快照</div>
+              </div>
             </div>
             <div class="card"><h3>AI 生成结果 / 版本 / 审核 <span class="pill ok">T3.5 / T3.6 ✓</span></h3>
               <p class="hint">生成初稿/续写/改写/压缩/扩写产出 staging 版本（T3.5 处理器已注册）；版本历史、采纳/放弃、审核状态机（待审核/需修改/已审核 + 审核清单，T3.6 已落地）均可用。</p>

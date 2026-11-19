@@ -66,14 +66,98 @@
             AI 生成的初稿会作为<b>待采纳版本</b>出现在下方版本历史，点「采纳」后才写入编辑器。
           </p>
 
-          <textarea
-            v-show="mode === 'edit'"
-            class="editor"
-            :value="editorContent"
-            @input="onInput"
-            placeholder="在此撰写正文（支持 Markdown）…"
-            spellcheck="false"
-          ></textarea>
+          <!-- Markdown 排版工具栏：按钮直接插入/包裹选中文本，快捷键 Ctrl+B / I / K -->
+          <div v-show="mode === 'edit'" class="editor-shell">
+            <div class="md-toolbar">
+              <div class="md-tool-group">
+                <button type="button" class="md-tool" title="一级标题" @click="mdCommand('h1')">H1</button>
+                <button type="button" class="md-tool" title="二级标题" @click="mdCommand('h2')">H2</button>
+                <button type="button" class="md-tool" title="三级标题" @click="mdCommand('h3')">H3</button>
+              </div>
+              <span class="md-sep"></span>
+              <div class="md-tool-group">
+                <button type="button" class="md-tool md-bold" title="加粗（Ctrl+B）" @click="mdCommand('bold')">B</button>
+                <button type="button" class="md-tool md-italic" title="斜体（Ctrl+I）" @click="mdCommand('italic')">I</button>
+                <button type="button" class="md-tool md-strike" title="删除线" @click="mdCommand('strike')">S</button>
+                <button type="button" class="md-tool" title="引用块" @click="mdCommand('quote')">❝</button>
+                <button type="button" class="md-tool" title="代码块" @click="mdCommand('code')">&lt;/&gt;</button>
+                <button type="button" class="md-tool" title="行内代码" @click="mdCommand('inlineCode')">`</button>
+                <button type="button" class="md-tool" title="链接（Ctrl+K）" @click="mdCommand('link')">🔗</button>
+                <button type="button" class="md-tool" title="图片" @click="mdCommand('image')">🖼</button>
+              </div>
+              <span class="md-sep"></span>
+              <div class="md-tool-group">
+                <button type="button" class="md-tool" title="无序列表" @click="mdCommand('ul')">• 列表</button>
+                <button type="button" class="md-tool" title="有序列表" @click="mdCommand('ol')">1. 列表</button>
+                <button type="button" class="md-tool" title="插入表格" @click="mdCommand('table')">表格</button>
+                <button type="button" class="md-tool" title="分割线" @click="mdCommand('hr')">—</button>
+              </div>
+              <span class="md-spacer"></span>
+              <div class="md-tool-group">
+                <button
+                  type="button"
+                  class="md-tool md-accent"
+                  :class="{ on: showTemplates }"
+                  title="一键套用预设排版模板"
+                  @click="showTemplates = !showTemplates"
+                >
+                  📐 排版模板
+                </button>
+                <button type="button" class="md-tool" title="复制当前编辑器的 Markdown 源码" @click="copyEditor('markdown')">📋 MD</button>
+                <button type="button" class="md-tool" title="复制带样式的富文本，可直接粘进公众号/邮箱" @click="copyEditor('rich')">📄 富文本</button>
+                <button type="button" class="md-tool" title="复制去掉 Markdown 记号的纯文本" @click="copyEditor('plain')">Aa</button>
+              </div>
+            </div>
+
+            <!-- 关联预设排版模板库：内置模板 + 自定义模板（可限定到当前账号） -->
+            <div v-if="showTemplates" class="tpl-panel">
+              <div class="tpl-head">
+                <div>
+                  <strong>预设排版模板库</strong>
+                  <span class="hint">自动代入当前项目的标题 / 选题 / 账号 / 日期；「套用并保留正文」不会静默覆盖已有内容</span>
+                </div>
+                <div class="seg">
+                  <button class="seg-btn" :class="{ on: tplScope === 'all' }" @click="tplScope = 'all'">全部</button>
+                  <button class="seg-btn" :class="{ on: tplScope === 'account' }" @click="tplScope = 'account'">本项目账号</button>
+                </div>
+              </div>
+              <div class="tpl-grid">
+                <div v-for="t in visibleTemplates" :key="t.id" class="tpl-card">
+                  <div class="tpl-card-head">
+                    <span class="tpl-name">{{ t.name }}</span>
+                    <span class="tpl-tag">{{ t.builtin ? '内置' : t.scope === 'global' ? '自定义·全局' : '自定义·' + t.scope }}</span>
+                  </div>
+                  <p class="tpl-desc">{{ t.desc }}</p>
+                  <pre class="tpl-sample">{{ templateSample(t) }}</pre>
+                  <div class="tpl-actions">
+                    <button class="btn small primary" @click="applyTemplate(t, 'wrap')">套用并保留正文</button>
+                    <button class="btn small" @click="applyTemplate(t, 'insert')">仅插入骨架</button>
+                    <button v-if="!t.builtin" class="btn small ghost" @click="deleteTemplate(t)">删除</button>
+                  </div>
+                </div>
+              </div>
+              <div class="tpl-foot">
+                <input v-model="newTplName" class="note-input" type="text" maxlength="40" placeholder="新模板名称（将当前编辑器内容存为模板）" />
+                <select v-model="newTplScope" class="tpl-select">
+                  <option value="global">全局可用</option>
+                  <option v-if="currentAccountName" :value="currentAccountName">仅 {{ currentAccountName }}</option>
+                </select>
+                <button class="btn small" @click="saveCurrentAsTemplate">存为模板</button>
+              </div>
+            </div>
+
+            <p v-if="editorMsg" class="message" :class="editorMsgType === 'err' ? 'err' : ''">{{ editorMsg }}</p>
+
+            <textarea
+              ref="editorRef"
+              class="editor"
+              :value="editorContent"
+              @input="onInput"
+              @keydown="onEditorKeydown"
+              placeholder="在此撰写正文（支持 Markdown；上方工具栏可一键排版）…"
+              spellcheck="false"
+            ></textarea>
+          </div>
           <div v-show="mode === 'preview'" class="preview markdown" v-html="previewHtml"></div>
 
           <div class="editor-foot">
@@ -414,8 +498,21 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import {
+  applyMdCommand,
+  BUILTIN_TEMPLATES,
+  composeTemplate,
+  insertBlock,
+  markdownToPlain,
+  normalizeCustomTemplates,
+  renderMarkdown,
+  richHtmlForClipboard,
+  resolveTemplate,
+  type FormatTemplate,
+  type MdCommand,
+} from '../utils/markdown-editor';
 import {
   adoptContentVersion,
   approveReview,
@@ -654,83 +751,205 @@ function decisionLabel(decision: TextReviewDecision): string {
   return map[decision] ?? decision;
 }
 
-// 轻量、安全的 Markdown 预览（先转义 HTML 再应用基础语法，避免 XSS）
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
-function inlineMd(s: string): string {
-  let t = escapeHtml(s);
-  t = t.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-  t = t.replace(/(^|[^*])\*([^*\n]+?)\*(?!\*)/g, '$1<em>$2</em>');
-  t = t.replace(/`([^`]+?)`/g, '<code>$1</code>');
-  t = t.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
-  return t;
-}
-function renderMarkdown(src: string): string {
-  if (!src) return '<p class="empty">（空）</p>';
-  const lines = src.replace(/\r\n/g, '\n').split('\n');
-  let html = '';
-  let inCode = false;
-  let inList = false;
-  const closeList = () => {
-    if (inList) {
-      html += '</ul>';
-      inList = false;
-    }
-  };
-  for (const raw of lines) {
-    if (/^```/.test(raw)) {
-      if (inCode) {
-        html += '</code></pre>';
-        inCode = false;
-      } else {
-        closeList();
-        html += '<pre><code>';
-        inCode = true;
-      }
-      continue;
-    }
-    if (inCode) {
-      html += escapeHtml(raw) + '\n';
-      continue;
-    }
-    const h = raw.match(/^(#{1,6})\s+(.*)$/);
-    if (h) {
-      closeList();
-      const lvl = h[1].length;
-      html += `<h${lvl}>${inlineMd(h[2])}</h${lvl}>`;
-      continue;
-    }
-    const q = raw.match(/^>\s?(.*)$/);
-    if (q) {
-      closeList();
-      html += `<blockquote>${inlineMd(q[1])}</blockquote>`;
-      continue;
-    }
-    const li = raw.match(/^[-*]\s+(.*)$/);
-    if (li) {
-      if (!inList) {
-        html += '<ul>';
-        inList = true;
-      }
-      html += `<li>${inlineMd(li[1])}</li>`;
-      continue;
-    }
-    if (!raw.trim()) {
-      closeList();
-      continue;
-    }
-    closeList();
-    html += `<p>${inlineMd(raw)}</p>`;
+// ============ 排版工具栏 / 模板库 / 一键复制 ============
+
+const TPL_STORAGE_KEY = 'media-workbench.format-templates.v1';
+const editorRef = ref<HTMLTextAreaElement | null>(null);
+const showTemplates = ref(false);
+const tplScope = ref<'all' | 'account'>('all');
+const customTemplates = ref<FormatTemplate[]>([]);
+const newTplName = ref('');
+const newTplScope = ref('global');
+const editorMsg = ref('');
+const editorMsgType = ref<'ok' | 'err' | ''>('');
+
+const currentAccountName = computed(() => ctx.value?.account?.name || '');
+const visibleTemplates = computed(() => {
+  const customs = customTemplates.value.filter(
+    (t) =>
+      tplScope.value === 'all' ||
+      t.scope === 'global' ||
+      t.scope === currentAccountName.value,
+  );
+  return [...BUILTIN_TEMPLATES, ...customs];
+});
+
+function loadCustomTemplates() {
+  try {
+    customTemplates.value = normalizeCustomTemplates(
+      JSON.parse(localStorage.getItem(TPL_STORAGE_KEY) || '[]'),
+    );
+  } catch {
+    customTemplates.value = [];
   }
-  if (inCode) html += '</code></pre>';
-  closeList();
-  return html;
+}
+function persistTemplates() {
+  try {
+    localStorage.setItem(TPL_STORAGE_KEY, JSON.stringify(customTemplates.value));
+  } catch {
+    editorMsgType.value = 'err';
+    editorMsg.value = '模板已加入当前页面，但浏览器存储不可用，刷新后可能丢失';
+  }
+}
+
+function templateVars(): Record<string, string> {
+  const d = new Date();
+  const p = (n: number) => String(n).padStart(2, '0');
+  return {
+    title: ctx.value?.title?.text || detail.value?.selectedTitle?.text || '（标题）',
+    topic: ctx.value?.topic?.title || '（选题）',
+    account: currentAccountName.value || '本账号',
+    date: `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`,
+  };
+}
+function templateSample(t: FormatTemplate): string {
+  const s = resolveTemplate(t.body, templateVars()).replace(/\n{2,}/g, '\n').slice(0, 140);
+  return s + (s.length >= 140 ? '…' : '');
+}
+
+/** 写回编辑器并恢复选区；程序化写值不经过 @input，自动保存由这里显式调度。 */
+function writeEditor(text: string, start: number, end: number) {
+  editorContent.value = text;
+  scheduleSave();
+  void nextTick(() => {
+    const ta = editorRef.value;
+    if (!ta) return;
+    ta.focus();
+    try {
+      ta.setSelectionRange(start, end);
+    } catch {
+      /* 浏览器限制时忽略，内容本身已写入 */
+    }
+  });
+}
+
+function mdCommand(cmd: MdCommand) {
+  mode.value = 'edit';
+  const ta = editorRef.value;
+  const len = editorContent.value.length;
+  const result = applyMdCommand(
+    editorContent.value,
+    ta?.selectionStart ?? len,
+    ta?.selectionEnd ?? len,
+    cmd,
+  );
+  writeEditor(result.text, result.start, result.end);
+}
+
+function onEditorKeydown(e: KeyboardEvent) {
+  if (!(e.ctrlKey || e.metaKey)) return;
+  const key = e.key.toLowerCase();
+  if (key === 'b') {
+    e.preventDefault();
+    mdCommand('bold');
+  } else if (key === 'i') {
+    e.preventDefault();
+    mdCommand('italic');
+  } else if (key === 'k') {
+    e.preventDefault();
+    mdCommand('link');
+  }
+}
+
+function applyTemplate(t: FormatTemplate, applyMode: 'wrap' | 'insert') {
+  if (
+    applyMode === 'wrap' &&
+    editorContent.value.trim() &&
+    !window.confirm('将用模板包住当前正文（原文会保留在模板正文区），确定继续？')
+  ) {
+    return;
+  }
+  const body = composeTemplate(t.body, editorContent.value, templateVars(), applyMode);
+  if (applyMode === 'wrap') {
+    writeEditor(body, 0, Math.min(body.length, 120));
+    editorMsgType.value = 'ok';
+    editorMsg.value = `已套用「${t.name}」，原正文保留在模板正文区；确认后点「保存版本」固化。`;
+    return;
+  }
+  const ta = editorRef.value;
+  const len = editorContent.value.length;
+  const r = insertBlock(
+    editorContent.value,
+    ta?.selectionStart ?? len,
+    ta?.selectionEnd ?? len,
+    body,
+  );
+  const marker = '（在这里写正文）';
+  const idx = r.text.indexOf(marker, r.start);
+  writeEditor(
+    r.text,
+    idx >= 0 ? idx : r.start,
+    idx >= 0 ? idx + marker.length : r.end,
+  );
+  editorMsgType.value = 'ok';
+  editorMsg.value = `已在光标处插入「${t.name}」排版骨架，正文占位已选中，直接输入即可。`;
+}
+
+function saveCurrentAsTemplate() {
+  const name = newTplName.value.trim();
+  if (!name) {
+    editorMsgType.value = 'err';
+    editorMsg.value = '请先填写模板名称';
+    return;
+  }
+  if (!editorContent.value.trim()) {
+    editorMsgType.value = 'err';
+    editorMsg.value = '当前正文为空，无法存为模板';
+    return;
+  }
+  const tpl: FormatTemplate = {
+    id: `custom-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    name: name.slice(0, 40),
+    desc: '由当前正文保存的自定义排版模板',
+    body: editorContent.value.slice(0, 20000),
+    builtin: false,
+    scope: newTplScope.value === 'global' ? 'global' : currentAccountName.value || 'global',
+  };
+  customTemplates.value = [tpl, ...customTemplates.value];
+  persistTemplates();
+  newTplName.value = '';
+  editorMsgType.value = 'ok';
+  editorMsg.value = `已保存模板「${tpl.name}」（${tpl.scope === 'global' ? '全局可用' : '仅 ' + tpl.scope + ' 可用'}）。`;
+}
+function deleteTemplate(t: FormatTemplate) {
+  if (!window.confirm(`删除自定义模板「${t.name}」？此操作不可恢复。`)) return;
+  customTemplates.value = customTemplates.value.filter((x) => x.id !== t.id);
+  persistTemplates();
+  editorMsgType.value = 'ok';
+  editorMsg.value = `已删除模板「${t.name}」。`;
+}
+
+/** 一键复制：MD 源码 / 带样式富文本（可直接粘公众号）/ 去记号纯文本。 */
+async function copyEditor(kind: 'markdown' | 'rich' | 'plain') {
+  const text = editorContent.value;
+  if (!text.trim()) {
+    editorMsgType.value = 'err';
+    editorMsg.value = '正文为空，没有可复制的内容';
+    return;
+  }
+  try {
+    if (kind === 'rich' && typeof ClipboardItem !== 'undefined' && navigator.clipboard?.write) {
+      const html = richHtmlForClipboard(previewHtml.value);
+      await navigator.clipboard.write([
+        new ClipboardItem({
+          'text/html': new Blob([html], { type: 'text/html' }),
+          'text/plain': new Blob([text], { type: 'text/plain' }),
+        }),
+      ]);
+    } else {
+      await navigator.clipboard.writeText(kind === 'plain' ? markdownToPlain(text) : text);
+    }
+    editorMsgType.value = 'ok';
+    editorMsg.value =
+      kind === 'rich'
+        ? '已复制带样式的富文本，可直接粘贴到公众号 / 邮箱等富文本编辑器'
+        : kind === 'plain'
+          ? `已复制纯文本（${markdownToPlain(text).length} 字）`
+          : `已复制 Markdown 源码（${text.length} 字）`;
+  } catch {
+    editorMsgType.value = 'err';
+    editorMsg.value = '剪贴板不可用（浏览器可能限制了权限），请手动选择正文复制';
+  }
 }
 
 // 编辑器输入（程序化赋值不会触发 @input，避免初始化/恢复时误触发自动保存）
@@ -1239,6 +1458,7 @@ async function doRecordPublication() {
 }
 
 onMounted(() => {
+  loadCustomTemplates();
   void loadAll();
   void loadAiEnv();
 });
@@ -2282,5 +2502,204 @@ async function doMassPublish() {
 .badge-err {
   background: rgba(229, 72, 77, 0.18);
   color: #e5484d;
+}
+
+/* ===== 正文排版工具栏 ===== */
+.editor-shell {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: #fff;
+}
+.md-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 7px 9px;
+  background: var(--panel-soft, #f7f8fa);
+  border-bottom: 1px solid var(--border);
+}
+.md-tool-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+.md-sep {
+  width: 1px;
+  height: 18px;
+  background: var(--border);
+  margin: 0 2px;
+}
+.md-spacer {
+  flex: 1 1 auto;
+}
+.md-tool {
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text);
+  border-radius: 5px;
+  padding: 4px 8px;
+  font-size: 12px;
+  line-height: 1.3;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.md-tool:hover {
+  border-color: var(--brand);
+  color: var(--brand);
+  background: #fff;
+}
+.md-tool.on {
+  background: var(--brand);
+  color: #fff;
+  border-color: var(--brand);
+}
+.md-tool.md-bold {
+  font-weight: 800;
+}
+.md-tool.md-italic {
+  font-style: italic;
+}
+.md-tool.md-strike {
+  text-decoration: line-through;
+}
+.md-tool.md-accent {
+  color: var(--brand);
+  font-weight: 600;
+}
+.editor-shell .editor {
+  border: none;
+  border-radius: 0;
+  min-height: 360px;
+}
+
+/* ===== 预设排版模板库 ===== */
+.tpl-panel {
+  padding: 12px;
+  background: var(--panel-soft, #fafbfc);
+  border-bottom: 1px solid var(--border);
+}
+.tpl-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.tpl-head strong {
+  font-size: 13px;
+  margin-right: 8px;
+}
+.tpl-head .hint {
+  display: inline;
+  margin: 0;
+}
+.tpl-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px;
+}
+.tpl-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: #fff;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.tpl-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.tpl-name {
+  font-size: 13px;
+  font-weight: 700;
+}
+.tpl-tag {
+  font-size: 10px;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 1px 6px;
+  white-space: nowrap;
+}
+.tpl-desc {
+  font-size: 11px;
+  color: var(--muted);
+  margin: 0;
+  line-height: 1.5;
+}
+.tpl-sample {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 10px;
+  line-height: 1.5;
+  color: var(--muted);
+  background: var(--panel-soft, #f7f8fa);
+  border-radius: 5px;
+  padding: 6px 7px;
+  margin: 0;
+  height: 62px;
+  overflow: hidden;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.tpl-actions {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+.tpl-foot {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+.tpl-select {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-size: 12px;
+  background: #fff;
+  color: var(--text);
+}
+
+/* 预览：表格 / 删除线 / 图片 / 分割线 */
+.markdown :deep(table) {
+  border-collapse: collapse;
+  margin: 10px 0;
+  width: 100%;
+  font-size: 13px;
+}
+.markdown :deep(th),
+.markdown :deep(td) {
+  border: 1px solid var(--border);
+  padding: 6px 9px;
+  text-align: left;
+}
+.markdown :deep(th) {
+  background: var(--panel-soft, #f7f8fa);
+  font-weight: 700;
+}
+.markdown :deep(del) {
+  color: var(--muted);
+}
+.markdown :deep(img) {
+  max-width: 100%;
+  height: auto;
+}
+.markdown :deep(hr) {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 16px 0;
+}
+.markdown :deep(ol) {
+  margin: 6px 0;
+  padding-left: 20px;
 }
 </style>
