@@ -1645,7 +1645,7 @@ export async function triggerProjectGeneration(
       body: JSON.stringify(model ? { stage, model } : { stage }),
     });
     if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) throw await apiError(res);
     return (await res.json()) as { taskId: string; dispatched: boolean; stage: string };
   } finally {
     clearTimeout(timer);
@@ -1925,7 +1925,7 @@ export async function saveContentVersion(
       body: JSON.stringify(body),
     });
     if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) throw await apiError(res);
     return (await res.json()) as ContentVersionItem;
   } finally {
     clearTimeout(timer);
@@ -2296,7 +2296,7 @@ export async function detectVersion(
       },
     );
     if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) throw await apiError(res);
     return (await res.json()) as { taskId: string; dispatched: boolean };
   } finally {
     clearTimeout(timer);
@@ -2372,7 +2372,7 @@ export async function polishProject(
       },
     );
     if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) throw await apiError(res);
     return (await res.json()) as { taskId: string; dispatched: boolean };
   } finally {
     clearTimeout(timer);

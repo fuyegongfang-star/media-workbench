@@ -30,8 +30,40 @@
               </div>
             </div>
           </div>
+          <!-- AI 一键创作主入口（首屏可见） -->
+          <div class="ai-hero">
+            <div class="ai-hero-head">
+              <span class="ai-hero-title">✨ AI 一键创作</span>
+              <span class="ai-hero-sub">基于本项目的标题、选题、账号策略与分析摘要自动成文</span>
+            </div>
+            <div class="ai-hero-actions">
+              <button class="btn primary ai-gen-main" :disabled="busy || genBusy" @click="gen('draft')">
+                {{ genBusy && genStage === 'draft' ? '生成中…' : '🚀 生成初稿' }}
+              </button>
+              <button class="btn" :disabled="busy || genBusy" @click="gen('continue')">续写</button>
+              <button class="btn" :disabled="busy || genBusy" @click="gen('rewrite')">改写</button>
+              <button class="btn" :disabled="busy || genBusy" @click="gen('compress')">压缩</button>
+              <button class="btn" :disabled="busy || genBusy" @click="gen('expand')">扩写</button>
+            </div>
+            <!-- 环境自检：未配置 LLM 供应商时给出可操作提示 -->
+            <p v-if="aiEnv && !aiEnv.llmConfigured" class="ai-env warn">
+              ⚠ 未检测到启用的 AI 模型。请先在「系统设置 → AI 与模型」配置并启用供应商，再点生成。
+            </p>
+            <p v-else-if="aiEnv && !aiEnv.queueReady" class="ai-env warn">
+              ⚠ 任务队列未就绪：生成任务会先排队，队列恢复后自动执行；若长时间无结果请检查 Redis。
+            </p>
+            <p v-else-if="aiEnv" class="ai-env ok">✓ AI 环境就绪：已配置模型（{{ aiEnv.model }}），可直接生成。</p>
+            <p v-if="genMsg" class="message" :class="genMsgType === 'err' ? 'err' : ''">{{ genMsg }}</p>
+            <div v-if="lastStagingVersion" class="ai-adopt-bar">
+              <span>AI 已生成待采纳版本 v{{ lastStagingVersion.versionNo }}</span>
+              <button class="btn primary small" :disabled="busy" @click="adopt(lastStagingVersion!)">立即采纳并写入编辑器</button>
+              <button class="btn small ghost" :disabled="busy" @click="lastStagingVersion = null">稍后处理</button>
+            </div>
+          </div>
+
           <p class="hint">
             键入后 2 秒自动保存为缓冲（<span class="mono">workingContent</span>，不入版本）；点「保存版本」才落一条可追溯版本。
+            AI 生成的初稿会作为<b>待采纳版本</b>出现在下方版本历史，点「采纳」后才写入编辑器。
           </p>
 
           <textarea
@@ -346,16 +378,16 @@
           </div>
         </section>
 
-        <!-- AI 操作入口 -->
+        <!-- AI 操作入口（快捷区；主入口在编辑器顶部） -->
         <section class="card">
           <h3 class="sub-title">AI 操作入口</h3>
-          <p class="hint">触发内容生成异步任务；实际模型调用与版本写出由后台任务处理器完成。</p>
+          <p class="hint">生成按钮也放在了正文编辑器顶部（首屏可见）。这里的润色与下方检测会生成待采纳版本，供你在版本历史里采纳或放弃。</p>
           <div class="ai-grid">
-            <button class="btn" :disabled="busy" @click="gen('draft')">生成初稿</button>
-            <button class="btn" :disabled="busy" @click="gen('continue')">续写</button>
-            <button class="btn" :disabled="busy" @click="gen('rewrite')">改写</button>
-            <button class="btn" :disabled="busy" @click="gen('compress')">压缩</button>
-            <button class="btn" :disabled="busy" @click="gen('expand')">扩写</button>
+            <button class="btn" :disabled="busy || genBusy" @click="gen('draft')">生成初稿</button>
+            <button class="btn" :disabled="busy || genBusy" @click="gen('continue')">续写</button>
+            <button class="btn" :disabled="busy || genBusy" @click="gen('rewrite')">改写</button>
+            <button class="btn" :disabled="busy || genBusy" @click="gen('compress')">压缩</button>
+            <button class="btn" :disabled="busy || genBusy" @click="gen('expand')">扩写</button>
           </div>
           <!-- 第三方润色：触发 TEXT_POLISH，原稿不变，结果写 polish 待采纳版本 -->
           <div class="polish-row">
@@ -382,7 +414,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import {
   adoptContentVersion,
@@ -412,6 +444,7 @@ import {
   submitWeChatPublish,
   massWeChatPublish,
   getWeChatPublishState,
+  fetchProviders,
   type WeChatPublishState,
   type ComplianceCheckResult,
   type ContentProjectDetail,
@@ -440,6 +473,14 @@ const loading = ref(false);
 const busy = ref(false);
 const lastTask = ref<{ taskId: string; dispatched: boolean; stage: string } | null>(null);
 const genRuns = ref<GenerationRunItem[]>([]);
+// 生成反馈闭环：轮询 GenerationRun 直到出结果，自动提示采纳
+const genBusy = ref(false);
+const genStage = ref<ProjectStage>('draft');
+const genMsgType = ref<'ok' | 'err' | ''>('');
+const aiEnv = ref<{ llmConfigured: boolean; queueReady: boolean; model: string } | null>(null);
+const lastStagingVersion = ref<ContentVersionItem | null>(null);
+let genPollTimer: ReturnType<typeof setInterval> | null = null;
+let pollTicks = 0;
 
 // T3.7 朱雀检测 / 第三方润色
 const textReviews = ref<TextReviewRunItem[]>([]);
@@ -758,6 +799,9 @@ async function adopt(v: ContentVersionItem) {
     if (detail.value) detail.value.currentVersionId = adopted.id;
     versions.value = await listContentVersions(projectId);
     genRuns.value = await listGenerationRuns(projectId);
+    if (lastStagingVersion.value?.id === v.id) lastStagingVersion.value = null;
+    genMsgType.value = 'ok';
+    genMsg.value = `已采纳 v${adopted.versionNo}，正文已写入编辑器。可继续编辑后点「保存版本」固化。`;
   } catch (e) {
     error.value = (e as Error).message;
   } finally {
@@ -779,18 +823,92 @@ async function discard(v: ContentVersionItem) {
   }
 }
 
+/** 环境自检：是否有启用的 LLM 供应商（只读，不暴露密钥）。失败时静默，不阻断生成。 */
+async function loadAiEnv() {
+  try {
+    const { providers } = await fetchProviders();
+    const enabled = providers.filter((p) => p.enabled && p.apiKeyConfigured);
+    aiEnv.value = {
+      llmConfigured: enabled.length > 0,
+      queueReady: true, // 队列就绪无法只读探测，按「可入队」处理；实际卡住由轮询提示
+      model: enabled[0]?.model || '',
+    };
+  } catch {
+    aiEnv.value = { llmConfigured: false, queueReady: false, model: '' };
+  }
+}
+
+function stopGenPoll() {
+  if (genPollTimer) {
+    clearInterval(genPollTimer);
+    genPollTimer = null;
+  }
+}
+
+/** 触发生成并轮询结果：成功提示采纳待采纳版本，失败显示后端真实错误。 */
 async function gen(stage: ProjectStage) {
   error.value = '';
   genMsg.value = '';
-  busy.value = true;
+  genMsgType.value = '';
+  genStage.value = stage;
+  genBusy.value = true;
+  lastStagingVersion.value = null;
+  stopGenPoll();
+  const before = new Set(genRuns.value.map((r) => r.id));
   try {
     const r = await triggerProjectGeneration(projectId, stage);
     lastTask.value = r;
-    genRuns.value = await listGenerationRuns(projectId); // 环境就绪后可见记录（当前多数为 queued/待环境）
+    genRuns.value = await listGenerationRuns(projectId);
+    genMsg.value = r.dispatched
+      ? `已提交「${stageLabel(stage)}」任务，等待 AI 生成…`
+      : `已提交「${stageLabel(stage)}」任务（队列未就绪，排队中）…`;
+    // 轮询：最多 ~60 次 × 2s ≈ 2 分钟，覆盖真实 LLM 生成耗时
+    pollTicks = 0;
+    genPollTimer = setInterval(async () => {
+      pollTicks += 1;
+      try {
+        const runs = await listGenerationRuns(projectId);
+        const fresh = runs.find((run) => !before.has(run.id));
+        if (fresh) {
+          if (fresh.status === 'success') {
+            stopGenPoll();
+            genBusy.value = false;
+            genRuns.value = runs;
+            versions.value = await listContentVersions(projectId);
+            const staged = fresh.outputVersionId
+              ? versions.value.find((v) => v.id === fresh.outputVersionId) ?? null
+              : null;
+            lastStagingVersion.value = staged;
+            const vNo = staged?.versionNo ?? fresh.outputVersion?.versionNo;
+            genMsgType.value = 'ok';
+            genMsg.value = `✓「${stageLabel(stage)}」已生成${vNo ? ` v${vNo}` : ''}（待采纳版本）。点下方「立即采纳」写入编辑器，或到版本历史自行处理。`;
+            return;
+          }
+          if (fresh.status === 'failed') {
+            stopGenPoll();
+            genBusy.value = false;
+            genRuns.value = runs;
+            genMsgType.value = 'err';
+            genMsg.value = `生成失败：${fresh.error || '未知错误'}。请检查「系统设置 → AI 与模型」的模型配置与配额。`;
+            return;
+          }
+        }
+        genRuns.value = runs;
+        if (pollTicks >= 60) {
+          stopGenPoll();
+          genBusy.value = false;
+          genMsgType.value = 'err';
+          genMsg.value = '生成任务耗时较长，仍未完成。可在下方「生成运行记录」查看状态，或稍后刷新页面。';
+        }
+      } catch {
+        /* 轮询单次失败不中断，下一轮重试 */
+      }
+    }, 2000);
   } catch (e) {
-    error.value = (e as Error).message;
-  } finally {
-    busy.value = false;
+    stopGenPoll();
+    genBusy.value = false;
+    genMsgType.value = 'err';
+    genMsg.value = `提交生成失败：${(e as Error).message}`;
   }
 }
 
@@ -1120,7 +1238,13 @@ async function doRecordPublication() {
   }
 }
 
-onMounted(loadAll);
+onMounted(() => {
+  void loadAll();
+  void loadAiEnv();
+});
+onUnmounted(() => {
+  stopGenPoll();
+});
 
 // ============ T3.9 公众号发布执行 ============
 
@@ -1782,6 +1906,68 @@ async function doMassPublish() {
   white-space: pre-wrap;
   word-break: break-word;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+/* AI 一键创作主入口（编辑器顶部首屏） */
+.ai-hero {
+  border: 1px solid var(--brand, #2563eb);
+  background: linear-gradient(180deg, #f5f9ff 0%, #fff 100%);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  margin: 10px 0 14px;
+}
+.ai-hero-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.ai-hero-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--brand, #2563eb);
+}
+.ai-hero-sub {
+  font-size: 12px;
+  color: var(--muted);
+}
+.ai-hero-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.ai-gen-main {
+  font-weight: 600;
+}
+.ai-env {
+  font-size: 12px;
+  margin: 10px 0 0;
+  padding: 5px 9px;
+  border-radius: 6px;
+  line-height: 1.5;
+}
+.ai-env.warn {
+  color: #a86a00;
+  background: #fffaf0;
+  border: 1px solid #f0c14b;
+}
+.ai-env.ok {
+  color: #047857;
+  background: #eef8f3;
+  border: 1px solid #b7e0cd;
+}
+.ai-adopt-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+  padding: 8px 10px;
+  border: 1px solid #b7e0cd;
+  background: #eef8f3;
+  border-radius: 6px;
+  font-size: 13px;
 }
 
 .ai-grid {
