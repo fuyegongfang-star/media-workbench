@@ -639,6 +639,11 @@
       <p class="hint">仅「所有者 / 管理员」可管理账号。如需调整权限或重置密码，请联系管理员。</p>
     </section>
 
+    <!-- AI 提示词模板管理：预设 + 自定义 + 按账号风格 -->
+    <section v-if="section === 'prompts'">
+      <PromptTemplatesPanel />
+    </section>
+
     <p v-if="message" class="message" :class="messageType">{{ message }}</p>
   </div>
 </template>
@@ -649,6 +654,7 @@ import { useRoute } from 'vue-router';
 import { systemSections } from '../router';
 import SettingsHeader from '../components/SettingsHeader.vue';
 import SecretInput from '../components/SecretInput.vue';
+import PromptTemplatesPanel from '../components/PromptTemplatesPanel.vue';
 import {
   fetchSystemStatus,
   fetchSystemSettings,

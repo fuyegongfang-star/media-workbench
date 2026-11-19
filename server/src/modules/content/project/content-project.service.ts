@@ -15,9 +15,11 @@ import { TasksService } from '../../tasks/tasks.service';
 import { ComplianceService } from '../compliance/compliance.service';
 import { DICTIONARY_VERSION } from '../compliance/compliance-dictionary';
 import { summarizeStrategy } from '../generation/topic-title.prompt';
+import { resolvePromptTemplate } from '../../generation/prompt-template-resolver.service';
 import { resolvePlatform } from '../platforms';
 import {
   buildContentContext,
+  buildProjectListQuery,
   defaultReviewChecklist,
   nextVersionNo,
   resolveProjectTarget,
@@ -168,11 +170,8 @@ export class ContentProjectService {
       }
     }
 
-    // 快照当前启用、对应平台的 article_draft 提示词模板版本（深入设计 §3.2 可复现）
-    const pt = await this.prisma.client.promptTemplate.findFirst({
-      where: { taskType: 'article_draft', platform: resolvedPlatform, enabled: true },
-      orderBy: { version: 'desc' },
-    });
+    // 快照当前启用、对应平台/账号的 article_draft 提示词模板版本（深入设计 §3.2 可复现）
+    const pt = await resolvePromptTemplate(this.prisma, 'article_draft', resolvedPlatform, target.ownedAccountId);
 
     const context = buildContentContext({
       titleText: title.text,
@@ -214,19 +213,22 @@ export class ContentProjectService {
     return project;
   }
 
-  async list(filter: { ownedAccountId?: string; status?: string }) {
-    const where: Prisma.ContentProjectWhereInput = {};
-    if (filter.ownedAccountId) where.ownedAccountId = filter.ownedAccountId;
-    if (filter.status) {
-      where.status = filter.status as Prisma.ContentProjectWhereInput['status'];
-    }
+  /**
+   * 内容项目列表（草稿箱数据源）。
+   * - status 支持语义值 `draft`（所有未发布）/ `published`（已发布/归档）
+   * - q：标题或选题标题模糊搜索；sort：最近编辑优先（默认）/ 创建时间优先
+   * where/orderBy 由纯函数构造（见 content-project.util.ts:buildProjectListQuery），便于单测。
+   */
+  async list(filter: { ownedAccountId?: string; status?: string; q?: string; sort?: string }) {
+    const { where, orderBy } = buildProjectListQuery(filter);
     return this.prisma.client.contentProject.findMany({
-      where,
-      orderBy: { createdAt: 'desc' },
+      where: where as Prisma.ContentProjectWhereInput,
+      orderBy: orderBy as Prisma.ContentProjectOrderByWithRelationInput,
       take: 200,
       include: {
         ownedAccount: { select: { id: true, name: true } },
         topic: { select: { id: true, title: true } },
+        selectedTitle: { select: { id: true, text: true } },
       },
     });
   }
@@ -618,10 +620,7 @@ export class ContentProjectService {
     }
 
     const resolvedPlatform = resolvePlatform(p.platform);
-    const pt = await this.prisma.client.promptTemplate.findFirst({
-      where: { taskType: 'article_draft', platform: resolvedPlatform, enabled: true },
-      orderBy: { version: 'desc' },
-    });
+    const pt = await resolvePromptTemplate(this.prisma, 'article_draft', resolvedPlatform, p.ownedAccountId);
 
     const context = buildContentContext({
       titleText: title?.text ?? '',

@@ -1495,6 +1495,7 @@ export interface ContentProjectItem {
   topicId: string | null;
   topic?: { id: string; title: string } | null;
   selectedTitleId: string | null;
+  selectedTitle?: { id: string; text: string } | null;
   strategyVersionId: string | null;
   contentType: ContentType;
   status: ContentProjectStatus;
@@ -1546,9 +1547,9 @@ export async function createContentProjectFromTitle(
   }
 }
 
-/** 内容项目列表（可按 ownedAccountId / status 过滤，需令牌）。 */
+/** 内容项目列表 / 草稿箱（账号、状态语义 draft/published、标题搜索、最近编辑排序；需令牌）。 */
 export async function listContentProjects(
-  params: { ownedAccountId?: string; status?: string } = {},
+  params: { ownedAccountId?: string; status?: string; q?: string; sort?: string } = {},
   timeoutMs = 8000,
 ): Promise<ContentProjectItem[]> {
   const qs = new URLSearchParams();
@@ -1564,7 +1565,7 @@ export async function listContentProjects(
       headers: { Accept: 'application/json', ...authHeader() },
     });
     if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) throw await apiError(res);
     return (await res.json()) as ContentProjectItem[];
   } finally {
     clearTimeout(timer);
@@ -2010,7 +2011,7 @@ export async function listGenerationRuns(
       },
     );
     if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) throw await apiError(res);
     return (await res.json()) as GenerationRunItem[];
   } finally {
     clearTimeout(timer);
@@ -2319,8 +2320,35 @@ export async function listTextReviews(
       },
     );
     if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) throw await apiError(res);
     return (await res.json()) as TextReviewRunItem[];
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** 通用任务详情（轮询润色/检测等后台任务的最终结果，含失败原因）。 */
+export interface TaskItem {
+  id: string;
+  taskType: string;
+  status: 'queued' | 'running' | 'success' | 'failed' | 'cancelled';
+  error: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** 查询单个任务状态/失败原因（GET /tasks/:id；需令牌）。 */
+export async function getTask(taskId: string, timeoutMs = 8000): Promise<TaskItem> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(`/${apiPrefix()}/tasks/${encodeURIComponent(taskId)}`, {
+      signal: controller.signal,
+      headers: { Accept: 'application/json', ...authHeader() },
+    });
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
+    if (!res.ok) throw await apiError(res);
+    return (await res.json()) as TaskItem;
   } finally {
     clearTimeout(timer);
   }
@@ -3774,4 +3802,85 @@ export async function testProviderConnection(
   } finally {
     clearTimeout(timer);
   }
+}
+
+// ============ AI 提示词模板管理（T6 体验优化）============
+
+export interface PromptTemplateView {
+  id: string;
+  taskType: string;
+  taskLabel: string;
+  taskGroup: string;
+  platform: string;
+  version: number;
+  label: string;
+  scope: 'global' | 'account';
+  ownedAccountId: string | null;
+  builtin: boolean;
+  enabled: boolean;
+  content: string;
+  variables: Record<string, unknown>;
+  updatedAt: string;
+}
+
+export interface PromptTaskMeta {
+  label: string;
+  desc: string;
+  variables: string[];
+  group: string;
+}
+
+async function promptTemplateFetch<T>(path: string, init?: RequestInit): Promise<T> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 10000);
+  try {
+    const res = await fetch(`/${apiPrefix()}/system/prompt-templates${path}`, {
+      ...init,
+      signal: controller.signal,
+      headers: { Accept: 'application/json', ...authHeader(), ...(init?.headers ?? {}) },
+    });
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
+    if (!res.ok) throw await apiError(res);
+    return (await res.json()) as T;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+export function fetchPromptTemplates(): Promise<{
+  templates: PromptTemplateView[];
+  taskMeta: Record<string, PromptTaskMeta>;
+  taskTypes: string[];
+}> {
+  return promptTemplateFetch('');
+}
+
+export function createPromptTemplate(body: {
+  taskType: string;
+  label: string;
+  content: string;
+  platform?: string;
+  scope?: 'global' | 'account';
+  ownedAccountId?: string;
+}): Promise<PromptTemplateView> {
+  return promptTemplateFetch('', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+}
+
+export function updatePromptTemplate(
+  id: string,
+  body: { label?: string; content?: string; enabled?: boolean; scope?: 'global' | 'account'; ownedAccountId?: string },
+): Promise<PromptTemplateView> {
+  return promptTemplateFetch(`/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+}
+
+export function deletePromptTemplate(id: string): Promise<{ ok: boolean }> {
+  return promptTemplateFetch(`/${encodeURIComponent(id)}`, { method: 'DELETE' });
 }

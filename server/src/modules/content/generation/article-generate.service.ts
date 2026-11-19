@@ -4,6 +4,7 @@ import { PrismaService } from '../../../prisma/prisma.service';
 import { TasksService } from '../../tasks/tasks.service';
 import { TaskHandlerRegistry } from '../../tasks/worker/task-handler.registry';
 import { LlmProviderService } from '../../generation/llm-provider.service';
+import { resolvePromptTemplate } from '../../generation/prompt-template-resolver.service';
 import { nextVersionNo, versionSourceLabel } from '../project/content-project.util';
 import {
   ARTICLE_EDIT_ACTIONS,
@@ -66,10 +67,8 @@ export class ArticleGenerateService implements OnModuleInit {
 
     const ctx = this.buildContext(project, currentContent, stage);
     const tplTaskType = stage === 'draft' ? 'article_draft' : 'article_edit';
-    const pt = await this.prisma.client.promptTemplate.findFirst({
-      where: { taskType: tplTaskType, platform: project.platform, enabled: true },
-      orderBy: { version: 'desc' },
-    });
+    // 按账号解析模板：账号专属优先、全局兜底（内容创作用对应账号风格的提示词）。
+    const pt = await resolvePromptTemplate(this.prisma, tplTaskType, project.platform, project.ownedAccountId);
 
     const resolved = await this.llm.resolve(payload?.model ?? undefined);
     const messages =

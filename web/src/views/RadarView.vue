@@ -22,6 +22,11 @@
     </nav>
 
     <p v-if="message" class="message" :class="messageType">{{ message }}</p>
+    <div v-if="justConvertedTopicId" class="convert-cta">
+      <span>刚采纳的选题已备好，直接开始创作 →</span>
+      <button class="btn primary" @click="goCreateFromRadar">去创作（生成标题）</button>
+      <button class="btn ghost small" @click="justConvertedTopicId = ''">知道了</button>
+    </div>
 
     <!-- 今日简报 -->
     <section v-if="tab === 'today'" class="panel">
@@ -276,6 +281,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
+import { useRouter } from 'vue-router';
 import {
   fetchRadarConfig, saveRadarConfig, triggerRadarCollect, fetchRadarBriefs, fetchRadarBrief,
   convertRadarItem, fetchRadarStatus, testRadarCustomSource,
@@ -341,6 +347,13 @@ const tab = ref<TabKey>('today');
 
 const message = ref('');
 const messageType = ref<'ok' | 'err'>('ok');
+const router = useRouter();
+/** 最近一次转选题成功的 topicId：显示「去创作」直达按钮，减少手动找菜单。 */
+const justConvertedTopicId = ref('');
+function goCreateFromRadar() {
+  if (!justConvertedTopicId.value) return;
+  router.push(`/content?topic=${encodeURIComponent(justConvertedTopicId.value)}`);
+}
 const collecting = ref(false);
 const converting = ref('');
 const savingConfig = ref(false);
@@ -506,7 +519,8 @@ async function convert(item: RadarItemView) {
   try {
     const r = await convertRadarItem(item.id);
     item.convertedTopicId = r.topicId;
-    notify(`✓ 已转为选题。下一步：到「内容项目 → 选题管理」点该选题的「标题」→ 生成/选标题 → 建内容项目（无策略时在标题页选归属账号即可）`);
+    justConvertedTopicId.value = r.topicId;
+    notify(`✓ 已转为选题，可直接去创作（生成标题 → 建内容项目 → AI 一键成文）。`);
   } catch (e) { notify(`转选题失败：${(e as Error).message}`, true); }
   finally { converting.value = ''; }
 }
@@ -617,4 +631,17 @@ onMounted(async () => {
 .message { font-size: 12px; padding: 9px 12px; border-radius: 8px; margin: 0; }
 .message.ok { background: rgba(79, 140, 255, 0.12); color: #9fc1ff; }
 .message.err { background: rgba(255, 90, 90, 0.12); color: #ff9b9b; }
+.convert-cta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 12px 16px;
+  margin: 0 0 14px;
+  background: var(--brand-soft);
+  border: 1px solid var(--brand);
+  border-radius: var(--radius);
+  font-size: 13px;
+  color: var(--text);
+}
 </style>

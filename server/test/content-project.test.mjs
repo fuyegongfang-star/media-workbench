@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import util from '../dist/modules/content/project/content-project.util.js';
-const { buildContentContext, resolveProjectTarget, shapeProjectContext, nextVersionNo, versionSourceLabel } = util;
+const { buildContentContext, resolveProjectTarget, shapeProjectContext, nextVersionNo, versionSourceLabel, buildProjectListQuery } = util;
 
 test('resolveProjectTarget: 选题策略可解析到账号 → ok 且返回归属', () => {
   const r = resolveProjectTarget({
@@ -173,5 +173,49 @@ test('versionSourceLabel: 未知/空值 → 原样或「未知」降级', () => 
   assert.equal(versionSourceLabel('weird'), 'weird');
   assert.equal(versionSourceLabel(null), '未知');
   assert.equal(versionSourceLabel(undefined), '未知');
+});
+
+// ---------- 草稿箱筛选条件（buildProjectListQuery）----------
+
+test('buildProjectListQuery: 默认按最近编辑排序，无过滤', () => {
+  const r = buildProjectListQuery({});
+  assert.deepEqual(r.where, {});
+  assert.deepEqual(r.orderBy, { updatedAt: 'desc' });
+});
+
+test('buildProjectListQuery: status=draft → 6 个未发布态 in 过滤', () => {
+  const r = buildProjectListQuery({ status: 'draft' });
+  assert.ok(Array.isArray(r.where.status.in));
+  assert.equal(r.where.status.in.length, 6);
+  assert.ok(!r.where.status.in.includes('PUBLISHED'));
+  assert.ok(!r.where.status.in.includes('ARCHIVED'));
+});
+
+test('buildProjectListQuery: status=published → 仅 PUBLISHED/ARCHIVED', () => {
+  const r = buildProjectListQuery({ status: 'published' });
+  assert.deepEqual(r.where.status.in, ['PUBLISHED', 'ARCHIVED']);
+});
+
+test('buildProjectListQuery: 精确状态值原样透传', () => {
+  const r = buildProjectListQuery({ status: 'CREATING' });
+  assert.equal(r.where.status, 'CREATING');
+});
+
+test('buildProjectListQuery: q 搜索标题/选题/正文三路 OR', () => {
+  const r = buildProjectListQuery({ q: '  职场  ' });
+  assert.equal(r.where.OR.length, 3);
+  assert.equal(r.where.OR[0].selectedTitle.text.contains, '职场');
+  assert.equal(r.where.OR[2].workingContent.contains, '职场');
+});
+
+test('buildProjectListQuery: 空 q / 空白 q 不产生 OR', () => {
+  assert.equal(buildProjectListQuery({ q: '   ' }).where.OR, undefined);
+  assert.equal(buildProjectListQuery({ q: '' }).where.OR, undefined);
+});
+
+test('buildProjectListQuery: sort=created 按创建时间，账号过滤透传', () => {
+  const r = buildProjectListQuery({ sort: 'created', ownedAccountId: 'acc1' });
+  assert.deepEqual(r.orderBy, { createdAt: 'desc' });
+  assert.equal(r.where.ownedAccountId, 'acc1');
 });
 

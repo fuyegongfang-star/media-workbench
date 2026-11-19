@@ -7,7 +7,14 @@ import util from '../dist/modules/content/detection/text-review.util.js';
 const { normalizeDetectResult, isStaleReview, validateDecision } = util;
 
 import prov from '../dist/modules/generation/detect-polish-provider.service.js';
-const { ZhuqueDetectProvider, LlmDetectProvider, LlmPolishProvider, extractPolishText } = prov;
+const {
+  ZhuqueDetectProvider,
+  LlmDetectProvider,
+  LlmPolishProvider,
+  extractPolishText,
+  splitTextForPolish,
+  polishMaxTokens,
+} = prov;
 
 // ---------- 纯函数 ----------
 
@@ -102,6 +109,56 @@ test('LlmPolishProvider: 模型用围栏包裹时仍可提取正文', async () =
   const p = new LlmPolishProvider(fakeLlm, 'm');
   const r = await p.polish('原文', { tone: '更口语化' });
   assert.equal(r.revised, '润色后正文');
+});
+
+test('splitTextForPolish: 短文本原样返回单段', () => {
+  const chunks = splitTextForPolish('这是一段短文。', 1800);
+  assert.equal(chunks.length, 1);
+  assert.equal(chunks[0], '这是一段短文。');
+});
+
+test('splitTextForPolish: 长文本按段落切分且每段不超上限', () => {
+  const para = '内容'.repeat(500); // 1000 字符一段
+  const text = Array.from({ length: 8 }, () => para).join('\n\n');
+  const chunks = splitTextForPolish(text, 1800);
+  assert.ok(chunks.length >= 4, `应切成多段，实际 ${chunks.length}`);
+  for (const c of chunks) assert.ok(c.length <= 1800 + 50, `单段 ${c.length} 不应超上限`);
+  // 内容不丢失（忽略分隔空白）
+  assert.equal(chunks.join('').replace(/\s/g, ''), text.replace(/\s/g, ''));
+});
+
+test('splitTextForPolish: 超长单段落按句末标点兜底切分', () => {
+  const sentence = '这是一句完整的话。';
+  const text = sentence.repeat(400); // 3600 字符，无空行
+  const chunks = splitTextForPolish(text, 1800);
+  assert.ok(chunks.length >= 2, `超长单段应被切开，实际 ${chunks.length}`);
+  for (const c of chunks) assert.ok(c.length <= 1800 + 20, `单句切分块 ${c.length} 不应超上限`);
+});
+
+test('polishMaxTokens: 动态上限保底 600 / 硬顶 3000', () => {
+  assert.equal(polishMaxTokens(10), 600);
+  assert.equal(polishMaxTokens(1000), 1400);
+  assert.equal(polishMaxTokens(10000), 3000);
+});
+
+test('LlmPolishProvider: 长文分段调用，单次输入/输出上限受控（不触发 token 超限）', async () => {
+  const calls = [];
+  const fakeLlm = {
+    chat: async (messages, opts) => {
+      calls.push({ userLen: messages[1].content.length, maxTokens: opts.maxTokens });
+      return { text: `润色片段${calls.length}` };
+    },
+  };
+  const p = new LlmPolishProvider(fakeLlm, 'm');
+  const para = '内容'.repeat(500); // 1000 字符一段
+  const text = Array.from({ length: 8 }, () => para).join('\n\n');
+  const r = await p.polish(text, {});
+  assert.ok(calls.length >= 4, '长文应触发多次分段调用');
+  for (const c of calls) {
+    assert.ok(c.maxTokens <= 3000, `单次 maxTokens ${c.maxTokens} 不应超过 3000`);
+    assert.ok(c.userLen < 1900, `单次输入 ${c.userLen} 不应塞入整篇正文`);
+  }
+  assert.ok(r.revised.includes('润色片段'), '结果应拼接各段润色输出');
 });
 
 // ---------- LLM 检测 Provider ----------

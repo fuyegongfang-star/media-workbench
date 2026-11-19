@@ -347,7 +347,8 @@
             <h3>构建与类型</h3>
             <div class="kv"><span>npm run typecheck（server + web tsc --noEmit）</span><b class="up">✓ 通过</b></div>
             <div class="kv"><span>npm run build（server tsc + web vite）</span><b class="up">✓ 通过 · vite 4.97s</b></div>
-            <div class="kv"><span>node --test server/test/*.test.mjs（38 文件）</span><b class="up">✓ 448/448 · 0 fail</b></div>
+            <div class="kv"><span>node --test server/test/*.test.mjs（41 文件）</span><b class="up">✓ 492/492 · 0 fail</b></div>
+            <div class="kv"><span>npm run test:web（编辑器纯逻辑）</span><b class="up">✓ 14/14 · 0 fail</b></div>
             <div class="kv"><span>prisma validate</span><b class="up">✓ schema valid</b></div>
             <div class="kv"><span>真实浏览器截图自查（T6.8 共 19 张）</span><b class="up">✓ 八项整改逐页 + 点击交互验证</b></div>
             <div class="kv"><span>web 产物</span><b>按路由懒加载拆分多 chunk + index</b></div>
@@ -366,6 +367,7 @@
 
         <div class="section-title"><span class="bar"></span>卡点与收尾说明</div>
         <div class="grid g3">
+          <div class="card"><h3>🛠 四项系统优化：润色失败 / 流程 / 提示词 / 草稿箱（11-19）</h3><p class="hint">① <b>润色请求失败真因</b>：原把整篇正文 <code>12000 字符 + maxTokens 8000</code> 一次塞给模型触发上下文/输出上限（新标题生成不含正文故正常）。改为按段落<b>分段润色</b>（每段≤1800 字符、输出硬顶 3000）拼接；朱雀检测失败自动降级 LLM；润色/检测提交后<b>轮询任务并透传真实错误</b>，不再只显示「已提交」。② <b>流程简化</b>：正文页顶部加「创作流水线」5 步条，删重复的侧栏 AI 入口，生成记录/审核状态机默认折叠，术语去技术化；雷达转选题后「去创作」直达标题页。③ <b>提示词模板管理</b>：补齐此前缺失的 CRUD 与设置页（预设+自定义+按账号专属，账号专属优先/全局兜底），润色提示词不再硬编码；采用<b>零迁移</b>方案（元数据存 <code>variables.__meta</code>，不改 schema/唯一约束）。④ <b>草稿箱</b>：新增独立菜单与路由，搜索/状态筛选/最近编辑排序，详情页返回直达。服务端 492/492、前端 14/14、build/typecheck/validate 全过，真实浏览器自证 4 个界面。</p></div>
           <div class="card"><h3>📐 正文编辑器排版工具栏 + 关联模板库（11-19）</h3><p class="hint">用户反馈：AI 生成的正文落在纯 <code>textarea</code> 里，只有源码没有排版按钮，一键复制与排版模板也缺失。<b>本次补齐</b>：① 编辑区顶部工具栏（H1–H3 / 加粗 / 斜体 / 删除线 / 引用 / 代码块 / 行内代码 / 链接 / 图片 / 有序无序列表 / 表格 / 分割线），支持选中文本包裹、整行前缀切换与 <code>Ctrl+B/I/K</code>；② 一键复制三种形态：Markdown 源码、带内联样式的富文本（可直接粘公众号）、去记号纯文本；③ 关联预设排版模板库：7 套内置模板（长文/快讯/测评/观点/教程/清单/短笔记）+ 自定义模板（可限定到当前账号，存 localStorage），自动代入标题/选题/账号/日期，「套用并保留正文」绝不静默覆盖原文；④ 预览新增表格 / 有序列表 / 删除线 / 图片 / 分割线渲染，全部先转义 HTML 防注入。纯逻辑抽到 <code>web/src/utils/markdown-editor.ts</code>，新增 <code>npm run test:web</code> 14/14；typecheck/build 通过，真实浏览器验证加粗、套模板、预览表格与复制反馈。</p></div>
           <div class="card"><h3>✨ 正文创作 AI 一键生成前置到首屏（11-19）</h3><p class="hint">后端 <code>ARTICLE_GEN</code> 生成链路本就完整（真实调 LLM + 写待采纳版本），但生成按钮全埋在右侧栏最底部、视口外，且点完无进度/成败反馈、错误被吞成裸 <code>HTTP 400</code>，看起来像「没有 AI 生成功能」。<b>修复</b>：① 正文编辑器顶部新增醒目「✨ AI 一键创作」区（生成初稿/续写/改写/压缩/扩写），首屏可见；② 生成后自动轮询 <code>GenerationRun</code>，成功即露出「立即采纳并写入编辑器」，失败显示后端真实错误（如未配置模型/配额）；③ 进入页面即环境自检，灰条提示已配置模型或未启用 LLM；④ 生成/检测/润色/保存版本 API 全部透传后端中文错误。已用真实浏览器截图自证首屏效果。</p></div>
           <div class="card"><h3>🔗 打通「雷达→选题→立项」断链（11-19）</h3><p class="hint">修复从雷达一键转选题、生成标题、选中后「建内容项目」报 <code>HTTP 400</code>：根因是雷达选题天生没有 <code>strategyId</code>，而立项强制要「策略→账号」链。<b>修复</b>：① 立项支持指定归属账号（校验归属防越权），无账号时自动归属用户唯一账号，多个账号时明确提示选择；有默认策略则一并继承风格基线。② 选题列表新增「归属策略」下拉，可给雷达选题补绑/解绑策略。③ 前端不再吞后端错误，原样显示「请先创建自有账号」等可操作提示。④ 账号策略页自动选中首个账号、按钮就地反馈，解决「按钮没反应」错觉。⑤ 立项后自动切到「内容项目」页签，雷达转出提示写明下一步。全量 466/466 单测通过。</p></div>
@@ -784,10 +786,22 @@
 
       <!-- ============ 创作上下文 ============ -->
       <section class="view" id="project">
-        <div class="note">按 <code>ContentProjectView.vue</code> 还原。两栏布局：左为正文编辑器（AI 一键创作 + Markdown 排版工具栏 + 关联模板库 + 三种一键复制）与版本历史、审核状态机；右为创作上下文侧栏与 AI 操作入口。下方为离线快照，按钮不可提交。</div>
+        <div class="note">按 <code>ContentProjectView.vue</code> 还原（11-19 流程简化后）。顶部「创作流水线」把生成→润色→检测→排版→发布串成一条主线；正文编辑器保留 AI 一键创作 + 排版工具栏 + 关联模板库 + 三种一键复制；生成运行记录/审核状态机默认折叠；侧栏精简为「创作依据」；润色按钮并入「润色与检测」卡片。下方为离线快照，按钮不可提交。</div>
         <div class="row" style="justify-content:space-between;margin-bottom:16px">
-          <div class="row"><button class="btn ghost">← 返回内容项目</button><h3 style="margin:0">内容项目详情</h3></div>
-          <span class="pill ok">已加载继承上下文（快照）</span>
+          <div class="row"><button class="btn ghost">← 返回草稿箱</button><h3 style="margin:0">内容项目详情</h3></div>
+          <span class="pill ok">已加载创作依据（快照）</span>
+        </div>
+        <!-- 创作流水线步骤条 -->
+        <div class="card" style="margin-bottom:16px;padding:10px 14px">
+          <div class="row" style="flex-wrap:wrap;gap:6px;align-items:center">
+            <b class="hint" style="margin-right:6px">创作流水线</b>
+            <span class="pill blue">1 生成初稿</span><span class="hint">›</span>
+            <span class="pill blue">2 润色去味</span><span class="hint">›</span>
+            <span class="pill blue">3 AI 检测</span><span class="hint">›</span>
+            <span class="pill blue">4 一键排版</span><span class="hint">›</span>
+            <span class="pill blue">5 送审发布</span>
+            <span class="hint" style="margin-left:8px">点步骤直达对应区块；「一键排版」自动展开排版模板库</span>
+          </div>
         </div>
         <div style="display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:16px;align-items:start" class="proj-grid">
           <div>
@@ -811,28 +825,24 @@
                 <div class="ph" style="border:none;border-radius:0">📝 Markdown 正文（支持表格 / 列表 / 引用 / 分割线预览）· 离线快照</div>
               </div>
             </div>
-            <div class="card"><h3>AI 生成结果 / 版本 / 审核 <span class="pill ok">T3.5 / T3.6 ✓</span></h3>
-              <p class="hint">生成初稿/续写/改写/压缩/扩写产出 staging 版本（T3.5 处理器已注册）；版本历史、采纳/放弃、审核状态机（待审核/需修改/已审核 + 审核清单，T3.6 已落地）均可用。</p>
-              <div class="ph">🧬 版本与生成结果 / 审核状态 · 离线快照</div>
+            <div class="card" style="margin-bottom:16px"><h3>润色与检测 <span class="pill ok">第 2-3 步</span></h3>
+              <p class="hint">先用「✨ AI 润色去味」去掉生硬表达（原稿不变，生成一条待采纳版本），再用「🛡 AI 检测」看 AI 痕迹。润色按段落分段调用避免 token 超限；朱雀检测不可用时自动降级 LLM；提交后轮询任务，失败透传真实原因。</p>
+              <div class="row"><input class="input" placeholder="润色风格（可选，如：更口语化 / 更犀利）" /><button class="btn primary">✨ AI 润色去味</button><button class="btn">🛡 AI 检测</button></div>
+            </div>
+            <div class="card"><h3>版本历史 <span class="hint">AI 生成/润色的结果在这里采纳</span></h3>
+              <p class="hint">版本历史、采纳/放弃、发布执行保留；「生成运行记录」「审核状态机」改为默认折叠的高级区，去掉大量技术术语，首屏更聚焦。</p>
+              <div class="ph">▸ 生成运行记录（调试用 · 折叠）&nbsp;&nbsp; ▸ 送审与发布准备（折叠）· 离线快照</div>
             </div>
           </div>
           <div>
-            <div class="card" style="margin-bottom:16px"><h3>创作上下文（继承依据）</h3>
-              <p class="hint">下列依据在「选中标题一键建项目」时定格，仅策略版本号与提示词模板版本号取实时绑定值；来源漂移由 <code>contextSnapshot</code> 隔离。</p>
-              <div class="kv"><span>归属账号</span><b>—</b></div>
-              <div class="kv"><span>选中标题</span><b>—</b></div>
-              <div class="kv"><span>选题 / 受众 / 角度 / 标签</span><b>—</b></div>
-              <div class="kv"><span>策略版本</span><b>— <span class="pill">实时绑定</span></b></div>
-              <div class="kv"><span>提示词模板版本</span><b>—（未启用 article_draft 模板）</b></div>
-              <div class="kv"><span>分析摘要</span><b>—（无关联分析）</b></div>
+            <div class="card" style="margin-bottom:16px"><h3>创作依据 <span class="hint">精简</span></h3>
+              <p class="hint">AI 生成时会参考这些信息，来自建项目时的选题与账号策略。术语已去「定格/实时/contextSnapshot」。</p>
+              <div class="kv"><span>账号</span><b>—</b></div>
+              <div class="kv"><span>标题</span><b>—</b></div>
+              <div class="ph" style="padding:10px">▸ 展开选题 / 策略 / 分析摘要（默认折叠）</div>
             </div>
-            <div class="card"><h3>AI 操作入口</h3>
-              <p class="hint">触发 <code>ARTICLE_GEN</code> 异步任务；实际 LLM 调用与版本写出由 T3.5 注册的 OpenAI 兼容处理器完成。本机无 Redis/Worker → 任务保留 queued（待环境）；未配 LLM 密钥时处理器如实置 failed，不伪造。</p>
-              <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
-                <button class="btn">生成初稿</button><button class="btn">续写</button><button class="btn">改写</button>
-                <button class="btn">压缩</button><button class="btn">扩写</button>
-              </div>
-              <p class="hint" style="margin-bottom:0">本机无 Redis/Worker → 任务保留 queued（待环境）；T3.5 处理器就绪后才会真正生成。</p>
+            <div class="card"><h3>✓ 已删除重复块</h3>
+              <p class="hint">侧栏原「AI 操作入口」与正文顶部「AI 一键创作」重复，本轮删除；生成/续写/改写/压缩/扩写统一在编辑器顶部首屏可见。</p>
             </div>
           </div>
         </div>
@@ -1106,7 +1116,8 @@
           <div class="card"><h3>工程自验</h3>
             <div class="kv"><span>npm run typecheck（server + web）</span><b class="up">✓ exit 0</b></div>
             <div class="kv"><span>npm run build（server tsc + web vite 4.97s）</span><b class="up">✓ exit 0</b></div>
-            <div class="kv"><span>node --test server/test/*.test.mjs（38 文件）</span><b class="up">✓ 448/448 · 0 fail</b></div>
+            <div class="kv"><span>node --test server/test/*.test.mjs（41 文件）</span><b class="up">✓ 492/492 · 0 fail</b></div>
+            <div class="kv"><span>npm run test:web（编辑器纯逻辑）</span><b class="up">✓ 14/14 · 0 fail</b></div>
             <div class="kv"><span>prisma validate</span><b class="up">✓ schema valid（25 个迁移目录不变）</b></div>
             <div class="kv"><span>模板区开发态文案扫描</span><b class="up">✓ 0 命中</b></div>
           </div>

@@ -43,6 +43,7 @@ export const navGroups: NavGroup[] = [
     label: '内容生产',
     items: [
       { path: '/content', label: '内容项目', icon: '✎' },
+      { path: '/drafts', label: '草稿箱', icon: '▣' },
       { path: '/library', label: '素材库', icon: '▤' },
       { path: '/calendar', label: '内容日历', icon: '▦' },
       { path: '/batch', label: '批量操作', icon: '⛒' },
@@ -79,6 +80,7 @@ export const systemSections: { key: string; label: string; desc: string }[] = [
   { key: 'site', label: '站点设置', desc: '站点信息、TDK / Logo、SEO·GEO 与页脚所有者信息' },
   { key: 'users', label: '用户与权限', desc: '账号列表、角色、启停与口令重置' },
   { key: 'ai', label: 'AI 与密钥', desc: '全站密钥与凭据集中管理、LLM 供应商配置' },
+  { key: 'prompts', label: '提示词模板', desc: '预设与自定义各环节 AI 提示词模板、按账号风格区分' },
   { key: 'notifications', label: '通知与告警', desc: '企业微信 / 钉钉 / 邮件渠道与转发规则' },
   { key: 'ops', label: '版本与运维', desc: '在线更新、依赖健康与服务状态' },
 ];
@@ -96,6 +98,8 @@ const routes: RouteRecordRaw[] = [
       { path: 'dashboard', name: 'dashboard', component: () => import('../views/DashboardView.vue') },
       { path: 'radar', name: 'radar', component: () => import('../views/RadarView.vue') },
       { path: 'content', name: 'content', component: () => import('../views/ContentView.vue') },
+      // 草稿箱：复用内容项目视图，强制落在「草稿箱 / 内容项目」页签，一步直达最近编辑的草稿
+      { path: 'drafts', name: 'drafts', component: () => import('../views/ContentView.vue') },
       { path: 'content-projects/:id', name: 'content-project', component: () => import('../views/ContentProjectView.vue') },
       { path: 'analysis', name: 'analysis', component: () => import('../views/AnalysisView.vue') },
       { path: 'launch', name: 'launch', component: () => import('../views/LaunchView.vue') },

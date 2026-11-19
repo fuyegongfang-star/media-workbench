@@ -4,6 +4,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { TasksService } from '../tasks/tasks.service';
 import { TaskHandlerRegistry } from '../tasks/worker/task-handler.registry';
 import { LlmProviderService } from '../generation/llm-provider.service';
+import { resolvePromptTemplate } from '../generation/prompt-template-resolver.service';
 import {
   parseAnalysisJson,
   renderAnalysisMessages,
@@ -122,13 +123,10 @@ export class AnalysisService implements OnModuleInit {
       summary: JSON.stringify(a.structured ?? {}),
     }));
 
-    // 取 account_summary 启用模板（最新版本）
+    // 取 account_summary 启用模板（账号专属优先、全局兜底）
     let template: string | undefined;
     let templateVersionId: string | undefined;
-    const pt = await this.prisma.client.promptTemplate.findFirst({
-      where: { taskType: 'account_summary', platform: 'wechat', enabled: true },
-      orderBy: { version: 'desc' },
-    });
+    const pt = await resolvePromptTemplate(this.prisma, 'account_summary', 'wechat', ownedAccountId);
     if (pt) {
       template = pt.content;
       templateVersionId = pt.id;
@@ -210,13 +208,10 @@ export class AnalysisService implements OnModuleInit {
     });
     if (!material) throw new Error(`素材不存在：${materialId}`);
 
-    // 取 single_analysis 启用模板（最新版本）
+    // 取 single_analysis 启用模板（对标拆解阶段无自有账号上下文 → 用全局模板）
     let template: string | undefined;
     let templateVersionId: string | undefined;
-    const pt = await this.prisma.client.promptTemplate.findFirst({
-      where: { taskType: 'single_analysis', platform: 'wechat', enabled: true },
-      orderBy: { version: 'desc' },
-    });
+    const pt = await resolvePromptTemplate(this.prisma, 'single_analysis', 'wechat', null);
     if (pt) {
       template = pt.content;
       templateVersionId = pt.id;

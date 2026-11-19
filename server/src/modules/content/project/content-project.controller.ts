@@ -29,10 +29,15 @@ export class ContentProjectController {
     return this.svc.createFromTitle(dto.titleCandidateId, user?.sub, dto.platform, dto.ownedAccountId);
   }
 
-  /** 内容项目列表（可按 ownedAccountId / status 过滤）。 */
+  /** 内容项目列表 / 草稿箱数据源（账号、状态语义、标题搜索、最近编辑排序）。 */
   @Get()
-  list(@Query('ownedAccountId') ownedAccountId?: string, @Query('status') status?: string) {
-    return this.svc.list({ ownedAccountId, status });
+  list(
+    @Query('ownedAccountId') ownedAccountId?: string,
+    @Query('status') status?: string,
+    @Query('q') q?: string,
+    @Query('sort') sort?: string,
+  ) {
+    return this.svc.list({ ownedAccountId, status, q, sort });
   }
 
   /** 内容项目明细（含账号/选题/标题/策略版本投影）。 */

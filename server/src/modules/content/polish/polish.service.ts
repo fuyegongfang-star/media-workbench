@@ -73,7 +73,7 @@ export class PolishService implements OnModuleInit {
     const text = await this.currentText(project);
     if (!text.trim()) throw new Error('无可润色的正文（请先保存至少一个版本）');
 
-    const resolved = await this.detectPolish.resolvePolish(payload?.model ?? undefined);
+    const resolved = await this.detectPolish.resolvePolish(payload?.model ?? undefined, project.ownedAccountId);
     const result = await resolved.provider.polish(text, { tone: payload?.tone ?? undefined });
     if (!result.revised.trim()) throw new Error('TEXT_POLISH 润色结果为空（模型未返回正文）');
 

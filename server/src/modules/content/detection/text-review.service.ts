@@ -105,31 +105,58 @@ export class TextReviewService implements OnModuleInit {
       throw e; // 让 Task 也标记 failed（诚实，不伪造通过）
     }
 
+    // 朱雀调用失败时：未强制指定服务则自动降级到 LLM 基准检测，避免整条链路因第三方服务抖动而中断。
+    let finalResolved = resolved;
+    let result;
+    let fallbackNote = '';
     try {
-      const result = await resolved.provider.detect(version.content, versionId);
-      await this.writeRun({
-        projectId,
-        versionId,
-        service: resolved.serviceName,
-        rawResponse: result.raw ?? null,
-        summary: result.summary ?? null,
-        serviceVersion: result.serviceVersion ?? resolved.serviceVersion ?? null,
-        status: 'success',
-      });
-      this.logger.log(`TEXT_DETECT 完成：project=${projectId} version=${versionId} service=${resolved.serviceName}`);
+      result = await resolved.provider.detect(version.content, versionId);
     } catch (e) {
       const msg = (e as Error).message;
-      await this.writeRun({
-        projectId,
-        versionId,
-        service: resolved.serviceName,
-        rawResponse: { error: msg },
-        summary: `检测失败：${msg}`,
-        serviceVersion: resolved.serviceVersion ?? null,
-        status: 'failed',
-      });
-      throw e;
+      if (resolved.serviceName === 'zhuque' && !payload?.service) {
+        this.logger.warn(`朱雀检测失败，自动降级到 LLM 基准检测：${msg}`);
+        try {
+          finalResolved = await this.detectPolish.resolveLlmDetect();
+          result = await finalResolved.provider.detect(version.content, versionId);
+          fallbackNote = `（朱雀检测不可用，已自动改用 LLM 基准检测：${msg.slice(0, 80)}）`;
+        } catch (fallbackErr) {
+          await this.writeFailedRun(projectId, versionId, resolved, `朱雀与 LLM 检测均失败：${msg}；LLM：${(fallbackErr as Error).message}`);
+          throw fallbackErr;
+        }
+      } else {
+        await this.writeFailedRun(projectId, versionId, resolved, `检测失败：${msg}`);
+        throw e;
+      }
     }
+
+    await this.writeRun({
+      projectId,
+      versionId,
+      service: finalResolved.serviceName,
+      rawResponse: result.raw ?? null,
+      summary: `${result.summary ?? ''}${fallbackNote}`.trim() || null,
+      serviceVersion: result.serviceVersion ?? finalResolved.serviceVersion ?? null,
+      status: 'success',
+    });
+    this.logger.log(`TEXT_DETECT 完成：project=${projectId} version=${versionId} service=${finalResolved.serviceName}`);
+  }
+
+  /** 写一条失败检测记录（统一失败落库入口）。 */
+  private async writeFailedRun(
+    projectId: string,
+    versionId: string,
+    resolved: { serviceName: string; serviceVersion?: string },
+    summary: string,
+  ) {
+    await this.writeRun({
+      projectId,
+      versionId,
+      service: resolved.serviceName,
+      rawResponse: { error: summary },
+      summary,
+      serviceVersion: resolved.serviceVersion ?? null,
+      status: 'failed',
+    });
   }
 
   /** 写一条 TextReviewRun（status 由调用方决定）。 */

@@ -10,6 +10,7 @@ import { PrismaService } from '../../../prisma/prisma.service';
 import { TasksService } from '../../tasks/tasks.service';
 import { TaskHandlerRegistry } from '../../tasks/worker/task-handler.registry';
 import { LlmProviderService } from '../../generation/llm-provider.service';
+import { resolvePromptTemplate } from '../../generation/prompt-template-resolver.service';
 import {
   clampCount,
   parseTitleCandidates,
@@ -115,10 +116,8 @@ export class TopicTitleGenerateService implements OnModuleInit {
       this.buildAnalysisSummary(analysisId),
     ]);
 
-    const pt = await this.prisma.client.promptTemplate.findFirst({
-      where: { taskType: 'topic_gen', platform: 'wechat', enabled: true },
-      orderBy: { version: 'desc' },
-    });
+    const accountId = await this.resolveAccountId(strategyId);
+    const pt = await resolvePromptTemplate(this.prisma, 'topic_gen', 'wechat', accountId);
     const resolved = await this.llm.resolve(payload?.model);
     const messages = renderTopicGenMessages(
       { strategySummary, analysisSummary, count },
@@ -159,10 +158,8 @@ export class TopicTitleGenerateService implements OnModuleInit {
     if (!topic) throw new NotFoundException(`选题不存在：${topicId}`);
 
     const strategySummary = await this.buildStrategySummary(topic.strategyId);
-    const pt = await this.prisma.client.promptTemplate.findFirst({
-      where: { taskType: 'title_gen', platform: 'wechat', enabled: true },
-      orderBy: { version: 'desc' },
-    });
+    const accountId = await this.resolveAccountId(topic.strategyId);
+    const pt = await resolvePromptTemplate(this.prisma, 'title_gen', 'wechat', accountId);
     const resolved = await this.llm.resolve(payload?.model);
     const messages = renderTitleGenMessages(
       {
@@ -205,6 +202,16 @@ export class TopicTitleGenerateService implements OnModuleInit {
     if (!strategyId) return '';
     const s = await this.prisma.client.accountStrategy.findUnique({ where: { id: strategyId } });
     return s ? summarizeStrategy(s) : '';
+  }
+
+  /** 由策略 ID 反查归属账号（Topic / TitleCandidate 无 ownedAccountId，走策略间接关联）。 */
+  private async resolveAccountId(strategyId?: string | null): Promise<string | null> {
+    if (!strategyId) return null;
+    const s = await this.prisma.client.accountStrategy.findUnique({
+      where: { id: strategyId },
+      select: { ownedAccountId: true },
+    });
+    return s?.ownedAccountId ?? null;
   }
 
   private async buildAnalysisSummary(analysisId?: string | null): Promise<string> {

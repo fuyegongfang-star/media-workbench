@@ -314,3 +314,45 @@ export function validateReviewChecklistInput(input: unknown): {
   }
   return { ok: true, items };
 }
+
+// ============ 草稿箱筛选条件（T6 体验优化）============
+// 纯函数：把列表查询参数翻译成 Prisma where / orderBy，便于单测且不依赖数据库。
+
+export const DRAFT_STATUSES = [
+  'TOPIC_SELECTING', 'PENDING_CREATION', 'CREATING',
+  'PENDING_REVIEW', 'NEEDS_REVISION', 'APPROVED',
+] as const;
+export const PUBLISHED_STATUSES = ['PUBLISHED', 'ARCHIVED'] as const;
+
+export interface ProjectListFilter {
+  ownedAccountId?: string;
+  status?: string;
+  q?: string;
+  sort?: string;
+}
+
+/** 构造内容项目列表（草稿箱）的查询条件。status 支持语义值 draft / published。 */
+export function buildProjectListQuery(filter: ProjectListFilter): {
+  where: Record<string, unknown>;
+  orderBy: { createdAt?: 'desc'; updatedAt?: 'desc' };
+} {
+  const where: Record<string, unknown> = {};
+  if (filter.ownedAccountId) where.ownedAccountId = filter.ownedAccountId;
+  if (filter.status === 'draft') {
+    where.status = { in: [...DRAFT_STATUSES] };
+  } else if (filter.status === 'published') {
+    where.status = { in: [...PUBLISHED_STATUSES] };
+  } else if (filter.status) {
+    where.status = filter.status;
+  }
+  if (filter.q?.trim()) {
+    const q = filter.q.trim();
+    where.OR = [
+      { selectedTitle: { text: { contains: q, mode: 'insensitive' } } },
+      { topic: { title: { contains: q, mode: 'insensitive' } } },
+      { workingContent: { contains: q } },
+    ];
+  }
+  const orderBy = filter.sort === 'created' ? { createdAt: 'desc' as const } : { updatedAt: 'desc' as const };
+  return { where, orderBy };
+}

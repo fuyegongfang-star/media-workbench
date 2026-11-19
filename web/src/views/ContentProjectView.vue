@@ -2,7 +2,7 @@
   <div class="ct">
     <!-- 顶栏 -->
     <div class="topbar">
-      <button class="btn ghost" @click="goBack">← 返回内容项目</button>
+      <button class="btn ghost" @click="goBack">← 返回草稿箱</button>
       <div class="title-wrap">
         <h2 class="card-title" style="margin: 0">
           {{ ctx?.title?.text || detail?.selectedTitle?.text || '内容项目' }}
@@ -12,6 +12,20 @@
       </div>
     </div>
 
+    <!-- 创作流水线：把「生成→润色→检测→排版→发布」串成一条可见主线，点步骤直达对应区块 -->
+    <div class="pipeline">
+      <span class="pipeline-label">创作流水线</span>
+      <button class="pipe-step" @click="scrollToStep('step-gen')"><i>1</i>生成初稿</button>
+      <span class="pipe-arrow">›</span>
+      <button class="pipe-step" @click="scrollToStep('step-polish')"><i>2</i>润色去味</button>
+      <span class="pipe-arrow">›</span>
+      <button class="pipe-step" @click="scrollToStep('step-detect')"><i>3</i>AI 检测</button>
+      <span class="pipe-arrow">›</span>
+      <button class="pipe-step" @click="goFormat"><i>4</i>一键排版</button>
+      <span class="pipe-arrow">›</span>
+      <button class="pipe-step" @click="scrollToStep('step-review')"><i>5</i>送审发布</button>
+    </div>
+
     <p v-if="error" class="message err">{{ error }}</p>
     <p v-if="genMsg" class="message">{{ genMsg }}</p>
 
@@ -19,7 +33,7 @@
       <!-- 主区：编辑器 + 版本历史 -->
       <div class="main">
         <!-- 编辑器 -->
-        <section class="card">
+        <section class="card" id="step-gen">
           <div class="editor-head">
             <h3 class="sub-title" style="margin: 0">正文编辑器（Markdown）</h3>
             <div class="editor-head-right">
@@ -176,7 +190,7 @@
 
         <!-- 版本历史 -->
         <section class="card">
-          <h3 class="sub-title">版本历史（恢复 = 设当前版本 + 还原缓冲）</h3>
+          <h3 class="sub-title">版本历史 <span class="fold-hint">AI 生成/润色的结果在这里采纳</span></h3>
           <p v-if="versions.length === 0" class="hint">暂无版本。编辑后点「保存版本」即可生成第一条版本。</p>
           <ul v-else class="ver-list">
             <li
@@ -219,15 +233,13 @@
           </ul>
         </section>
 
-        <section class="card">
-          <h3 class="sub-title">生成运行记录（ARTICLE_GEN）</h3>
-          <p class="hint">
-            每次触发生成/续写/改写/压缩/扩写都会落一条 GenerationRun（含状态、模型、耗时、关联 staging 版本）。
-            在「设置中心 → AI 与密钥」配置 LLM 供应商，并确保 PostgreSQL/Redis 在线后，由后台任务真实生成并写出待采纳版本；队列未就绪时任务会保留在排队状态。
-          </p>
-          <p v-if="genRuns.length === 0" class="hint">
-            暂无生成记录。点击右侧「AI 操作入口」即可发起生成任务。
-          </p>
+        <details class="card fold-card">
+          <summary class="fold-summary">
+            <span class="fold-caret">▸</span> 生成运行记录
+            <span class="fold-count">{{ genRuns.length }}</span>
+            <span class="fold-hint">调试用 · 查看每次生成的模型/耗时/状态</span>
+          </summary>
+          <p v-if="genRuns.length === 0" class="hint">暂无生成记录。</p>
           <ul v-else class="run-list">
             <li v-for="r in genRuns" :key="r.id" class="run-item">
               <div class="run-main">
@@ -243,24 +255,37 @@
               <div v-if="r.error" class="run-err">⚠ {{ r.error }}</div>
             </li>
           </ul>
-        </section>
+        </details>
 
-        <!-- 朱雀检测 / 第三方润色 -->
-        <section class="card">
-          <h3 class="sub-title">朱雀检测 / 第三方润色</h3>
+        <!-- 润色与检测：去 AI 味 + 朱雀/LLM 检测，同一步完成 -->
+        <section class="card" id="step-polish">
+          <h3 class="sub-title">润色与检测 <span class="step-no">第 2-3 步</span></h3>
           <p class="hint">
-            朱雀检测绑定当前版本、<b>不改文</b>，结果写检测记录（文章修改后旧结果自动标「旧版本结果」）；
-            第三方润色生成一条 <b>polish 待采纳版本</b>，可在上方「版本历史」中采纳或放弃。
-            检测/润色服务不可用时，创作链路不阻断，前端显示「服务不可用，已跳过」。
+            先用「AI 润色」去掉生硬表达（原稿不改动，生成一条待采纳版本），再用「AI 检测」看 AI 痕迹。
+            润色结果在下方「版本历史」采纳后即可生效。
           </p>
+          <!-- AI 润色（原稿不变，写 polish 待采纳版本） -->
+          <div id="step-detect" class="polish-block">
+            <div class="polish-row">
+              <input
+                v-model="polishTone"
+                class="tone-input"
+                type="text"
+                maxlength="50"
+                placeholder="润色风格（可选，如：更口语化 / 更犀利）"
+              />
+              <button class="btn primary" :disabled="busy" @click="doPolish">✨ AI 润色去味</button>
+            </div>
+            <p v-if="polishMsg" class="hint">{{ polishMsg }}</p>
+          </div>
           <div class="detect-actions">
             <button
-              class="btn primary"
+              class="btn"
               :disabled="busy || !detail?.currentVersionId"
               :title="detail?.currentVersionId ? '' : '请先保存至少一个版本'"
               @click="doDetect"
             >
-              检测当前版本
+              🛡 AI 检测（查 AI 痕迹）
             </button>
             <span v-if="!detail?.currentVersionId" class="badge">尚无版本可检测</span>
           </div>
@@ -296,12 +321,12 @@
           </ul>
         </section>
 
-        <section class="card">
-          <h3 class="sub-title">审核状态机</h3>
-          <p class="hint">
-            审核流程：创建中 CREATING → 待审核 PENDING_REVIEW → 已审核 APPROVED（或退回 NEEDS_REVISION）。
-            合规预审命中阻断级风险词时将在送审处提示。
-          </p>
+        <details class="card fold-card" id="step-review">
+          <summary class="fold-summary">
+            <span class="fold-caret">▸</span> 送审与发布准备
+            <span class="fold-hint">第 5 步 · 展开后勾选检查项、送审、通过</span>
+          </summary>
+          <p class="hint">依次勾选下方检查项 → 点「标记待审核」→ 审核通过后即可在下方发布。命中风险词时会提醒你确认。</p>
           <div v-if="reviewMsg" class="message">{{ reviewMsg }}</div>
 
           <!-- 审核清单 -->
@@ -371,16 +396,14 @@
               ✓ 已审核通过；现在可以录入发布信息并回写。
             </p>
           </div>
-        </section>
-
-        
+        </details>
 
         <!-- 公众号发布执行：草稿箱同步 / 发布 / 群发（可定时） -->
-        <section class="card">
-          <h3 class="sub-title">公众号发布执行</h3>
+        <section class="card" id="step-publish">
+          <h3 class="sub-title">发布到公众号 <span class="step-no">最后一步</span></h3>
           <p class="hint">
-            审核通过后可执行：① 同步草稿箱（<span class="mono">add_draft</span>，回写 media_id）② 正式发布（<span class="mono">freepublish</span>，回写文章链接）③ 群发（可定时）。
-            公众号 AppID / AppSecret（AES 加密入库）统一在「设置中心 → AI 与密钥」配置。
+            ① 同步到草稿箱 → ② 正式发布（拿到文章链接）→ ③ 群发（可定时，非必需）。
+            公众号密钥在「系统设置 → AI 与密钥」配置。
           </p>
           <div class="publish-actions">
             <button class="btn primary" :disabled="wechatBusy" @click="doSyncDraft">① 同步草稿箱</button>
@@ -404,93 +427,46 @@
         </section>
       </div>
 
-      <!-- 侧栏：创作上下文面板 -->
+      <!-- 侧栏：创作依据速览（精简；详细上下文默认折叠） -->
       <aside class="sidebar">
         <section class="card ctx">
           <div class="ctx-head">
-            <h3 class="sub-title" style="margin: 0">创作上下文（继承依据）</h3>
-            <button class="btn small ghost" :disabled="ctxBusy" title="重新从标题/选题/策略/分析定格快照" @click="refreshCtx">
-              {{ ctxBusy ? '刷新中…' : '刷新快照' }}
+            <h3 class="sub-title" style="margin: 0">创作依据</h3>
+            <button class="btn small ghost" :disabled="ctxBusy" title="重新从标题/选题/策略/分析刷新" @click="refreshCtx">
+              {{ ctxBusy ? '刷新中…' : '刷新' }}
             </button>
           </div>
-          <p class="hint ctx-note">
-            下列依据在「选中标题一键建项目」时定格（账户/标题/选题/策略摘要/分析摘要），
-            仅策略版本号与提示词模板版本号取实时绑定值。来源漂移由快照隔离，避免默认继承出错。
-            <span class="origin-legend"><span class="origin-tag frozen">定格</span> 创建时快照，源改名不影响；<span class="origin-tag live">实时</span> 随绑定关系更新。</span>
-          </p>
+          <p class="hint ctx-note">AI 生成时会参考这些信息，来自建项目时的选题与账号策略。</p>
 
           <div class="ctx-item">
-            <div class="ctx-k">归属账号 <span class="origin-tag live">实时</span></div>
+            <div class="ctx-k">账号</div>
             <div class="ctx-v">{{ ctx?.account?.name || '—' }}</div>
           </div>
-
           <div class="ctx-item">
-            <div class="ctx-k">选中标题 <span class="origin-tag frozen">定格</span></div>
+            <div class="ctx-k">标题</div>
             <div class="ctx-v">{{ ctx?.title?.text || '—' }}</div>
-            <div v-if="ctx?.title?.basis" class="ctx-sub">{{ ctx.title.basis }}</div>
           </div>
 
-          <div class="ctx-item">
-            <div class="ctx-k">选题 <span class="origin-tag frozen">定格</span></div>
-            <div class="ctx-v">{{ ctx?.topic?.title || '—' }}</div>
-            <div v-if="ctx?.topic?.audience" class="ctx-sub">受众：{{ ctx.topic.audience }}</div>
-            <div v-if="ctx?.topic?.angle" class="ctx-sub">角度：{{ ctx.topic.angle }}</div>
-            <div v-if="ctx?.topic?.tags" class="ctx-sub">标签：{{ formatTags(ctx.topic.tags) }}</div>
-          </div>
-
-          <div class="ctx-item">
-            <div class="ctx-k">策略版本 <span class="origin-tag live">实时</span></div>
-            <div v-if="ctx?.strategy" class="ctx-v">
-              v{{ ctx.strategy.version }}
+          <details class="ctx-more">
+            <summary>展开选题 / 策略 / 分析摘要</summary>
+            <div class="ctx-item">
+              <div class="ctx-k">选题</div>
+              <div class="ctx-v">{{ ctx?.topic?.title || '—' }}</div>
+              <div v-if="ctx?.topic?.audience" class="ctx-sub">受众：{{ ctx.topic.audience }}</div>
+              <div v-if="ctx?.topic?.angle" class="ctx-sub">角度：{{ ctx.topic.angle }}</div>
             </div>
-            <div v-else class="ctx-v">—</div>
-            <div v-if="ctx?.strategy?.summary" class="ctx-summary">{{ ctx.strategy.summary }}</div>
-          </div>
-
-          <div class="ctx-item">
-            <div class="ctx-k">提示词模板版本 <span class="origin-tag live">实时</span></div>
-            <div v-if="ctx?.promptTemplate" class="ctx-v">
-              v{{ ctx.promptTemplate.version }}
+            <div class="ctx-item">
+              <div class="ctx-k">策略</div>
+              <div v-if="ctx?.strategy" class="ctx-v">v{{ ctx.strategy.version }}</div>
+              <div v-else class="ctx-v">—</div>
+              <div v-if="ctx?.strategy?.summary" class="ctx-summary">{{ ctx.strategy.summary }}</div>
             </div>
-            <div v-else class="ctx-v">—（创建时未启用草稿模板）</div>
-          </div>
-
-          <div class="ctx-item">
-            <div class="ctx-k">分析摘要 <span class="origin-tag frozen">定格</span></div>
-            <pre v-if="ctx?.analysisSummary" class="ctx-pre">{{ ctx.analysisSummary }}</pre>
-            <div v-else class="ctx-v">—（无关联分析）</div>
-          </div>
-        </section>
-
-        <!-- AI 操作入口（快捷区；主入口在编辑器顶部） -->
-        <section class="card">
-          <h3 class="sub-title">AI 操作入口</h3>
-          <p class="hint">生成按钮也放在了正文编辑器顶部（首屏可见）。这里的润色与下方检测会生成待采纳版本，供你在版本历史里采纳或放弃。</p>
-          <div class="ai-grid">
-            <button class="btn" :disabled="busy || genBusy" @click="gen('draft')">生成初稿</button>
-            <button class="btn" :disabled="busy || genBusy" @click="gen('continue')">续写</button>
-            <button class="btn" :disabled="busy || genBusy" @click="gen('rewrite')">改写</button>
-            <button class="btn" :disabled="busy || genBusy" @click="gen('compress')">压缩</button>
-            <button class="btn" :disabled="busy || genBusy" @click="gen('expand')">扩写</button>
-          </div>
-          <!-- 第三方润色：触发 TEXT_POLISH，原稿不变，结果写 polish 待采纳版本 -->
-          <div class="polish-row">
-            <input
-              v-model="polishTone"
-              class="tone-input"
-              type="text"
-              maxlength="50"
-              placeholder="语气基调（可选，如：更口语化）"
-            />
-            <button class="btn" :disabled="busy" @click="doPolish">AI 润色</button>
-          </div>
-          <p v-if="polishMsg" class="hint">{{ polishMsg }}</p>
-          <p v-if="lastTask" class="hint">
-            已提交任务 <span class="mono">{{ lastTask.taskId.slice(0, 8) }}</span>
-            （stage={{ lastTask.stage }}，dispatched={{ lastTask.dispatched }}）。
-            <span v-if="!lastTask.dispatched">任务队列未就绪时任务会保留在排队状态，队列恢复后自动执行。</span>
-            <span v-else>已入队，等待 Worker 处理。</span>
-          </p>
+            <div class="ctx-item">
+              <div class="ctx-k">分析摘要</div>
+              <pre v-if="ctx?.analysisSummary" class="ctx-pre">{{ ctx.analysisSummary }}</pre>
+              <div v-else class="ctx-v">—</div>
+            </div>
+          </details>
         </section>
       </aside>
     </div>
@@ -522,6 +498,7 @@ import {
   getContentProject,
   getContentProjectContext,
   getContentProjectReview,
+  getTask,
   refreshContentProjectContext,
   listContentVersions,
   listGenerationRuns,
@@ -578,6 +555,53 @@ const aiEnv = ref<{ llmConfigured: boolean; queueReady: boolean; model: string }
 const lastStagingVersion = ref<ContentVersionItem | null>(null);
 let genPollTimer: ReturnType<typeof setInterval> | null = null;
 let pollTicks = 0;
+/** 通用后台任务轮询（润色/检测），与生成轮询互斥使用，避免多定时器叠加。 */
+let bgTaskPollTimer: ReturnType<typeof setInterval> | null = null;
+function stopBgTaskPoll() {
+  if (bgTaskPollTimer) {
+    clearInterval(bgTaskPollTimer);
+    bgTaskPollTimer = null;
+  }
+}
+/**
+ * 提交后台任务后轮询其最终状态：成功回调刷新数据，失败回调展示后端真实错误。
+ * 这样润色/检测的失败原因不再被吞（此前提交后完全不轮询，用户只看到"已提交"）。
+ */
+function pollBgTask(
+  taskId: string,
+  label: string,
+  onSuccess: () => Promise<void>,
+  msgRef: { value: string },
+) {
+  stopBgTaskPoll();
+  let ticks = 0;
+  bgTaskPollTimer = setInterval(async () => {
+    ticks += 1;
+    try {
+      const t = await getTask(taskId);
+      if (t.status === 'success') {
+        stopBgTaskPoll();
+        busy.value = false;
+        await onSuccess();
+        msgRef.value = `✓ ${label}已完成。`;
+        return;
+      }
+      if (t.status === 'failed' || t.status === 'cancelled') {
+        stopBgTaskPoll();
+        busy.value = false;
+        error.value = `${label}失败：${t.error || '未知错误（可在任务中心查看）'}`;
+        return;
+      }
+      if (ticks >= 60) {
+        stopBgTaskPoll();
+        busy.value = false;
+        msgRef.value = `${label}耗时较长，仍在后台处理中，可稍后刷新查看结果。`;
+      }
+    } catch {
+      /* 单次轮询失败不中断，下一轮重试 */
+    }
+  }, 2000);
+}
 
 // T3.7 朱雀检测 / 第三方润色
 const textReviews = ref<TextReviewRunItem[]>([]);
@@ -681,7 +705,24 @@ const reviewBadgeClass = computed(() => {
 });
 
 function goBack() {
-  router.push('/content');
+  // 直接回草稿箱（独立路由，强制项目页签），避免用户再手动切页签找刚编辑的草稿。
+  router.push('/drafts');
+}
+/** 流水线步骤：滚动定位到对应区块并短暂高亮。 */
+function scrollToStep(id: string) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  el.classList.remove('step-flash');
+  void (el as HTMLElement).offsetWidth;
+  el.classList.add('step-flash');
+  window.setTimeout(() => el.classList.remove('step-flash'), 1400);
+}
+/** 流水线第 4 步：切到编辑模式、展开排版模板库并定位到工具栏。 */
+function goFormat() {
+  mode.value = 'edit';
+  showTemplates.value = true;
+  nextTick(() => scrollToStep('step-gen'));
 }
 function formatTags(tags: unknown): string {
   if (Array.isArray(tags)) return (tags as unknown[]).join('、');
@@ -1212,14 +1253,20 @@ async function doDetect() {
   busy.value = true;
   try {
     const r = await detectVersion(projectId, versionId);
-    detectMsg.value = `已提交检测任务 ${r.taskId.slice(0, 8)}（dispatched=${r.dispatched}）。${
-      r.dispatched ? '等待 Worker 处理。' : '任务队列未就绪，任务保留在排队状态。'
-    }`;
+    detectMsg.value = `已提交检测任务，等待 AI 检测…`;
     textReviews.value = await listTextReviews(projectId);
+    if (!r.dispatched) detectMsg.value = '任务队列未就绪，任务已排队，等待 Worker 处理…';
+    if (r.dispatched) {
+      // 轮询任务结果：成功刷新检测记录并高亮结论，失败透传真实错误（不再静默）。
+      pollBgTask(r.taskId, '检测', async () => {
+        textReviews.value = await listTextReviews(projectId);
+      }, detectMsg);
+    } else {
+      busy.value = false;
+    }
   } catch (e) {
-    error.value = (e as Error).message;
-  } finally {
     busy.value = false;
+    error.value = (e as Error).message;
   }
 }
 
@@ -1244,13 +1291,19 @@ async function doPolish() {
   busy.value = true;
   try {
     const r = await polishProject(projectId, { tone: polishTone.value.trim() || undefined });
-    polishMsg.value = `已提交润色任务 ${r.taskId.slice(0, 8)}（dispatched=${r.dispatched}）。${
-      r.dispatched ? '等待 Worker 处理，完成后将在「版本历史」生成一条 polish 待采纳版本。' : '任务队列未就绪，任务保留在排队状态。'
-    }`;
+    polishMsg.value = '已提交润色任务，等待 AI 处理…（分段润色较长正文，稍候）';
+    if (!r.dispatched) {
+      polishMsg.value = '任务队列未就绪，任务已排队，等待 Worker 处理…';
+      busy.value = false;
+      return;
+    }
+    // 轮询任务结果：成功刷新版本列表露出 polish 待采纳版本，失败透传真实错误。
+    pollBgTask(r.taskId, '润色', async () => {
+      versions.value = await listContentVersions(projectId);
+    }, polishMsg);
   } catch (e) {
-    error.value = (e as Error).message;
-  } finally {
     busy.value = false;
+    error.value = (e as Error).message;
   }
 }
 
@@ -1464,6 +1517,7 @@ onMounted(() => {
 });
 onUnmounted(() => {
   stopGenPoll();
+  stopBgTaskPoll();
 });
 
 // ============ T3.9 公众号发布执行 ============
@@ -1544,7 +1598,159 @@ async function doMassPublish() {
   display: flex;
   align-items: center;
   gap: 16px;
+  margin-bottom: 12px;
+}
+
+/* ===== 创作流水线步骤条：把「生成→润色→检测→排版→发布」串成一条可见主线 ===== */
+.pipeline {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 10px 14px;
   margin-bottom: 14px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+.pipeline-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+  margin-right: 6px;
+  letter-spacing: 0.5px;
+}
+.pipe-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px 5px 6px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg-soft);
+  color: var(--text);
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.pipe-step:hover {
+  background: var(--brand-soft);
+  border-color: var(--brand);
+}
+.pipe-step i {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 19px;
+  height: 19px;
+  border-radius: 50%;
+  background: var(--brand);
+  color: var(--brand-ink);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 700;
+}
+.pipe-arrow {
+  color: var(--border-strong);
+  font-size: 18px;
+  line-height: 1;
+}
+.step-no {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--brand);
+  background: var(--brand-soft);
+  border-radius: 999px;
+  padding: 2px 9px;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+
+/* ===== 折叠卡片：高级/调试信息默认收起，避免首屏信息过载 ===== */
+.fold-card {
+  padding: 0;
+}
+.fold-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text);
+  list-style: none;
+  user-select: none;
+}
+.fold-summary::-webkit-details-marker {
+  display: none;
+}
+.fold-caret {
+  color: var(--muted);
+  transition: transform 0.15s;
+  display: inline-block;
+}
+details[open] > .fold-summary .fold-caret {
+  transform: rotate(90deg);
+}
+.fold-card[open] .fold-summary,
+details[open] > .fold-summary {
+  border-bottom: 1px solid var(--border);
+}
+.fold-hint {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--muted);
+}
+.fold-count {
+  font-size: 11px;
+  color: var(--brand);
+  background: var(--brand-soft);
+  border-radius: 999px;
+  padding: 1px 7px;
+}
+.fold-card > ul,
+.fold-card > p,
+.fold-card > div {
+  margin: 12px 16px;
+}
+.ctx-more {
+  margin-top: 8px;
+  border-top: 1px dashed var(--border);
+  padding-top: 8px;
+}
+.ctx-more summary {
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--muted);
+  list-style: none;
+  user-select: none;
+}
+.ctx-more summary::-webkit-details-marker {
+  display: none;
+}
+.ctx-more summary::before {
+  content: '▸ ';
+  color: var(--muted);
+}
+.ctx-more[open] summary::before {
+  content: '▾ ';
+}
+.polish-block {
+  margin-bottom: 10px;
+}
+.step-flash {
+  animation: stepFlash 1.4s ease-out;
+}
+@keyframes stepFlash {
+  0%,
+  30% {
+    box-shadow: 0 0 0 3px var(--brand-soft), var(--shadow);
+  }
+  100% {
+    box-shadow: var(--shadow);
+  }
 }
 .title-wrap {
   display: flex;

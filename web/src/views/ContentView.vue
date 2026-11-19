@@ -151,38 +151,65 @@
       </template>
     </section>
 
-    <!-- 内容项目-->
+    <!-- 草稿箱 / 内容项目 -->
     <section v-if="tab === 'projects'" class="card">
       <div class="row" style="justify-content: space-between">
-        <h2 class="card-title" style="margin: 0">内容项目</h2>
+        <h2 class="card-title" style="margin: 0">草稿箱 / 内容项目</h2>
         <button class="btn" :disabled="loadingP" @click="loadProjects">刷新</button>
+      </div>
+      <!-- 草稿快速定位：搜索标题 + 状态筛选 + 最近编辑排序 -->
+      <div class="row" style="gap: 10px; flex-wrap: wrap; margin: 12px 0">
+        <input
+          v-model="draftSearch"
+          class="input sm"
+          type="text"
+          maxlength="60"
+          style="min-width: 240px; flex: 1"
+          placeholder="搜索标题 / 选题 / 正文内容…"
+          @keyup.enter="loadProjects"
+        />
+        <select v-model="draftStatus" class="input sm" @change="loadProjects">
+          <option value="draft">草稿（未发布）</option>
+          <option value="">全部状态</option>
+          <option value="published">已发布 / 归档</option>
+          <option value="CREATING">创作中</option>
+          <option value="PENDING_REVIEW">待审核</option>
+          <option value="APPROVED">已通过</option>
+        </select>
+        <select v-model="draftSort" class="input sm" @change="loadProjects">
+          <option value="updated">最近编辑优先</option>
+          <option value="created">创建时间优先</option>
+        </select>
+        <button class="btn primary sm" :disabled="loadingP" @click="loadProjects">查找</button>
       </div>
       <p v-if="projMsg" class="message">{{ projMsg }}</p>
       <table v-if="projects.length" class="tbl">
         <thead>
-          <tr><th>ID</th><th>归属账号</th><th>选题</th><th>标题</th><th>状态</th><th>模板版本</th><th>创建时间</th></tr>
+          <tr><th>标题</th><th>归属账号</th><th>状态</th><th>最近编辑</th><th>操作</th></tr>
         </thead>
         <tbody>
           <tr v-for="p in projects" :key="p.id">
-            <td class="sm mono">{{ p.id.slice(0, 8) }}</td>
+            <td>
+              <div style="font-weight: 600">{{ projectTitle(p) }}</div>
+              <div class="sm muted">{{ p.topic?.title || p.id.slice(0, 8) }}</div>
+            </td>
             <td>{{ p.ownedAccount?.name || p.ownedAccountId.slice(0, 8) }}</td>
-            <td>{{ p.topic?.title || '—' }}</td>
-            <td>{{ projectTitle(p) }}</td>
-            <td><span class="pill" :class="statusClass(p.status)">{{ p.status }}</span></td>
-            <td class="sm mono">{{ p.promptTemplateVersionId ? p.promptTemplateVersionId.slice(0, 8) : '—' }}</td>
-            <td class="sm">{{ fmtTime(p.createdAt) }}</td>
-            <td><button class="btn ghost sm" @click="openProject(p)">打开</button></td>
+            <td><span class="pill" :class="statusClass(p.status)">{{ statusLabel(p.status) }}</span></td>
+            <td class="sm">{{ fmtTime(p.updatedAt) }}</td>
+            <td><button class="btn ghost sm" @click="openProject(p)">继续创作 →</button></td>
           </tr>
         </tbody>
       </table>
-      <p v-else-if="!loadingP" class="hint">暂无内容项目。在「标题管理」中选中一个标题后点「建内容项目」即可一键创建并继承上下文。</p>
+      <p v-else-if="!loadingP" class="hint">
+        没有匹配的草稿。可换个关键词或状态筛选，或到「标题管理」选中标题后点「建内容项目」新建。
+      </p>
     </section>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRouter, useRoute } from 'vue-router';
 import {
   listTopics,
   createTopic,
@@ -207,6 +234,7 @@ import {
 } from '../api/http';
 
 const router = useRouter();
+const route = useRoute();
 
 const tab = ref<'topics' | 'titles' | 'projects'>('topics');
 const error = ref('');
@@ -232,6 +260,10 @@ const genTitleMsg = ref('');
 const loadingP = ref(false);
 const creatingP = ref(false);
 const projMsg = ref('');
+// 草稿箱筛选：搜索词 / 状态语义 / 排序
+const draftSearch = ref('');
+const draftStatus = ref('draft');
+const draftSort = ref('updated');
 
 const topicForm = reactive({ title: '', sourceType: 'manual' as TopicSourceType, strategyId: '', analysisId: '', audience: '', angle: '', tags: '' });
 const genTopicForm = reactive({ strategyId: '', analysisId: '', count: 5 });
@@ -279,9 +311,17 @@ async function bindTopicStrategy(t: TopicItem, strategyId: string) {
 }
 
 function statusClass(s: string): string {
-  if (s === 'active' || s === 'selected' || s === 'success') return 'ok';
-  if (s === 'archived' || s === 'rejected' || s === 'failed') return 'warn';
+  if (s === 'active' || s === 'selected' || s === 'success' || s === 'APPROVED' || s === 'PUBLISHED') return 'ok';
+  if (s === 'archived' || s === 'rejected' || s === 'failed' || s === 'NEEDS_REVISION') return 'warn';
   return '';
+}
+const PROJECT_STATUS_LABELS: Record<string, string> = {
+  TOPIC_SELECTING: '选题中', PENDING_CREATION: '待创建', CREATING: '创作中',
+  PENDING_REVIEW: '待审核', NEEDS_REVISION: '待修改', APPROVED: '已通过',
+  PUBLISHED: '已发布', ARCHIVED: '已归档',
+};
+function statusLabel(s: string): string {
+  return PROJECT_STATUS_LABELS[s] || s;
 }
 function formatTags(tags: unknown): string {
   if (Array.isArray(tags)) return (tags as unknown[]).join('、');
@@ -464,6 +504,7 @@ function fmtTime(s: string): string {
 }
 
 function projectTitle(p: ContentProjectItem): string {
+  if (p.selectedTitle?.text) return p.selectedTitle.text;
   const t = p.contextSnapshot?.title;
   return typeof t === 'string' && t ? t : '—';
 }
@@ -485,16 +526,30 @@ async function createProject(c: TitleCandidateItem) {
   }
 }
 
-onMounted(() => {
-  void loadTopics();
+onMounted(async () => {
+  await loadTopics();
   void loadAccountsAndStrategies();
+  // 从雷达/草稿入口带参跳转：?topic=xxx 定位到该选题的标题页；
+  // ?tab=projects 或 /drafts 路由直达草稿箱页签。
+  const qTopic = String(route.query.topic ?? '');
+  const qTab = String(route.query.tab ?? '');
+  if (qTopic) {
+    const t = topics.value.find((x) => x.id === qTopic);
+    if (t) await openTitles(t);
+  } else if (qTab === 'projects' || route.path === '/drafts') {
+    openProjects();
+  }
 });
 
 async function loadProjects() {
   error.value = '';
   loadingP.value = true;
   try {
-    projects.value = await listContentProjects();
+    projects.value = await listContentProjects({
+      q: draftSearch.value || undefined,
+      status: draftStatus.value || undefined,
+      sort: draftSort.value || undefined,
+    });
   } catch (e) {
     error.value = (e as Error).message;
   } finally {

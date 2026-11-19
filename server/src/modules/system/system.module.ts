@@ -4,6 +4,7 @@ import { TasksModule } from '../tasks/tasks.module';
 import { SystemController } from './system.controller';
 import { SystemService } from './system.service';
 import { ProviderController } from './provider.controller';
+import { PromptTemplateController } from './prompt-template.controller';
 import { UpdateController } from './update.controller';
 import { UpdateService } from './update.service';
 import { OverviewController } from './overview.controller';
@@ -15,7 +16,7 @@ import { OverviewController } from './overview.controller';
  */
 @Module({
   imports: [AuthModule, TasksModule],
-  controllers: [SystemController, ProviderController, UpdateController, OverviewController],
+  controllers: [SystemController, ProviderController, PromptTemplateController, UpdateController, OverviewController],
   providers: [SystemService, UpdateService],
 })
 export class SystemModule {}
