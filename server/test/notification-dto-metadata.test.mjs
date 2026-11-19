@@ -14,6 +14,7 @@ import {
   SendTestDto,
   TelegramChatsDto,
   TelegramProbeDto,
+  TelegramVerifyDto,
   UpsertNotificationChannelsDto,
 } from '../dist/modules/notification/dto/notification.dto.js';
 
@@ -27,6 +28,7 @@ const bodyCases = [
   ['upsert', UpsertNotificationChannelsDto],
   ['test', SendTestDto],
   ['telegramChats', TelegramChatsDto],
+  ['telegramVerify', TelegramVerifyDto],
   ['telegramProbe', TelegramProbeDto],
   ['alert', SendAlertDto],
 ];
@@ -50,6 +52,24 @@ test('TelegramProbeDto：合法表单体通过白名单校验（回归：曾整�
   const out = await pipe.transform(body, { type: 'body', metatype: TelegramProbeDto });
   assert.equal(out.chatId, body.chatId);
   assert.equal(out.botToken, body.botToken);
+});
+
+test('SendTestDto / TelegramVerifyDto：表单覆盖字段通过白名单（测试按钮用当前值发群）', async () => {
+  const testBody = {
+    type: 'telegram',
+    text: 'hi',
+    botToken: `1234567890:${'A'.repeat(35)}`,
+    chatId: '-1001234567890',
+  };
+  const out = await pipe.transform(testBody, { type: 'body', metatype: SendTestDto });
+  assert.equal(out.chatId, '-1001234567890');
+  assert.equal(out.botToken, testBody.botToken);
+
+  const verifyOut = await pipe.transform(
+    { botToken: testBody.botToken, chatId: '-1001234567890' },
+    { type: 'body', metatype: TelegramVerifyDto },
+  );
+  assert.equal(verifyOut.chatId, '-1001234567890');
 });
 
 test('TelegramProbeDto：多余字段仍被 forbidNonWhitelisted 拒绝（安全边界不放松）', async () => {

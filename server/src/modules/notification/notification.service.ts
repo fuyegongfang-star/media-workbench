@@ -30,9 +30,13 @@ import {
   mergeSensitiveChannels,
   normalizeTelegramChatId,
   normalizeTelegramToken,
+  parseTelegramChat,
   redactTelegramError,
+  sortTelegramChats,
   telegramApiUrl,
+  telegramGetChatUrl,
   telegramGetUpdatesUrl,
+  telegramChatKindLabel,
   type TelegramChatCandidate,
 } from './notification.util';
 import { type UpsertNotificationChannelsDto } from './dto/notification.dto';
@@ -41,6 +45,8 @@ export interface SendResult {
   type: NotificationChannelType;
   ok: boolean;
   error?: string;
+  /** 实际送达的会话（仅 Telegram 回传，用于让用户确认消息进了群还是私聊）。 */
+  sentTo?: TelegramChatCandidate;
 }
 
 /**
@@ -123,7 +129,7 @@ export class NotificationService implements OnModuleInit {
     botToken?: string;
     chatId?: string;
     text?: string;
-  }): Promise<{ ok: boolean; error?: string }> {
+  }): Promise<{ ok: boolean; error?: string; sentTo?: TelegramChatCandidate }> {
     const token = normalizeTelegramToken(String(input.botToken ?? ''));
     const chatId = normalizeTelegramChatId(String(input.chatId ?? ''));
     if (!token || !chatId) {
@@ -147,9 +153,13 @@ export class NotificationService implements OnModuleInit {
       });
       const body = (await res.text()).slice(0, 20_000);
       let description = '';
+      let sentTo: TelegramChatCandidate | undefined;
       try {
-        const parsed = JSON.parse(body) as { description?: string };
-        if (typeof parsed.description === 'string') description = parsed.description;
+        const parsed: unknown = JSON.parse(body);
+        const obj = parsed as { description?: string };
+        if (typeof obj.description === 'string') description = obj.description;
+        // 只有真正送达时 result.chat 才有值；用它告诉用户消息到底进了群还是私聊
+        sentTo = parseTelegramChat(parsed) ?? undefined;
       } catch {
         // 非 JSON 响应忽略
       }
@@ -160,7 +170,7 @@ export class NotificationService implements OnModuleInit {
           error: `HTTP ${res.status}${description ? ` · ${description}` : ''}${hint}`,
         };
       }
-      return { ok: true };
+      return { ok: true, sentTo };
     } catch (e) {
       return { ok: false, error: redactTelegramError(e, token) };
     } finally {
@@ -213,18 +223,74 @@ export class NotificationService implements OnModuleInit {
           error: redactTelegramError(json.description ?? 'Telegram 返回格式异常', token),
         };
       }
-      const chats = extractTelegramChats(json.result);
+      // 群组/频道排前面，私聊排后面，避免用户误选私聊 ID 导致通知不进群
+      const chats = sortTelegramChats(extractTelegramChats(json.result, 50));
       if (!chats.length) {
         return {
           ok: false,
           chats: [],
           error: '还没有检测到会话。',
-          hint: '先在 Telegram 里给机器人发一条消息（或把它拉进群），再点一次「获取会话 ID」。',
+          hint: '先在 Telegram 里给机器人发一条消息（或把它拉进群并发一条 /start），再点一次「获取会话 ID」。',
         };
       }
       return { ok: true, chats };
     } catch (e) {
       return { ok: false, chats: [], error: redactTelegramError(e, token) };
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  /**
+   * 用 getChat 校验一个 Chat ID 真实指向的会话（名称/类型），不写库、不回显正文。
+   * 用户从别处（如群成员里复制、第三方机器人）拿到的 ID，可先点「校验目标」确认是群而不是私聊。
+   */
+  async verifyTelegramChat(input: {
+    botToken?: string;
+    chatId?: string;
+  }): Promise<{ ok: boolean; chat?: TelegramChatCandidate; error?: string; hint?: string }> {
+    let token = String(input.botToken ?? '').trim();
+    if (!token || token === MASKED_SECRET || token.startsWith('enc:')) {
+      const cfg = await this.loadSendConfig();
+      token = cfg.channels.find((c) => c.type === 'telegram')?.botToken ?? '';
+    }
+    token = normalizeTelegramToken(token);
+    const chatId = normalizeTelegramChatId(String(input.chatId ?? ''));
+    if (!token || !chatId) {
+      return { ok: false, error: '请先填写 Bot Token 和 Chat ID 再校验。' };
+    }
+    if (!isValidTelegramToken(token)) {
+      return { ok: false, error: `Bot Token 格式不对（密钥段应为 35 位）。请从 BotFather 完整复制。` };
+    }
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 12_000);
+    try {
+      const res = await fetch(telegramGetChatUrl(token, chatId), {
+        signal: controller.signal,
+        headers: { Accept: 'application/json' },
+      });
+      const body = (await res.text()).slice(0, 20_000);
+      let description = '';
+      let chat: TelegramChatCandidate | null = null;
+      try {
+        const parsed: unknown = JSON.parse(body);
+        const obj = parsed as { description?: string };
+        if (typeof obj.description === 'string') description = obj.description;
+        chat = parseTelegramChat(parsed);
+      } catch {
+        // 非 JSON 响应忽略
+      }
+      if (!res.ok || !chat) {
+        const hint = this.telegramErrorHint(res.status, description);
+        return { ok: false, error: `HTTP ${res.status}${description ? ` · ${description}` : ''}${hint}` };
+      }
+      const hint =
+        chat.type === 'private'
+          ? `⚠ 这是私聊（${telegramChatKindLabel(chat.type)}）：通知只会发给机器人对话框，不会进群。请在目标群里发一条消息或 /start 后用「获取会话 ID」重新选择群组。`
+          : `✓ 目标是${telegramChatKindLabel(chat.type)}「${chat.label}」，通知将推送到这里。`;
+      return { ok: true, chat, hint };
+    } catch (e) {
+      return { ok: false, error: redactTelegramError(e, token) };
     } finally {
       clearTimeout(timer);
     }
@@ -355,7 +421,8 @@ export class NotificationService implements OnModuleInit {
           const hint = this.telegramErrorHint(res.status, data.description ?? '');
           return { type: ch.type, ok: false, error: `HTTP ${res.status}${detail}${hint}` };
         }
-        return { type: ch.type, ok: true };
+        const sentTo = parseTelegramChat(data) ?? undefined;
+        return { type: ch.type, ok: true, sentTo };
       }
       if (ch.type === 'email') {
         return this.sendEmail(ch, text);
@@ -469,9 +536,29 @@ export class NotificationService implements OnModuleInit {
     return { channels: keptChannels.map(maskChannel), forwardKinds: merged.forwardKinds };
   }
 
-  async testChannel(type: NotificationChannelType, text?: string): Promise<SendResult> {
-    const ch = await this.findChannel(type);
+  async testChannel(
+    type: NotificationChannelType,
+    text?: string,
+    overrides?: { botToken?: string; chatId?: string },
+  ): Promise<SendResult> {
+    let ch = await this.findChannel(type);
+    // Telegram：测试按钮用「表单当前值」发送，避免改了 Chat ID 没保存却测到旧目标。
+    // Token 传的是脱敏占位/空时回落到已保存并解密的值；Chat ID 同理。
+    if (type === 'telegram' && overrides && (overrides.chatId || overrides.botToken)) {
+      const formToken = String(overrides.botToken ?? '').trim();
+      const formChatId = String(overrides.chatId ?? '').trim();
+      const fallbackToken = ch?.botToken ?? '';
+      ch = {
+        type: 'telegram',
+        enabled: true,
+        botToken: formToken && formToken !== MASKED_SECRET && !formToken.startsWith('enc:') ? formToken : fallbackToken,
+        chatId: formChatId || ch?.chatId || '',
+      };
+    }
     if (!ch) return { type, ok: false, error: '该渠道未启用或未配置' };
+    if (ch.type === 'telegram' && (!ch.botToken || !ch.chatId)) {
+      return { type, ok: false, error: 'Bot Token 或 Chat ID 为空，请先保存配置或填写表单值' };
+    }
     return this.sendChannel(ch, text ?? `[自媒体工作台] 测试通知 @ ${new Date().toISOString()}`);
   }
 

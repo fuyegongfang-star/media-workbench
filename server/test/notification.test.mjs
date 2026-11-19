@@ -20,6 +20,11 @@ const {
   feishuSign,
   telegramApiUrl,
   telegramGetUpdatesUrl,
+  telegramGetChatUrl,
+  telegramChatKindLabel,
+  inferTelegramChatKind,
+  sortTelegramChats,
+  parseTelegramChat,
   extractTelegramChats,
   normalizeTelegramToken,
   normalizeTelegramChatId,
@@ -223,4 +228,65 @@ test('redactTelegramError: token / webhook / 网络错误脱敏', () => {
     /Webhook/,
   );
   assert.match(redactTelegramError('fetch failed', token), /网络代理/);
+});
+
+// ---- 群通知目标识别：确保消息能送达"工作通知群"而不是机器人私聊 ----
+
+test('inferTelegramChatKind: 负数/@ 判群组、正数判私聊、其他 unknown', () => {
+  assert.equal(inferTelegramChatKind('-1001234567890'), 'group');
+  assert.equal(inferTelegramChatKind('-12345'), 'group');
+  assert.equal(inferTelegramChatKind('@work_group'), 'group');
+  assert.equal(inferTelegramChatKind('123456789'), 'private');
+  assert.equal(inferTelegramChatKind(''), 'unknown');
+  assert.equal(inferTelegramChatKind('abc'), 'unknown');
+  assert.equal(inferTelegramChatKind(' -10099 '), 'group');
+});
+
+test('telegramChatKindLabel: 会话类型中文标签统一', () => {
+  assert.equal(telegramChatKindLabel('private'), '私聊');
+  assert.equal(telegramChatKindLabel('group'), '群组');
+  assert.equal(telegramChatKindLabel('supergroup'), '群组');
+  assert.equal(telegramChatKindLabel('channel'), '频道');
+  assert.equal(telegramChatKindLabel('weird'), '会话');
+});
+
+test('sortTelegramChats: 群组/频道在前、私聊在后，不改原数组', () => {
+  const input = [
+    { id: '111', type: 'private', label: '张三' },
+    { id: '-1002', type: 'supergroup', label: '运营群' },
+    { id: '222', type: 'private', label: '李四' },
+    { id: '-1001', type: 'channel', label: '公告' },
+  ];
+  const sorted = sortTelegramChats(input);
+  // 先按 rank（群组/频道=0，私聊=1），同类再按 label 排序：
+  // 群组「公告」「运营群」在前；私聊「李四」(li) 在「张三」(zhang) 前。
+  assert.deepEqual(sorted.map((c) => c.id), ['-1001', '-1002', '222', '111']);
+  assert.equal(input[0].id, '111'); // 原数组未被修改
+});
+
+test('parseTelegramChat: sendMessage 的 result.chat 与 getChat 的 result 本体都能解析', () => {
+  const sendRes = {
+    ok: true,
+    result: { message_id: 7, chat: { id: -1009876543210, type: 'supergroup', title: '工作通知群' }, text: '正文不外泄' },
+  };
+  assert.deepEqual(parseTelegramChat(sendRes), {
+    id: '-1009876543210',
+    type: 'supergroup',
+    label: '工作通知群',
+  });
+  const getRes = { ok: true, result: { id: 555, type: 'private', first_name: '张三', username: 'zs' } };
+  assert.deepEqual(parseTelegramChat(getRes), { id: '555', type: 'private', label: 'zs' });
+  const getGroupRes = { ok: true, result: { id: -1001, type: 'group', title: '项目群' } };
+  assert.deepEqual(parseTelegramChat(getGroupRes), { id: '-1001', type: 'group', label: '项目群' });
+  assert.equal(parseTelegramChat({ ok: false, description: 'chat not found' }), null);
+  assert.equal(parseTelegramChat(null), null);
+  assert.ok(!JSON.stringify(parseTelegramChat(sendRes)).includes('正文'));
+});
+
+test('telegramGetChatUrl: 拼官方 getChat 端点、chat_id 做 URL 编码', () => {
+  const url = telegramGetChatUrl('123:ABC-DEF', '-1001234567890');
+  assert.ok(url.includes('/bot123:ABC-DEF/getChat'));
+  assert.ok(url.includes('chat_id=-1001234567890'));
+  const at = telegramGetChatUrl('t', '@my_group');
+  assert.ok(at.includes('chat_id=%40my_group'));
 });

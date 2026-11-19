@@ -505,23 +505,28 @@
           <div class="field"><label>Bot Token</label>
             <SecretInput v-model="notifForm.telegram.botToken" :configured="notifConfigured.telegram" placeholder="由 @BotFather 签发，如 123456:ABC-DEF" />
           </div>
-          <div class="field"><label>Chat ID</label>
-            <input v-model="notifForm.telegram.chatId" class="input wide mono" type="text" placeholder="获取后自动填入，或手动填数字会话 ID" />
+          <div class="field"><label>Chat ID（目标会话）</label>
+            <input v-model="notifForm.telegram.chatId" class="input wide mono" type="text" placeholder="群组为 -100 开头的负数，私聊为正数" />
+            <p v-if="tgIdHint" class="hint" style="margin-top:6px" :style="tgIdKind === 'private' ? 'color:var(--danger,#dc2626)' : tgIdKind === 'group' ? 'color:var(--ok,#16a34a)' : ''">{{ tgIdHint }}</p>
             <p class="hint" style="margin-top:6px">不知道怎么拿？点下面「获取会话 ID」，或先看 <button type="button" class="link-btn" @click="showTgHelp = !showTgHelp">{{ showTgHelp ? '收起说明' : '三步说明' }}</button></p>
           </div>
           <div v-if="showTgHelp" class="tg-help">
             <ol>
-              <li>在 Telegram 里搜到你的机器人（BotFather 给的 <code>t.me/用户名</code>），点开对话<strong>随便发一条消息</strong>；想收群通知就把它拉进群。</li>
-              <li>把 Bot Token 填到上面，点「获取会话 ID」——工作台会调 Telegram 官方 <code>getUpdates</code> 列出会话，Token 只在本次请求使用、不入库不回显。</li>
-              <li>在候选里点一下自动填入 Chat ID，再点本页「保存通知设置」，最后点「测试」确认收到消息。</li>
+              <li>把机器人<strong>拉进你的工作通知群</strong>，然后在群里发一条消息或 <code>/start</code>（机器人需要能"看到"这条更新，才会出现在候选里）。</li>
+              <li>把 Bot Token 填到上面，点「获取会话 ID」——工作台调 Telegram 官方 <code>getUpdates</code> 列出会话，群组排在前面；Token 只在本次请求使用、不入库不回显。</li>
+              <li>在候选里点<strong>带「群组」标签</strong>的那一项自动填入，点「校验目标」确认群名，再点本页「保存通知设置」，最后点「测试」——成功提示会写明消息进了哪个群。</li>
             </ol>
-            <p>私聊 ID 是正数，群组 / 频道通常是 <code>-100</code> 开头的长数字。若提示 Webhook 模式，需先解除 Bot 的 Webhook。</p>
+            <p><strong>关键：</strong>私聊 ID 是正数，只会发到机器人对话框；群组 / 频道是 <code>-100</code> 开头的负数。若机器人早就进群但列表里没有它，在群里发一条 <code>/start</code> 再重新获取。若提示 Webhook 模式，需先解除 Bot 的 Webhook。</p>
           </div>
           <div class="row" style="gap:8px;flex-wrap:wrap;margin:8px 0">
             <button class="btn small" :disabled="tgChatBusy" @click="loadTgChats">{{ tgChatBusy ? '获取中…' : '获取会话 ID' }}</button>
+            <button class="btn small ghost" :disabled="tgVerifyBusy || !notifForm.telegram.chatId" @click="verifyTgChat">{{ tgVerifyBusy ? '校验中…' : '校验目标' }}</button>
             <button class="btn small ghost" :disabled="tgProbeBusy" @click="probeTgNow">{{ tgProbeBusy ? '发送中…' : '用上方值测试' }}</button>
           </div>
-          <p class="hint">「用上方值测试」直接拿当前输入框的 Token / Chat ID 发一条消息，不经保存，能看到 Telegram 原始报错。</p>
+          <p class="hint">「校验目标」通过官方 <code>getChat</code> 确认 Chat ID 是群还是私聊；「用上方值测试」直接拿当前输入框的 Token / Chat ID 发消息并回显实际送达会话，二者都不经保存。</p>
+          <p v-if="tgVerifyResult" class="hint" :style="tgVerifyResult.ok ? 'color:var(--ok,#16a34a)' : 'color:var(--danger)'">
+            {{ tgVerifyResult.ok ? '✓' : '✕' }} {{ tgVerifyResult.text }}
+          </p>
           <p v-if="tgProbeResult" class="hint" :style="tgProbeResult.ok ? 'color:var(--ok,#16a34a)' : 'color:var(--danger)'">
             {{ tgProbeResult.ok ? '✓' : '✕' }} {{ tgProbeResult.text }}
           </p>
@@ -532,7 +537,7 @@
               <span class="tg-chat-meta">{{ tgChatTypeLabel(c.type) }} · {{ c.id }}</span>
             </button>
           </div>
-          <p class="hint">{{ notifConfigured.telegram ? '已配置（Token 留空将保持原值）' : '尚未配置' }} · 机器人需先加入目标会话并具备发送权限</p>
+          <p class="hint">{{ notifConfigured.telegram ? '已配置（Token 留空将保持原值）' : '尚未配置' }} · 机器人需先加入目标群并具备发送权限。「测试」用上方当前值发送并回显送达会话，确认无误后记得点「保存通知设置」。</p>
           <button class="btn" :disabled="busy==='telegram'" @click="test('telegram')">测试</button>
         </div>
 
@@ -652,6 +657,9 @@ import {
   testNotification,
   fetchTelegramChats,
   probeTelegram,
+  verifyTelegramChat,
+  telegramChatKindLabel,
+  inferTelegramChatKind,
   sendAlert,
   type TelegramChatCandidate,
   type SiteSettingsView,
@@ -793,6 +801,22 @@ const tgChatBusy = ref(false);
 const showTgHelp = ref(false);
 const tgProbeBusy = ref(false);
 const tgProbeResult = ref<{ ok: boolean; text: string } | null>(null);
+const tgVerifyBusy = ref(false);
+const tgVerifyResult = ref<{ ok: boolean; text: string } | null>(null);
+
+/** 依据 Chat ID 形态实时提示目标类型，防止把私聊 ID 当成群 ID 保存。 */
+const tgIdKind = computed(() => inferTelegramChatKind(notifForm.telegram.chatId));
+const tgIdHint = computed(() => {
+  const id = notifForm.telegram.chatId.trim();
+  if (!id) return '';
+  if (tgIdKind.value === 'private') {
+    return '⚠ 这是私聊 ID（正数）：通知只会发到机器人对话框，不会进群。想推送到工作通知群，请在群里发一条消息或 /start 后点「获取会话 ID」选群组（多为 -100 开头的负数）。';
+  }
+  if (tgIdKind.value === 'group') {
+    return '✓ 这是群组 / 频道 ID，通知将推送到该会话。可点「校验目标」确认群名。';
+  }
+  return '可点「校验目标」让机器人通过官方接口确认该 ID 指向哪个会话。';
+});
 
 // ---- 用户管理（T6.4）----
 const users = ref<UserView[]>([]);
@@ -1403,7 +1427,13 @@ async function saveNotif() {
 }
 
 function tgChatTypeLabel(type: TelegramChatCandidate['type']): string {
-  return type === 'private' ? '私聊' : type === 'channel' ? '频道' : '群组';
+  return telegramChatKindLabel(type);
+}
+
+/** 送达目标的可读描述，用于测试成功提示，明确告诉用户消息进了哪个会话。 */
+function sentToLabel(chat: TelegramChatCandidate | undefined): string {
+  if (!chat) return '';
+  return `（已送达：${telegramChatKindLabel(chat.type)}「${chat.label}」· ${chat.id}）`;
 }
 
 /** 调官方 getUpdates 列出机器人能收到的会话，用户点选后自动填入 Chat ID。 */
@@ -1426,10 +1456,34 @@ async function loadTgChats() {
 
 function pickTgChat(chat: TelegramChatCandidate) {
   notifForm.telegram.chatId = chat.id;
-  notifyOk(`已填入 Chat ID ${chat.id}（${tgChatTypeLabel(chat.type)}），请点击本页「保存通知设置」。`);
+  notifyOk(
+    `已填入 ${tgChatTypeLabel(chat.type)}「${chat.label}」的 Chat ID ${chat.id}，请点击本页「保存通知设置」。`,
+  );
 }
 
-/** 用上方当前填写的 Token/Chat ID 直发，暴露 Telegram 官方原始错误，便于定位保存后测试 400。 */
+/** 用官方 getChat 校验 Chat ID 真实指向的会话，确认是群还是私聊。 */
+async function verifyTgChat() {
+  tgVerifyBusy.value = true;
+  tgVerifyResult.value = null;
+  try {
+    const r = await verifyTelegramChat({
+      botToken: notifForm.telegram.botToken,
+      chatId: notifForm.telegram.chatId,
+    });
+    tgVerifyResult.value = r.ok
+      ? {
+          ok: true,
+          text: `${r.hint ?? ''}${r.chat ? `（ID ${r.chat.id}）` : ''}`,
+        }
+      : { ok: false, text: r.error ?? '未知错误' };
+  } catch (e) {
+    tgVerifyResult.value = { ok: false, text: (e as Error).message };
+  } finally {
+    tgVerifyBusy.value = false;
+  }
+}
+
+/** 用上方当前填写的 Token/Chat ID 直发，暴露 Telegram 官方原始错误，并回显实际送达会话。 */
 async function probeTgNow() {
   tgProbeBusy.value = true;
   tgProbeResult.value = null;
@@ -1439,7 +1493,7 @@ async function probeTgNow() {
       chatId: notifForm.telegram.chatId,
     });
     tgProbeResult.value = r.ok
-      ? { ok: true, text: '发送成功，Telegram 已收到测试消息。' }
+      ? { ok: true, text: `发送成功${sentToLabel(r.sentTo)}。` }
       : { ok: false, text: r.error ?? '未知错误' };
   } catch (e) {
     tgProbeResult.value = { ok: false, text: (e as Error).message };
@@ -1452,8 +1506,17 @@ async function test(type: string) {
   busy.value = type;
   message.value = '';
   try {
-    const r = await testNotification(type as NotificationChannelType, `[自媒体工作台] 测试通知 @ ${new Date().toLocaleString()}`);
-    message.value = r.ok ? `测试发送成功（${type}）` : `测试失败（${type}）：${r.error ?? '未知错误'}`;
+    // Telegram 传表单当前值：改了 Chat ID 没保存也能立刻测到新目标，不再误发旧私聊。
+    const overrides =
+      type === 'telegram' ? { botToken: notifForm.telegram.botToken, chatId: notifForm.telegram.chatId } : undefined;
+    const r = await testNotification(
+      type as NotificationChannelType,
+      `[自媒体工作台] 测试通知 @ ${new Date().toLocaleString()}`,
+      overrides,
+    );
+    message.value = r.ok
+      ? `测试发送成功（${type}）${type === 'telegram' ? sentToLabel(r.sentTo) : ''}`
+      : `测试失败（${type}）：${r.error ?? '未知错误'}`;
     messageType.value = r.ok ? 'ok' : 'err';
   } catch (e) {
     message.value = `测试失败：${(e as Error).message}`;

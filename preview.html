@@ -366,6 +366,7 @@
 
         <div class="section-title"><span class="bar"></span>卡点与收尾说明</div>
         <div class="grid g3">
+          <div class="card"><h3>📣 Telegram 通知进群，不再发私聊（11-19）</h3><p class="hint">修复「测试成功但消息只到机器人对话框」：① 主「测试」按钮改为用<b>表单当前值</b>发送（改了 Chat ID 没保存也能测到新目标）；② 新增 <code>getChat</code>「校验目标」，直接告诉你是群还是私聊，私聊 <code>-100</code> 正数会红色警示；③ 测试成功回显<b>实际送达会话</b>（群名+ID）；④「获取会话 ID」按群组在前、私聊在后排序并放大抓取到 50 条。操作：把机器人拉进工作通知群 → 群里发 <code>/start</code> → 获取会话 ID 选「群组」→ 校验目标 → 保存 → 测试看送达群名。</p></div>
           <div class="card"><h3>🗂 赛道词库按国内外归集（11-18）</h3><p class="hint">赛道新增 <code>region</code>（国内/海外/通用），配置页三组分区管理、地区可切换、支持「一键套用推荐词库」（国内 2 组中文词 + 海外 2 组英文词 + 通用 1 组）。<b>关键词按地区路由</b>：国内源只拿国内+通用赛道词，海外源只拿海外+通用赛道词，中文词不再去筛 HN 英文标题；打分时每条只在自己地区的赛道里归属。存量赛道缺字段一律按「通用」兼容，升级行为不变、无需迁移。生产拉到 <code>592d560</code> 后更新，并在配置页点一次「一键套用推荐词库」即可见效。</p></div>
           <div class="card"><h3>🌏 雷达地区分栏 + 时效过滤（11-18）</h3><p class="hint">数据源按地区自动归类：<b>国内</b>=头条/B站/公众号，<b>海外</b>=HN/X/YouTube，自定义源可选。简报按「国内主推/海外主推/国内备选/海外备选」四栏展示，每条带地区徽章与相对发布时间。配置新增时效窗（当天/3天/一周/半月），按发布时间过滤；热榜无精确时间则保留标「时间未知」，不会误删。迁移 <code>0024</code> 加 region/published_at 列。生产拉到 <code>da4c6ed</code> 后更新并重新采集。</p></div>
           <div class="card"><h3>🐛 采集无内容根因已修复（11-18）</h3><p class="hint">生产实测 8 个任务（含 TOPIC_GEN）<b>全部卡在 queued</b>，从无 running。双重根因：① NestJS 并发 <code>onModuleInit</code>，Worker 同步读到 Redis 探测未完成的 <code>available=false</code> → 永不启动；② 雷达调度 Worker 与业务共用 generation 队列并直接丢弃非调度 job。已改为 <code>await ready</code> 后启动 + 调度器独立 <code>radar-scheduler</code> 队列，补 3 项行为回归测试。生产拉到 <code>f6fd8d2</code> 后重新点一次「立即采集」即可。</p></div>

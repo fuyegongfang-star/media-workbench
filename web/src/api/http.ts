@@ -449,8 +449,9 @@ export async function saveNotificationChannels(
 export async function testNotification(
   type: NotificationChannelType,
   text?: string,
+  overrides?: { botToken?: string; chatId?: string },
   timeoutMs = 8000,
-): Promise<{ type: string; ok: boolean; error?: string }> {
+): Promise<{ type: string; ok: boolean; error?: string; sentTo?: TelegramChatCandidate }> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -458,11 +459,11 @@ export async function testNotification(
       method: 'POST',
       signal: controller.signal,
       headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...authHeader() },
-      body: JSON.stringify({ type, text }),
+      body: JSON.stringify({ type, text, ...(overrides ?? {}) }),
     });
     if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw await apiError(res);
-    return (await res.json()) as { type: string; ok: boolean; error?: string };
+    return (await res.json()) as { type: string; ok: boolean; error?: string; sentTo?: TelegramChatCandidate };
   } finally {
     clearTimeout(timer);
   }
@@ -472,6 +473,22 @@ export interface TelegramChatCandidate {
   id: string;
   type: 'private' | 'group' | 'supergroup' | 'channel';
   label: string;
+}
+
+/** Telegram 会话类型中文标签，与后端口径一致。 */
+export function telegramChatKindLabel(type: TelegramChatCandidate['type'] | string): string {
+  if (type === 'private') return '私聊';
+  if (type === 'channel') return '频道';
+  if (type === 'group' || type === 'supergroup') return '群组';
+  return '会话';
+}
+
+/** 仅凭 Chat ID 形态推断目标类型，供输入框实时提示（最终以官方校验为准）。 */
+export function inferTelegramChatKind(chatId: string): 'private' | 'group' | 'unknown' {
+  const s = String(chatId ?? '').trim();
+  if (/^@/.test(s) || /^-\d+$/.test(s)) return 'group';
+  if (/^\d+$/.test(s)) return 'private';
+  return 'unknown';
 }
 
 /** 获取 Telegram 机器人能收到的会话 ID（Token 仅本次请求使用，不入库不回显）。 */
@@ -510,7 +527,7 @@ export async function fetchTelegramChats(
 export async function probeTelegram(
   input: { botToken?: string; chatId?: string; text?: string },
   timeoutMs = 15_000,
-): Promise<{ ok: boolean; error?: string }> {
+): Promise<{ ok: boolean; error?: string; sentTo?: TelegramChatCandidate }> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -522,7 +539,34 @@ export async function probeTelegram(
     });
     if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
     if (!res.ok) throw await apiError(res);
-    return (await res.json()) as { ok: boolean; error?: string };
+    return (await res.json()) as { ok: boolean; error?: string; sentTo?: TelegramChatCandidate };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** 用 getChat 校验 Chat ID 实际指向的会话（名称/类型），确认目标是不是群。 */
+export async function verifyTelegramChat(
+  input: { botToken?: string; chatId?: string },
+  timeoutMs = 15_000,
+): Promise<{ ok: boolean; chat?: TelegramChatCandidate; error?: string; hint?: string }> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(`/${apiPrefix()}/notification/telegram/verify`, {
+      method: 'POST',
+      signal: controller.signal,
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...authHeader() },
+      body: JSON.stringify(input),
+    });
+    if (res.status === 401) throw new Error('登录状态已失效，请重新登录');
+    if (!res.ok) throw await apiError(res);
+    return (await res.json()) as {
+      ok: boolean;
+      chat?: TelegramChatCandidate;
+      error?: string;
+      hint?: string;
+    };
   } finally {
     clearTimeout(timer);
   }

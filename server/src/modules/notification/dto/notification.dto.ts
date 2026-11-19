@@ -99,7 +99,7 @@ export class UpsertNotificationChannelsDto {
   forwardKinds?: NotificationAlertKind[];
 }
 
-/** 渠道测试发送。 */
+/** 渠道测试发送。Telegram 可带表单当前 Token/Chat ID，测试时不读已保存配置。 */
 export class SendTestDto {
   @IsIn(CHANNEL_TYPES)
   type!: NotificationChannelType;
@@ -108,6 +108,16 @@ export class SendTestDto {
   @IsString()
   @MaxLength(1000)
   text?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(512)
+  botToken?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(128)
+  chatId?: string;
 }
 
 /** 获取当前机器人能收到的会话 ID；留空则使用服务端已保存并解密的 Token。 */
@@ -116,6 +126,19 @@ export class TelegramChatsDto {
   @IsString()
   @MaxLength(512)
   botToken?: string;
+}
+
+/** 校验 Chat ID 实际指向的会话（getChat），确认是群还是私聊。 */
+export class TelegramVerifyDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(512)
+  botToken?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(128)
+  chatId?: string;
 }
 
 /** 用表单当前填写的 Token/Chat ID 直发一条测试消息（不经已保存配置，便于定位）。 */

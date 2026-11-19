@@ -321,6 +321,61 @@ export function extractTelegramChats(updates: unknown[], max = 20): TelegramChat
   return out;
 }
 
+/** Telegram 会话类型中文标签（统一 service / 前端文案口径）。 */
+export function telegramChatKindLabel(type: string): string {
+  if (type === 'private') return '私聊';
+  if (type === 'channel') return '频道';
+  if (type === 'group' || type === 'supergroup') return '群组';
+  return '会话';
+}
+
+/**
+ * 根据 Chat ID 形态推断目标类型（仅用于前端提示，最终以官方 getChat 为准）：
+ * 群组/频道 ID 为负数（-100... 为超级群/频道），私聊为正数，@username 为公开频道/群。
+ */
+export function inferTelegramChatKind(chatId: string): 'private' | 'group' | 'unknown' {
+  const s = String(chatId ?? '').trim();
+  if (/^@/.test(s)) return 'group';
+  if (/^-\d+$/.test(s)) return 'group';
+  if (/^\d+$/.test(s)) return 'private';
+  return 'unknown';
+}
+
+/** 会话候选排序：群组 / 超级群 / 频道在前，私聊在后，同类按 label 稳定排序。 */
+export function sortTelegramChats(chats: TelegramChatCandidate[]): TelegramChatCandidate[] {
+  const rank = (t: TelegramChatCandidate['type']) => (t === 'private' ? 1 : 0);
+  return [...chats].sort((a, b) => rank(a.type) - rank(b.type) || a.label.localeCompare(b.label));
+}
+
+/**
+ * 从 sendMessage / getChat 的响应里提取「实际送达会话」。
+ * sendMessage 返回 result.chat，getChat 直接返回 result 本体；只保留 id/类型/展示名，绝不回显消息正文。
+ */
+export function parseTelegramChat(json: unknown): TelegramChatCandidate | null {
+  if (!json || typeof json !== 'object') return null;
+  const root = json as Record<string, unknown>;
+  const result = root.result;
+  if (!result || typeof result !== 'object') return null;
+  const r = result as Record<string, unknown>;
+  // sendMessage/getUpdates 消息体：result.chat；getChat：result 本身即 chat 对象
+  const chat = (r.chat && typeof r.chat === 'object' ? r.chat : r) as Record<string, unknown>;
+  if (typeof chat.id !== 'number' && typeof chat.id !== 'string') return null;
+  const id = String(chat.id);
+  if (!id) return null;
+  const type = TG_CHAT_TYPES.includes(chat.type as (typeof TG_CHAT_TYPES)[number])
+    ? (chat.type as TelegramChatCandidate['type'])
+    : 'private';
+  const name = [chat.first_name, chat.last_name].filter((v) => typeof v === 'string' && v).join(' ');
+  const label = String(chat.title ?? chat.username ?? name ?? '').trim() || `会话 ${id}`;
+  return { id, type, label };
+}
+
+/** getChat 地址：用官方接口校验 Chat ID 是否可达、并取回真实会话名与类型。 */
+export function telegramGetChatUrl(botToken: string, chatId: string): string {
+  const token = encodeURI(botToken).replace(/%3A/gi, ':');
+  return `https://api.telegram.org/bot${token}/getChat?chat_id=${encodeURIComponent(chatId)}`;
+}
+
 /** getUpdates 错误文案脱敏：token 与 URL 绝不外泄。 */
 export function redactTelegramError(error: unknown, token: string): string {
   let msg = error instanceof Error ? error.message : String(error ?? '未知错误');
